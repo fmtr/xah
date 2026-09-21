@@ -1,0 +1,4 @@
+configuration:
+  fmtr_dev:
+    name: Start Development SSH Server
+    description: Only use this option if you need an SSH server for development.

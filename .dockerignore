@@ -1,0 +1,9 @@
+data/**
+docs/**
+site/**
+build.sh
+compose.yml
+Dockerfile
+build.env
+
+
