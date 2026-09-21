@@ -1,7 +1,7 @@
 import corio
 from corio import sets
 
-from package.paths import paths
+from xah.paths import paths
 
 
 class Settings(sets.Base):
@@ -12,7 +12,7 @@ class Settings(sets.Base):
 
         from corio import debug
         debug.trace()
-        from package.obs import logger
+        from xah.obs import logger
 
         logger.info(f"Launching {paths.name} {paths.metadata.version=} {corio.get_version()=} from entrypoint.")
         logger.debug(f"{paths.settings.exists()=} {str(paths.settings)=}")

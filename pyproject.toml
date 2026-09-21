@@ -4,15 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.corio.metadata]
 version = "0.0.0"
-port = 0
+port = 10
 base = "python"
-description = "{description}"
-org_github = "{org}"
+description = "An extensible AI agent harness"
+org_github = "fmtr"
 org_friendly = "Frontmatter AI"
-is_client = false
-scripts = []
-services = []
-keywords = []
 is_pypi = false
 is_dockerhub = false
 
@@ -23,20 +19,20 @@ package-dir = { "" = "." }
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["{package}*"]
+include = ["xah*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"{package}" = ["pyproject.package.toml"]
+"xah" = ["pyproject.package.toml"]
 
 [tool.uv.sources.corio]
 path = "../corio"
 editable = true
 
 [project]
-name = "{package}"
+name = "xah"
 version = "0.0.0"
-description = "{description}"
+description = "An extensible AI agent harness"
 readme = "README.md"
 license = "Apache-2.0"
 keywords = []
@@ -48,7 +44,7 @@ name = "Frontmatter AI"
 email = "innovative.fowler@mask.pro.fmtr.dev"
 
 [project.urls]
-Homepage = "https://github.com/{org}/{package}"
+Homepage = "https://github.com/fmtr/xah"
 
 [project.scripts]
-"{package}" = "{package}.entrypoint:main"
+"xah" = "xah.entrypoint:main"

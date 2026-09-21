@@ -1,6 +1,6 @@
 from corio import logging, debug, Constants
 
-from package.paths import paths
+from xah.paths import paths
 
 debug.trace()
 

@@ -1,5 +1,5 @@
 def main():
-    from package.settings import settings
+    from xah.settings import settings
     return settings.run()
 
 
