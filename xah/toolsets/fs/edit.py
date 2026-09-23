@@ -8,7 +8,7 @@ from pydantic_ai import ModelRetry
 from corio import Path, strings
 from corio.iterator import ilist
 from xah.constants import PROJECTION_EDIT_TOOL_NAMES
-from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 
 
 class Edit(FileTool):

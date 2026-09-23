@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import Field
 
 from corio import Path
-from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 
 
 class PathTool(FileTool):

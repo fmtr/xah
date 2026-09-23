@@ -4,7 +4,7 @@ from cached_classproperty import cached_classproperty
 
 from corio.iterator import ilist
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
-from xah.toolsets.fs.path_sig import PathPermissions, PathTool
+from xah.toolsets.fs.path import PathPermissions, PathTool
 
 
 class Remove(PathTool):

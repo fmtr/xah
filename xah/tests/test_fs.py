@@ -14,7 +14,7 @@ from xah.toolsets.fs.move import Move
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.remove import Remove
 from xah.toolsets.fs.search import Search
-from xah.toolsets.fs.sig import Permissions
+from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.fs.write import Write
 

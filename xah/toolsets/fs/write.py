@@ -6,7 +6,7 @@ from pydantic import Field
 from corio import Path
 from corio.iterator import ilist
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
-from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 
 
 class Write(FileTool):
