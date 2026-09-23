@@ -7,6 +7,7 @@ from corio import Path
 from corio.iterator import ilist
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.fs.similarity import get_similarity
 
 
 class Write(FileTool):
@@ -38,7 +39,7 @@ class WriteWarnings(Write):
         messages = []
         if self.path.is_file():
             current = self.path.read_text(errors="replace")
-            similarity = self.get_sim(current, self.content)
+            similarity = get_similarity(current, self.content)
             if similarity:
                 message = f"You are overwriting a file with {similarity}% similar content. Use partial reads and edits for small changes."
                 messages.append(message)

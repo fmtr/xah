@@ -9,6 +9,7 @@ from corio import Path, strings
 from corio.iterator import ilist
 from xah.constants import PROJECTION_EDIT_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.fs.similarity import get_similarity
 
 
 class Edit(FileTool):
@@ -72,7 +73,7 @@ class ValidEdit(Edit):
 class EditWarnings(Edit):
     async def validate(self) -> list[str]:
         messages = []
-        if similarity := self.get_sim(self.old_text, self.new_text):
+        if similarity := get_similarity(self.old_text, self.new_text):
             message = f"Your old and new strings are {similarity}% similar. Replace only the smallest substring that changes."
             messages.append(message)
         return messages

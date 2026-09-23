@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from difflib import SequenceMatcher
 from functools import cached_property
 from typing import ClassVar
 
@@ -56,11 +55,6 @@ class Tool(dm.Base):
             for validator in (*inherited, *overrides)
         }
         return ilist(validators.values())
-
-    @staticmethod
-    def get_sim(old: str, new: str) -> int | None:
-        similarity = round(SequenceMatcher(None, old, new).ratio() * 100)
-        return similarity if similarity >= 80 else None
 
     @cached_property
     def name(self) -> str:
