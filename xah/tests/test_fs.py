@@ -79,7 +79,7 @@ def test_read_edit_move_search_and_remove(tmp_path):
     asyncio.run(edit.run())
     assert "changed" in source.read_text()
     assert "source.txt" in asyncio.run(Search(ctx=ctx, pattern="changed").run())
-    asyncio.run(Move(ctx=ctx, source="source.txt", target="target.txt", copy=True).run())
+    asyncio.run(Move(ctx=ctx, source="source.txt", target="target.txt", is_copy=True).run())
     assert Path(tmp_path / "target.txt").exists()
     asyncio.run(Remove(ctx=ctx, path="target.txt").run())
     assert not Path(tmp_path / "target.txt").exists()

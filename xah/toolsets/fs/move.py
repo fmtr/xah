@@ -14,14 +14,14 @@ class MoveSig(FileSig):
         description="Existing file or directory to move or copy.",
     )
     target: Annotated[Path, Permissions(PATH_WRITE)] = Field(description="Destination path.")
-    copy: bool = Field(default=False, description="Copy the source instead of moving it.")
+    is_copy: bool = Field(default=False, description="Copy the source instead of moving it.")
 
 
 class MovePermissions(PermissionsValidator, MoveSig):
     async def validate(self) -> list[str]:
         await super().validate()
 
-        if not self.copy:
+        if not self.is_copy:
             self.validate_path(self.source, PATH_WRITE)
 
         return []
@@ -34,7 +34,7 @@ class Move(Tool, MoveSig):
     VALIDATORS: ClassVar = (MovePermissions,)
 
     async def run(self) -> str:
-        if self.copy:
+        if self.is_copy:
             operation = self.source.copy
             action = "Copied"
         else:
