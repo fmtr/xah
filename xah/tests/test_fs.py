@@ -14,7 +14,7 @@ from xah.toolsets.fs.move import Move
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.remove import Remove
 from xah.toolsets.fs.search import Search
-from xah.toolsets.fs.sig import PATH_READ, PATH_WRITE, Permissions
+from xah.toolsets.fs.sig import Permissions
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.fs.write import Write
 
@@ -43,7 +43,7 @@ def test_path_metadata_drives_resolution_and_permissions(tmp_path):
     metadata = next(metadata for metadata in type(tool).model_fields["path"].metadata if isinstance(metadata, Permissions))
 
     assert tool.path == Path(tmp_path / "note.txt").resolve()
-    assert metadata == {PATH_READ, PATH_WRITE}
+    assert metadata == {Permissions.Read, Permissions.Write}
 
 
 def test_ctx_is_validated_but_absent_from_schema_and_dump(tmp_path):

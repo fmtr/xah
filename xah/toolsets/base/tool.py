@@ -15,7 +15,6 @@ from pydantic_ai.toolsets import FunctionToolset
 from corio import dm
 from corio.iterator import ilist
 from corio.strings import get_docstring
-from xah.toolsets.base.validator import Validator
 
 
 class Tool(dm.Base):
@@ -43,15 +42,15 @@ class Tool(dm.Base):
         return None
 
     @cached_classproperty
-    def VALIDATORS(cls) -> ilist[type[Validator]]:
+    def VALIDATORS(cls) -> ilist[type[Tool]]:
         return ilist()
 
     @classmethod
     def merge_validators(
         cls,
-        inherited: Iterable[type[Validator]],
-        *overrides: type[Validator],
-    ) -> ilist[type[Validator]]:
+        inherited: Iterable[type[Tool]],
+        *overrides: type[Tool],
+    ) -> ilist[type[Tool]]:
         validators = {
             validator.local_name: validator
             for validator in (*inherited, *overrides)
@@ -72,6 +71,10 @@ class Tool(dm.Base):
         from xah.options.base import Policy
 
         return self.toolset.options.cls[Policy]
+
+    @cached_property
+    def enabled(self) -> bool:
+        return self.policy.approval
 
     async def validate(self) -> list[str]:
         messages = []

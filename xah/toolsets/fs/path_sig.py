@@ -3,11 +3,11 @@ from typing import Annotated
 from pydantic import Field
 
 from corio import Path
-from xah.toolsets.fs.sig import FileTool, PATH_WRITE, Permissions, PermissionsValidator
+from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
 
 
 class PathTool(FileTool):
-    path: Annotated[Path, Permissions(PATH_WRITE)] = Field(
+    path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="Path relative to the working directory.",
     )
 

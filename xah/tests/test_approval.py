@@ -13,7 +13,6 @@ from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalMetadata
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.toolset import Base
-from xah.toolsets.base.validator import Validator
 
 
 class ApprovalTool(Tool):
@@ -27,7 +26,7 @@ class ApprovalTool(Tool):
         return self.value
 
 
-class ApprovalWarning(Validator, ApprovalTool):
+class ApprovalWarning(ApprovalTool):
     async def validate(self) -> list[str]:
         return ["Approval required"]
 

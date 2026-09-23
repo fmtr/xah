@@ -8,7 +8,6 @@ from corio.iterator import ilist
 from corio.shell.dsl import shell
 from xah.toolsets.base.subprocess import SubprocessRunner
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.base.validator import Validator
 
 
 class Run(Tool, SubprocessRunner):
@@ -26,7 +25,7 @@ class Run(Tool, SubprocessRunner):
         return shell.python(*self.args)
 
 
-class ValidArguments(Validator, Run):
+class ValidArguments(Run):
     @cached_property
     def enabled(self) -> bool:
         return True

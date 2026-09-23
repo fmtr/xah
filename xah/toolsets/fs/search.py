@@ -9,7 +9,7 @@ from pydantic_ai import ModelRetry
 from corio import Path, strings
 from corio.iterator import ilist
 from xah.constants import PROJECTION_SEARCH_TOOL_NAMES
-from xah.toolsets.fs.sig import FileTool, PATH_READ, Permissions, PermissionsValidator
+from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
 
 
 class SearcherBase:
@@ -97,7 +97,7 @@ class Search(FileTool):
     """Search for files or file contents."""
 
     pattern: str | None = Field(default=None, description="Content pattern. Omit to list files.")
-    path: Annotated[Path, Permissions(PATH_READ)] = Field(
+    path: Annotated[Path, Permissions(Permissions.Read)] = Field(
         default_factory=lambda: Path("."),
         description="Directory or file to search.",
     )

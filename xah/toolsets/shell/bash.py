@@ -8,7 +8,6 @@ from xah.constants import PROJECTION_BASH_TOOL_NAMES
 from corio.shell.dsl import arg, shell
 from xah.toolsets.base.subprocess import SubprocessRunner
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.base.validator import Validator
 
 
 class Bash(Tool, SubprocessRunner):
@@ -28,6 +27,6 @@ class Bash(Tool, SubprocessRunner):
         return shell.bash(-arg.c + self.shell)
 
 
-class RequiresApproval(Validator, Bash):
+class RequiresApproval(Bash):
     async def validate(self) -> list[str]:
         return ["Approval required"]

@@ -6,7 +6,6 @@ from pydantic_ai import ModelRetry
 
 from corio.iterator import ilist
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.base.validator import Validator
 from xah.toolsets.todo.constants import TodoStatus
 
 
@@ -26,7 +25,7 @@ class UpdateStatus(Tool):
         return todo.updated_status_text
 
 
-class ExistingTodo(Validator, UpdateStatus):
+class ExistingTodo(UpdateStatus):
     @cached_property
     def enabled(self) -> bool:
         return True

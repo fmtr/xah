@@ -6,14 +6,13 @@ from pydantic import Field
 from corio import Path
 from corio.iterator import ilist
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
-from xah.toolsets.base.validator import Validator
-from xah.toolsets.fs.sig import FileTool, PATH_WRITE, Permissions, PermissionsValidator
+from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
 
 
 class Write(FileTool):
     """Write complete content to a file."""
 
-    path: Annotated[Path, Permissions(PATH_WRITE)] = Field(
+    path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="Destination path relative to the working directory.",
     )
     content: str = Field(description="Complete file content to write.")
@@ -34,7 +33,7 @@ class WritePermissions(PermissionsValidator, Write):
     pass
 
 
-class WriteWarnings(Validator, Write):
+class WriteWarnings(Write):
     async def validate(self) -> list[str]:
         messages = []
         if self.path.is_file():

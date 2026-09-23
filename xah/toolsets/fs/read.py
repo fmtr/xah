@@ -7,13 +7,13 @@ from pydantic_ai import ModelRetry
 from corio import Path, strings
 from corio.iterator import ilist
 from xah.constants import PROJECTION_READ_TOOL_NAMES
-from xah.toolsets.fs.sig import FileTool, PATH_READ, Permissions, PermissionsValidator
+from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
 
 
 class Read(FileTool):
     """Read file content with line numbers."""
 
-    path: Annotated[Path, Permissions(PATH_READ)] = Field(
+    path: Annotated[Path, Permissions(Permissions.Read)] = Field(
         description="File path relative to the working directory.",
     )
     offset: int = Field(default=0, ge=0, description="Zero-based line offset at which to start reading.")

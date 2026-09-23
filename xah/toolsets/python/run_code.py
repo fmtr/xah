@@ -10,7 +10,6 @@ from corio.iterator import ilist
 from corio.shell.dsl import arg, shell
 from xah.toolsets.base.subprocess import SubprocessRunner
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.base.validator import Validator
 
 
 class RunCode(Tool, SubprocessRunner):
@@ -28,7 +27,7 @@ class RunCode(Tool, SubprocessRunner):
         return shell.python(-arg.c + self.code)
 
 
-class CodeLength(Validator, RunCode):
+class CodeLength(RunCode):
     MAX_CODE_LENGTH: ClassVar[float] = inf
 
     @cached_property

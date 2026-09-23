@@ -7,16 +7,16 @@ from pydantic_ai import ModelRetry
 from corio import Path
 from corio.iterator import ilist
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
-from xah.toolsets.fs.sig import FileTool, PATH_READ, PATH_WRITE, Permissions, PermissionsValidator
+from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
 
 
 class Move(FileTool):
     """Move or copy a file or directory."""
 
-    source: Annotated[Path, Permissions(PATH_READ)] = Field(
+    source: Annotated[Path, Permissions(Permissions.Read)] = Field(
         description="Existing file or directory to move or copy.",
     )
-    target: Annotated[Path, Permissions(PATH_WRITE)] = Field(description="Destination path.")
+    target: Annotated[Path, Permissions(Permissions.Write)] = Field(description="Destination path.")
     is_copy: bool = Field(default=False, description="Copy the source instead of moving it.")
 
     projections: ClassVar = PROJECTION_WRITE_TOOL_NAMES
@@ -45,5 +45,5 @@ class MovePermissions(PermissionsValidator, Move):
     async def validate(self) -> list[str]:
         await super().validate()
         if not self.is_copy:
-            self.validate_path(self.source, PATH_WRITE)
+            self.validate_path(self.source, Permissions.Write)
         return []

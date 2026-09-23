@@ -8,14 +8,13 @@ from pydantic_ai import ModelRetry
 from corio import Path, strings
 from corio.iterator import ilist
 from xah.constants import PROJECTION_EDIT_TOOL_NAMES
-from xah.toolsets.base.validator import Validator
-from xah.toolsets.fs.sig import FileTool, PATH_READ, PATH_WRITE, Permissions, PermissionsValidator
+from xah.toolsets.fs.sig import FileTool, Permissions, PermissionsValidator
 
 
 class Edit(FileTool):
     """Edit a file by exact string replacement."""
 
-    path: Annotated[Path, Permissions(PATH_READ, PATH_WRITE)] = Field(
+    path: Annotated[Path, Permissions(Permissions.Read, Permissions.Write)] = Field(
         description="File path relative to the working directory.",
     )
     old_text: str = Field(description="Exact text to replace.")
@@ -48,7 +47,7 @@ class EditPermissions(PermissionsValidator, Edit):
     pass
 
 
-class ValidEdit(Validator, Edit):
+class ValidEdit(Edit):
     @cached_property
     def enabled(self) -> bool:
         return True
@@ -70,7 +69,7 @@ class ValidEdit(Validator, Edit):
         return []
 
 
-class EditWarnings(Validator, Edit):
+class EditWarnings(Edit):
     async def validate(self) -> list[str]:
         messages = []
         if similarity := self.get_sim(self.old_text, self.new_text):

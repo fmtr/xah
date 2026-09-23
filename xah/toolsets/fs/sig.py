@@ -4,17 +4,15 @@ from pydantic import model_validator
 from pydantic_ai import ModelRetry
 
 from corio import Path
-from xah.options.path import PathRead, PathWrite
+from xah.options.path import PathRead, PathWrite, SelectPath
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.base.validator import Validator
 
 
-PATH_READ = "read"
-PATH_WRITE = "write"
+class Permissions(frozenset[type[SelectPath]]):
+    Read: ClassVar[type[SelectPath]] = PathRead
+    Write: ClassVar[type[SelectPath]] = PathWrite
 
-
-class Permissions(frozenset[str]):
-    def __new__(cls, *permissions: str):
+    def __new__(cls, *permissions: type[SelectPath]):
         return super().__new__(cls, permissions)
 
 
@@ -28,14 +26,9 @@ class FileTool(Tool):
         return self
 
 
-class PermissionsValidator(Validator):
-    OPTION_TYPES: ClassVar = {
-        PATH_READ: PathRead,
-        PATH_WRITE: PathWrite,
-    }
-
-    def validate_path(self, path: Path, permission: str) -> None:
-        allowed = self.ctx.deps.options.cls[self.OPTION_TYPES[permission]].value
+class PermissionsValidator:
+    def validate_path(self, path: Path, permission: type[SelectPath]) -> None:
+        allowed = self.ctx.deps.options.cls[permission].value
         if not path.is_relative_to(allowed):
             raise ModelRetry(f'Permission Denied: "{path}" is outside "{allowed}".')
 
