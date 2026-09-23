@@ -37,7 +37,16 @@ readme = "README.md"
 license = "Apache-2.0"
 keywords = []
 requires-python = ">=3.12,<3.15"
-dependencies = ["corio[dev]"]
+dependencies = [
+    "agent-client-protocol",
+    "corio[dev,db.search,dm,path.search]",
+    "debugpy",
+    "pydantic-acp",
+    "acpremote",
+    "pydantic-deep[all]",
+    "pydantic-ai-slim[logfire,openai]",
+    "fastmcp==3.4.4",
+]
 
 [[project.authors]]
 name = "Frontmatter AI"
