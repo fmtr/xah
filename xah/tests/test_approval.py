@@ -1,7 +1,6 @@
 import asyncio
 from functools import cached_property
 from types import SimpleNamespace
-from typing import ClassVar
 
 import pytest
 from cached_classproperty import cached_classproperty
@@ -9,37 +8,34 @@ from pydantic import Field
 from pydantic_ai import ApprovalRequired, ModelRetry, RunContext
 from pydantic_ai.usage import RunUsage
 
-from xah.options import base as options
 from corio.iterator import ilist
+from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalMetadata
-from xah.toolsets.base.sig import Sig
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.toolset import Base
 from xah.toolsets.base.validator import Validator
 
 
-class ApprovalSig(Sig):
+class ApprovalTool(Tool):
     value: str = Field(description="Value returned by the tool.")
 
     @cached_classproperty
-    def toolset_type(cls):
-        return ApprovalToolset
-
-
-class ApprovalWarning(Validator, ApprovalSig):
-    async def validate(self) -> list[str]:
-        return ["Approval required"]
-
-
-class ApprovalTool(Tool, ApprovalSig):
-    VALIDATORS: ClassVar = (ApprovalWarning,)
+    def VALIDATORS(cls):
+        return cls.merge_validators(super().VALIDATORS, ApprovalWarning)
 
     async def run(self) -> str:
         return self.value
 
 
+class ApprovalWarning(Validator, ApprovalTool):
+    async def validate(self) -> list[str]:
+        return ["Approval required"]
+
+
 class ApprovalToolset(Base):
-    TOOLS = (ApprovalTool,)
+    @cached_classproperty
+    def TOOLS(cls):
+        return cls.merge_tools(super().TOOLS, ApprovalTool)
 
     @cached_property
     def options(self):
@@ -57,7 +53,8 @@ def test_local_approval_wrapper_serializes_validator_messages():
 
     async def call():
         tools = await toolset.wrapper.get_tools(ctx)
-        return await toolset.wrapper.call_tool(ApprovalTool.name, {"value": "result"}, ctx, tools[ApprovalTool.name])
+        name = toolset.tool_name(ApprovalTool)
+        return await toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])
 
     with pytest.raises(ApprovalRequired) as error:
         asyncio.run(call())
@@ -70,7 +67,8 @@ def test_approved_call_constructs_a_fresh_model_and_runs_it():
 
     async def call():
         tools = await toolset.wrapper.get_tools(ctx)
-        return await toolset.wrapper.call_tool(ApprovalTool.name, {"value": "result"}, ctx, tools[ApprovalTool.name])
+        name = toolset.tool_name(ApprovalTool)
+        return await toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])
 
     assert asyncio.run(call()) == "result"
 

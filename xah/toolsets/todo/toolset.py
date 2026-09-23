@@ -1,13 +1,13 @@
 from collections import Counter
+
+from cached_classproperty import cached_classproperty
+
 from corio import strings
 from corio.iterator import ilist
 from xah.constants import TODO_STATE_END, TODO_STATE_START
 from xah.toolsets.base.toolset import Base
 from xah.toolsets.todo.constants import COMPLETED, TODO_STATUSES
 from xah.toolsets.todo.item import TodoItem
-from xah.toolsets.todo.read import Read
-from xah.toolsets.todo.update_status import UpdateStatus
-from xah.toolsets.todo.write import Write
 
 TODO_SYSTEM_PROMPT = strings.trim("""
     ## Task Management
@@ -18,7 +18,14 @@ TODO_SYSTEM_PROMPT = strings.trim("""
 
 class Todo(Base):
     """Todo list tools."""
-    TOOLS = (Read, Write, UpdateStatus)
+
+    @cached_classproperty
+    def TOOLS(cls):
+        from xah.toolsets.todo.read import Read
+        from xah.toolsets.todo.update_status import UpdateStatus
+        from xah.toolsets.todo.write import Write
+
+        return ilist([Read, Write, UpdateStatus])
 
     def __init__(self, **kwargs):
         self.items = ilist[TodoItem]()

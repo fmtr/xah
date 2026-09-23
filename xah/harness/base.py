@@ -20,6 +20,7 @@ from pydantic_acp import (
 )
 from pydantic_acp.projection import (
     DefaultToolClassifier,
+    FileSystemProjectionMap,
     ProjectionAwareToolClassifier,
 )
 from pydantic_deep import StuckLoopDetection
@@ -27,6 +28,7 @@ from pydantic_deep import StuckLoopDetection
 from xah.acp.thinking import AgentAcp
 from xah import models
 from xah.constants import (
+    PROJECTION_BASH_TOOL_NAMES,
     PROJECTION_EDIT_TOOL_NAMES,
     PROJECTION_READ_TOOL_NAMES,
     PROJECTION_SEARCH_TOOL_NAMES,
@@ -281,16 +283,21 @@ class HarnessBase(Generic[DepsT]):
                     if projection is None:
                         continue
                     if isinstance(projection, str):
-                        projection_fields = {
-                            PROJECTION_READ_TOOL_NAMES: frozenset(),
-                            PROJECTION_WRITE_TOOL_NAMES: frozenset(),
-                            PROJECTION_EDIT_TOOL_NAMES: frozenset(),
-                            PROJECTION_SEARCH_TOOL_NAMES: frozenset(),
-                        }
-                        projection_fields[projection] = frozenset({tool_class.name})
-                        projection = HarnessFileSystemProjectionMap(
-                            **projection_fields,
-                        )
+                        tool_name = toolset.tool_name(tool_class)
+                        if projection == PROJECTION_BASH_TOOL_NAMES:
+                            projection = FileSystemProjectionMap(
+                                bash_tool_names=frozenset({tool_name}),
+                                command_arg="shell",
+                            )
+                        else:
+                            projection_fields = {
+                                PROJECTION_READ_TOOL_NAMES: frozenset(),
+                                PROJECTION_WRITE_TOOL_NAMES: frozenset(),
+                                PROJECTION_EDIT_TOOL_NAMES: frozenset(),
+                                PROJECTION_SEARCH_TOOL_NAMES: frozenset(),
+                            }
+                            projection_fields[projection] = frozenset({tool_name})
+                            projection = HarnessFileSystemProjectionMap(**projection_fields)
                     projections.append(projection)
         return ilist(projections)
 

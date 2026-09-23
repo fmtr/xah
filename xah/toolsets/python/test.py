@@ -6,10 +6,11 @@ from pydantic import Field
 from corio.shell.dsl import Expression, arg, shell
 from xah.toolsets.base.subprocess import SubprocessRunner
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.python.sig import PythonSig
 
 
-class TestSig(PythonSig):
+class Test(Tool, SubprocessRunner):
+    """Run the current repository's test suite."""
+
     tests: list[str] = Field(
         default_factory=list,
         description="Test paths or pytest node IDs. Leave empty to run the complete suite.",
@@ -19,10 +20,6 @@ class TestSig(PythonSig):
         description="Test output level.",
     )
     timeout: int | None = Field(default=120, gt=0, description="Maximum execution time in seconds.")
-
-
-class Test(Tool, SubprocessRunner, TestSig):
-    """Run the current repository's test suite."""
 
     @cached_property
     def expression(self) -> Expression:

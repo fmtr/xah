@@ -5,19 +5,17 @@ from pydantic_deep import DEFAULT_USAGE_LIMITS
 from subagents_pydantic_ai.prompts import get_task_instructions_prompt
 from subagents_pydantic_ai.retry import run_with_retry
 from subagents_pydantic_ai.toolset import _serialize_output
+
 from xah.options import base as options
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.subagent.sig import SubagentSig
 
 
-class TaskSig(SubagentSig):
+class Task(Tool):
+    """Delegate a bounded task to a context-free subagent and return its result."""
+
     prompt: str = Field(
         description="Self-contained task prompt with paths, context, behavior, and validation requirements.",
     )
-
-
-class Task(Tool, TaskSig):
-    """Delegate a bounded task to a context-free subagent and return its result."""
 
     def get_subagent_deps(self):
         from xah.toolsets.subagent.toolset import Subagent

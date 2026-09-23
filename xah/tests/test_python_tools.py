@@ -20,11 +20,16 @@ def context(tmp_path):
     return RunContext(deps=deps, model=None, usage=RunUsage())
 
 
+def make(tool_class, ctx, **kwargs):
+    return tool_class(ctx=ctx, toolset=ctx.deps.toolsets.cls[Python], **kwargs)
+
+
 def test_public_name_schema_and_dsl_expression(tmp_path):
-    tool = Run(ctx=context(tmp_path), args=["script.py"])
+    ctx = context(tmp_path)
+    tool = make(Run, ctx, args=["script.py"])
     schema = Run.model_json_schema()
 
-    assert Run.name == "Python-Run"
+    assert tool.name == "Python-Run"
     assert Run.description
     assert "ctx" not in schema["properties"]
     assert schema["properties"]["args"]["description"]
@@ -34,27 +39,29 @@ def test_public_name_schema_and_dsl_expression(tmp_path):
 def test_basic_python_tool_expressions(tmp_path):
     ctx = context(tmp_path)
 
-    assert Pip(ctx=ctx, args=["install", "example"]).expression.tokens(args_only=False) == [
+    assert make(Pip, ctx, args=["install", "example"]).expression.tokens(args_only=False) == [
         "python",
         "-m",
         "pip",
         "install",
         "example",
     ]
-    assert RunCode(ctx=ctx, code="print(1)").expression.tokens(args_only=False) == [
+    assert make(RunCode, ctx, code="print(1)").expression.tokens(args_only=False) == [
         "python",
         "-c",
         "print(1)",
     ]
-    assert PythonTest(ctx=ctx).expression.tokens(args_only=False) == ["python", "-m", "pytest"]
+    assert make(PythonTest, ctx).expression.tokens(args_only=False) == ["python", "-m", "pytest"]
 
 
 def test_correctness_validator_runs_under_every_policy(tmp_path):
-    tool = Run(ctx=context(tmp_path), args=[])
+    ctx = context(tmp_path)
+    tool = make(Run, ctx, args=[])
     with pytest.raises(ModelRetry, match="No arguments"):
         asyncio.run(tool.validate())
 
 
 def test_run_code_has_no_length_limit(tmp_path):
-    tool = RunCode(ctx=context(tmp_path), code="x" * 1001)
+    ctx = context(tmp_path)
+    tool = make(RunCode, ctx, code="x" * 1001)
     assert asyncio.run(tool.validate()) == []

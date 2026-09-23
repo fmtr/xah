@@ -1,16 +1,23 @@
 from functools import cached_property
+
+from cached_classproperty import cached_classproperty
 from pydantic_deep import SkillsDirectory
+
 from corio import Path
 from corio.iterator import ilist
 from xah.toolsets.base.toolset import Base
-from xah.toolsets.skills.list import List
-from xah.toolsets.skills.load import Load
 from xah.toolsets.skills.skill import Skill
 
 
 class Skills(Base):
     """Skill discovery and loading tools."""
-    TOOLS = (List, Load)
+
+    @cached_classproperty
+    def TOOLS(cls):
+        from xah.toolsets.skills.list import List
+        from xah.toolsets.skills.load import Load
+
+        return ilist([List, Load])
 
     def __init__(self, settings, cwd: Path):
         self.path = settings.path.skills.resolve()

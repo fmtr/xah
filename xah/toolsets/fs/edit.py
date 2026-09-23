@@ -1,17 +1,20 @@
 from functools import cached_property
 from typing import Annotated, ClassVar
 
+from cached_classproperty import cached_classproperty
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path, strings
+from corio.iterator import ilist
 from xah.constants import PROJECTION_EDIT_TOOL_NAMES
-from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.validator import Validator
-from xah.toolsets.fs.sig import FileSig, PATH_READ, PATH_WRITE, Permissions, PermissionsValidator
+from xah.toolsets.fs.sig import FileTool, PATH_READ, PATH_WRITE, Permissions, PermissionsValidator
 
 
-class EditSig(FileSig):
+class Edit(FileTool):
+    """Edit a file by exact string replacement."""
+
     path: Annotated[Path, Permissions(PATH_READ, PATH_WRITE)] = Field(
         description="File path relative to the working directory.",
     )
@@ -19,25 +22,33 @@ class EditSig(FileSig):
     new_text: str = Field(description="Replacement text.")
     replace_all: bool = Field(default=False, description="Replace every exact occurrence.")
 
+    projections: ClassVar = PROJECTION_EDIT_TOOL_NAMES
+
+    @cached_classproperty
+    def VALIDATORS(cls):
+        return ilist([EditPermissions, ValidEdit, EditWarnings])
+
     @cached_property
     def current(self) -> str:
         return self.path.read_text(errors="replace")
 
     @cached_property
     def updated(self) -> str:
-        if self.replace_all:
-            count = -1
-        else:
-            count = 1
-
+        count = -1 if self.replace_all else 1
         return self.current.replace(self.old_text, self.new_text, count)
 
+    async def run(self) -> str:
+        occurrences = self.current.count(self.old_text)
+        self.path.write_text(self.updated)
+        count = occurrences if self.replace_all else 1
+        return f"Edited {self.path}: replaced {strings.suffix_plural(count, 'occurrence')}"
 
-class EditPermissions(PermissionsValidator, EditSig):
+
+class EditPermissions(PermissionsValidator, Edit):
     pass
 
 
-class ValidEdit(Validator, EditSig):
+class ValidEdit(Validator, Edit):
     @cached_property
     def enabled(self) -> bool:
         return True
@@ -47,7 +58,6 @@ class ValidEdit(Validator, EditSig):
             raise ModelRetry(f'Path "{self.path}" does not exist.')
 
         occurrences = self.current.count(self.old_text)
-
         if not occurrences:
             raise ModelRetry(f"String {self.old_text!r} not found in file")
 
@@ -60,32 +70,10 @@ class ValidEdit(Validator, EditSig):
         return []
 
 
-class EditWarnings(Validator, EditSig):
+class EditWarnings(Validator, Edit):
     async def validate(self) -> list[str]:
         messages = []
-
         if similarity := self.get_sim(self.old_text, self.new_text):
             message = f"Your old and new strings are {similarity}% similar. Replace only the smallest substring that changes."
-            messages.append(
-                message,
-            )
-
+            messages.append(message)
         return messages
-
-
-class Edit(Tool, EditSig):
-    """Edit a file by exact string replacement."""
-
-    VALIDATORS: ClassVar = (EditPermissions, ValidEdit, EditWarnings)
-    projections: ClassVar = PROJECTION_EDIT_TOOL_NAMES
-
-    async def run(self) -> str:
-        occurrences = self.current.count(self.old_text)
-        self.path.write_text(self.updated)
-
-        if self.replace_all:
-            count = occurrences
-        else:
-            count = 1
-
-        return f"Edited {self.path}: replaced {strings.suffix_plural(count, 'occurrence')}"

@@ -27,6 +27,7 @@ def context(tmp_path):
 def test_file_listing_respects_glob(tmp_path):
     Path(tmp_path / "one.py").write_text("one")
     Path(tmp_path / "two.txt").write_text("two")
-    result = asyncio.run(Search(ctx=context(tmp_path), glob="*.py").run())
+    ctx = context(tmp_path)
+    result = asyncio.run(Search(ctx=ctx, toolset=ctx.deps.toolsets.cls[Files], glob="*.py").run())
     assert "one.py" in result
     assert "two.txt" not in result

@@ -1,29 +1,36 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol
+from collections.abc import Iterable
+from difflib import SequenceMatcher
+from functools import cached_property
+from typing import ClassVar
 
 from cached_classproperty import cached_classproperty
+from pydantic import Field, InstanceOf
+from pydantic.json_schema import SkipJsonSchema
 from pydantic_acp import ProjectionMap
+from pydantic_ai import RunContext
+from pydantic_ai.toolsets import FunctionToolset
 
+from corio import dm
+from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.toolsets.base.validator import Validator
 
-if TYPE_CHECKING:
-    from xah.toolsets.base.toolset import Base as ToolsetBase
 
+class Tool(dm.Base):
+    ctx: SkipJsonSchema[InstanceOf[RunContext]] = Field(exclude=True)
+    toolset: SkipJsonSchema[InstanceOf[FunctionToolset]] = Field(exclude=True)
 
-class Tool:
     NAME: ClassVar[str | None] = None
     DESCRIPTION: ClassVar[str | None] = None
-    VALIDATORS: ClassVar[tuple[type[Validator], ...]] = ()
     projections: ClassVar[
         str | ProjectionMap | list[str | ProjectionMap] | None
     ] = None
 
     @cached_classproperty
-    def name(cls) -> str:
-        local_name = cls.NAME or cls.__name__
-        return f"{cls.toolset_type.name}-{local_name}"
+    def local_name(cls) -> str:
+        return cls.NAME or cls.__name__
 
     @cached_classproperty
     def description(cls) -> str | None:
@@ -35,6 +42,37 @@ class Tool:
                 return description
         return None
 
+    @cached_classproperty
+    def VALIDATORS(cls) -> ilist[type[Validator]]:
+        return ilist()
+
+    @classmethod
+    def merge_validators(
+        cls,
+        inherited: Iterable[type[Validator]],
+        *overrides: type[Validator],
+    ) -> ilist[type[Validator]]:
+        validators = {
+            validator.local_name: validator
+            for validator in (*inherited, *overrides)
+        }
+        return ilist(validators.values())
+
+    @staticmethod
+    def get_sim(old: str, new: str) -> int | None:
+        similarity = round(SequenceMatcher(None, old, new).ratio() * 100)
+        return similarity if similarity >= 80 else None
+
+    @cached_property
+    def name(self) -> str:
+        return self.toolset.tool_name(type(self))
+
+    @cached_property
+    def policy(self):
+        from xah.options.base import Policy
+
+        return self.toolset.options.cls[Policy]
+
     async def validate(self) -> list[str]:
         messages = []
         for validator_class in self.VALIDATORS:
@@ -42,17 +80,3 @@ class Tool:
             if validator.enabled:
                 messages.extend(await validator.validate())
         return messages
-
-
-class ToolModel(Protocol):
-    name: ClassVar[str]
-    description: ClassVar[str | None]
-
-    def __init__(self, **data: Any) -> None: ...
-
-    @classmethod
-    def model_json_schema(cls) -> dict[str, Any]: ...
-
-    async def validate(self) -> list[str]: ...
-
-    async def run(self) -> Any: ...

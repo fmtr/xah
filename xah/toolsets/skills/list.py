@@ -1,11 +1,13 @@
 from corio import strings
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.skills.sig import SkillsSig
 
 
-class List(Tool, SkillsSig):
+class List(Tool):
     """List available skill names and summaries."""
+
     async def run(self) -> str:
         from xah.toolsets.skills.load import Load
+
+        load_name = self.toolset.tool_name(Load)
         lines = [skill.text_description for skill in self.toolset.skills]
-        return strings.trim(*lines, f"Summaries only. Use {Load.name} to read the full texts.")
+        return strings.trim(*lines, f"Summaries only. Use {load_name} to read the full texts.")

@@ -19,5 +19,5 @@ def test_list_and_load_construct_per_call_models(tmp_path):
     toolset = Skills(settings, Path(tmp_path))
     ctx = RunContext(deps=SimpleNamespace(toolsets=ilist([toolset])), model=None, usage=RunUsage())
 
-    assert "python/style" in asyncio.run(List(ctx=ctx).run())
-    assert "Use Python style." in asyncio.run(Load(ctx=ctx, skill_ids=["python/style"]).run())
+    assert "python/style" in asyncio.run(List(ctx=ctx, toolset=toolset).run())
+    assert "Use Python style." in asyncio.run(Load(ctx=ctx, toolset=toolset, skill_ids=["python/style"]).run())
