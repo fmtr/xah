@@ -806,7 +806,7 @@ wheels = [
 
 [[package]]
 name = "corio"
-version = "2.10.0"
+version = "2.11.0"
 source = { editable = "../corio" }
 dependencies = [
     { name = "cached-classproperty" },
@@ -989,8 +989,6 @@ requires-dist = [
     { name = "httpx-retries", marker = "extra == 'webhook'" },
     { name = "huggingface-hub", marker = "extra == 'all'" },
     { name = "huggingface-hub", marker = "extra == 'hfh'" },
-    { name = "json-repair", marker = "extra == 'all'" },
-    { name = "json-repair", marker = "extra == 'json-fix'" },
     { name = "logfire", marker = "extra == 'all'" },
     { name = "logfire", marker = "extra == 'api'" },
     { name = "logfire", marker = "extra == 'api-mcp'" },
@@ -1232,7 +1230,7 @@ requires-dist = [
     { name = "yamlscript", marker = "extra == 'yaml'", specifier = ">=0.2.20" },
     { name = "yamlscript", marker = "extra == 'yml'", specifier = ">=0.2.20" },
 ]
-provides-extras = ["path-search", "compute", "dev", "test", "yml", "yaml", "logging", "parallel", "tokenization", "augmentation", "process", "profiling", "docker-client", "unicode", "version", "version-dev", "spaces", "netrc", "hfh", "merging", "api", "api-mcp", "dm", "ai", "openai-api", "json-fix", "semantic", "metrics", "tabular", "html", "interface", "google-api", "caching", "pdf", "debug", "sets", "path-app", "path-type", "dns", "dhcp", "patterns", "http", "setup", "webhook", "browsers", "db", "db-document", "db-search", "mqtt", "av", "env", "env-io", "toml", "toml-write", "ha", "ha-api", "doc", "youtube", "infra", "vcs", "tasmota", "encrypt", "secrets", "sec", "cli", "all"]
+provides-extras = ["path-search", "compute", "dev", "test", "yml", "yaml", "logging", "parallel", "tokenization", "augmentation", "process", "profiling", "docker-client", "unicode", "version", "version-dev", "spaces", "netrc", "hfh", "merging", "api", "api-mcp", "dm", "ai", "openai-api", "semantic", "metrics", "tabular", "html", "interface", "google-api", "caching", "pdf", "debug", "sets", "path-app", "path-type", "dns", "dhcp", "patterns", "http", "setup", "webhook", "browsers", "db", "db-document", "db-search", "mqtt", "av", "env", "env-io", "toml", "toml-write", "ha", "ha-api", "doc", "youtube", "infra", "vcs", "tasmota", "encrypt", "secrets", "sec", "cli", "all"]
 
 [package.metadata.requires-dev]
 dev = [

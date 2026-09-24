@@ -72,6 +72,17 @@ def harness(cwd=None):
     return HarnessBase(SETTINGS, session=session)
 
 
+def test_harness_ignores_the_full_edit_tool_name_in_stuck_loop_detection():
+    assert harness().stuck_loop_detection.ignore_tools == {"Files-Edit"}
+
+
+def test_edit_warning_validator_has_no_default_length_limit():
+    from xah.toolsets.fs.edit import EditWarnings
+
+    assert EditWarnings.MIN_LENGTH == 0
+    assert EditWarnings.MIN_SIMILARITY == 80
+
+
 def test_files_write_projection_is_a_diff_without_default_tool_names():
     harness_instance = harness()
     write_projection = next(

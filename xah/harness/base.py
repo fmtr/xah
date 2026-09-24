@@ -180,7 +180,7 @@ class HarnessBase(Generic[DepsT]):
     def stuck_loop_detection(self):
         from xah.toolsets.fs.edit import Edit
 
-        name_edit = Edit.name
+        name_edit = f"{Files.name}-{Edit.local_name}"
         return StuckLoopDetection(
             max_repeated=self.stuck_loop_max_repeated,
             ignore_tools={name_edit},

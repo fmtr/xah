@@ -55,6 +55,8 @@ class ValidEdit(Edit):
     async def validate(self) -> list[str]:
         if not self.path.is_file():
             raise ModelRetry(f'Path "{self.path}" does not exist.')
+        if not self.old_text:
+            raise ModelRetry("Old text must not be empty.")
 
         occurrences = self.current.count(self.old_text)
         if not occurrences:
@@ -70,9 +72,17 @@ class ValidEdit(Edit):
 
 
 class EditWarnings(Edit):
+    MIN_LENGTH: ClassVar[int] = 0
+    MIN_SIMILARITY: ClassVar[int] = 80
+
     async def validate(self) -> list[str]:
         messages = []
-        if similarity := get_similarity(self.old_text, self.new_text):
-            message = f"Your old and new strings are {similarity}% similar. Replace only the smallest substring that changes."
-            messages.append(message)
+        if min(len(self.old_text), len(self.new_text)) < self.MIN_LENGTH:
+            return messages
+
+        similarity = get_similarity(self.old_text, self.new_text)
+        if similarity < self.MIN_SIMILARITY:
+            return messages
+        message = f"Your old and new strings are {similarity}% similar. Replace only the smallest substring that changes."
+        messages.append(message)
         return messages
