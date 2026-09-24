@@ -4,6 +4,7 @@ import asyncio
 from functools import cached_property
 
 from acp.schema import SessionConfigSelect
+from cached_classproperty import cached_classproperty
 from typing import Any, Generic, Sequence, TypeVar, cast
 
 from acpremote import serve_acp
@@ -36,6 +37,7 @@ from xah.constants import (
 )
 from xah.caps.retry import ToolCallArgsDeserialzer
 from xah.caps.traffic import ModelTrafficLogger
+from xah.class_collections import ClassDeclaration, resolve_class_collection
 from xah.harness.deps import HarnessDeps
 from xah.obs import logger
 from xah.options.path import PathRead, PathWrite
@@ -84,22 +86,19 @@ class HarnessBase(Generic[DepsT]):
     def session_id(self):
         return self.session.session_id
 
+    @cached_classproperty
+    def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[DepsT]]:
+        return [Files, Shell, Python, Skills, Subagent, Todo]
+
     @cached_property
-    def TOOLSETS(self) -> ilist[type[ToolsetBase[DepsT]]]:
-        return ilist([
-            Files,
-            Shell,
-            Python,
-            Skills,
-            Subagent,
-            Todo,
-        ])
+    def toolset_classes(self) -> ilist[type[ToolsetBase[DepsT]]]:
+        return resolve_class_collection(type(self), "TOOLSETS", "name")
 
     @cached_property
     def toolsets(self) -> ilist[ToolsetBase[DepsT]]:
         return ilist(
             toolset_type(settings=self.settings, cwd=self.cwd)
-            for toolset_type in self.TOOLSETS
+            for toolset_type in self.toolset_classes
         )
 
     @cached_property
@@ -204,8 +203,13 @@ class HarnessBase(Generic[DepsT]):
 
     @cached_property
     def capabilities(self):
+        return []
+
+    @cached_property
+    def agent_capabilities(self):
         return strip_none(
             self.thinking,
+            *self.capabilities,
             self.stuck_loop_detection,
             self.model_traffic_logger,
             self.model_retry_logger,
@@ -223,7 +227,7 @@ class HarnessBase(Generic[DepsT]):
             #model_settings=self.model_settings,
             deps_type=self.deps_type,
             toolsets=[self.get_toolset],
-            capabilities=self.capabilities,
+            capabilities=self.agent_capabilities,
             retries=self.retries,
         )
 

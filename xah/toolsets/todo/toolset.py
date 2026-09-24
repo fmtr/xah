@@ -25,7 +25,7 @@ class Todo(Base):
         from xah.toolsets.todo.update_status import UpdateStatus
         from xah.toolsets.todo.write import Write
 
-        return ilist([Read, Write, UpdateStatus])
+        return [Read, Write, UpdateStatus]
 
     def __init__(self, **kwargs):
         self.items = ilist[TodoItem]()

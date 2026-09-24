@@ -1,7 +1,6 @@
 from cached_classproperty import cached_classproperty
 from pydantic import Field
 
-from corio.iterator import ilist
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.toolset import Base
 
@@ -22,4 +21,4 @@ class Parent(Base):
 
     @cached_classproperty
     def TOOLS(cls):
-        return ilist([Ask])
+        return [Ask]

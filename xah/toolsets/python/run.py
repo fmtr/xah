@@ -4,7 +4,6 @@ from cached_classproperty import cached_classproperty
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
-from corio.iterator import ilist
 from corio.shell.dsl import shell
 from xah.toolsets.base.subprocess import SubprocessRunner
 from xah.toolsets.base.tool import Tool
@@ -18,7 +17,7 @@ class Run(Tool, SubprocessRunner):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([ValidArguments])
+        return [ValidArguments]
 
     @cached_property
     def expression(self):

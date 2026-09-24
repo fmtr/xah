@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 from functools import cached_property
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -12,6 +11,7 @@ from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
 from corio.iterator import ilist
 from corio.strings import get_docstring
+from xah.class_collections import ClassDeclaration, resolve_class_collection
 from xah.options import base as options
 from xah.toolsets.base.approval import (
     ApprovalMetadata,
@@ -42,25 +42,16 @@ class Base(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         return None
 
     @cached_classproperty
-    def TOOLS(cls) -> ilist[type[Tool]]:
-        return ilist()
+    def TOOLS(cls) -> ClassDeclaration[Tool]:
+        return []
 
-    @classmethod
-    def merge_tools(
-        cls,
-        inherited: Iterable[type[Tool]],
-        *overrides: type[Tool],
-    ) -> ilist[type[Tool]]:
-        tools = {
-            tool.local_name: tool
-            for tool in (*inherited, *overrides)
-        }
-        return ilist(tools.values())
+    @cached_property
+    def tool_classes(self) -> ilist[type[Tool]]:
+        return resolve_class_collection(type(self), "TOOLS", "local_name")
 
     def __init__(self, **kwargs):
         del kwargs
         super().__init__(id=self.name)
-        self.tool_classes = ilist(self.TOOLS)
         for tool_class in self.tool_classes:
             self.register(tool_class)
 

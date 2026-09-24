@@ -5,7 +5,6 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path, strings
-from corio.iterator import ilist
 from xah.constants import PROJECTION_READ_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 
@@ -23,7 +22,7 @@ class Read(FileTool):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([ReadPermissions])
+        return [ReadPermissions]
 
     async def run(self) -> str:
         if not self.path.exists():

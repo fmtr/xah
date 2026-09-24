@@ -98,7 +98,7 @@ def test_toolset_publishes_class_model_schemas(tmp_path):
     schema = Write.model_json_schema()
     write_name = toolset.tool_name(Write)
 
-    assert set(tools) == {toolset.tool_name(tool) for tool in Files.TOOLS}
+    assert set(tools) == {toolset.tool_name(tool) for tool in toolset.tool_classes}
     assert tools[write_name].tool_def.description == Write.description
     assert tools[write_name].tool_def.parameters_json_schema == schema
     assert schema["properties"]["path"]["type"] == "string"

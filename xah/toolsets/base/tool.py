@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 from functools import cached_property
 from typing import ClassVar
 
@@ -14,6 +13,7 @@ from pydantic_ai.toolsets import FunctionToolset
 from corio import dm
 from corio.iterator import ilist
 from corio.strings import get_docstring
+from xah.class_collections import ClassDeclaration, resolve_class_collection
 
 
 class Tool(dm.Base):
@@ -41,20 +41,12 @@ class Tool(dm.Base):
         return None
 
     @cached_classproperty
-    def VALIDATORS(cls) -> ilist[type[Tool]]:
-        return ilist()
+    def VALIDATORS(cls) -> ClassDeclaration[Tool]:
+        return []
 
-    @classmethod
-    def merge_validators(
-        cls,
-        inherited: Iterable[type[Tool]],
-        *overrides: type[Tool],
-    ) -> ilist[type[Tool]]:
-        validators = {
-            validator.local_name: validator
-            for validator in (*inherited, *overrides)
-        }
-        return ilist(validators.values())
+    @cached_property
+    def validator_classes(self) -> ilist[type[Tool]]:
+        return resolve_class_collection(type(self), "VALIDATORS", "local_name")
 
     @cached_property
     def name(self) -> str:
@@ -72,7 +64,7 @@ class Tool(dm.Base):
 
     async def validate(self) -> list[str]:
         messages = []
-        for validator_class in self.VALIDATORS:
+        for validator_class in self.validator_classes:
             validator = validator_class.model_validate(self, from_attributes=True)
             if validator.enabled:
                 messages.extend(await validator.validate())

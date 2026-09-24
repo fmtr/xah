@@ -17,7 +17,7 @@ class Skills(Base):
         from xah.toolsets.skills.list import List
         from xah.toolsets.skills.load import Load
 
-        return ilist([List, Load])
+        return [List, Load]
 
     def __init__(self, settings, cwd: Path):
         self.path = settings.path.skills.resolve()

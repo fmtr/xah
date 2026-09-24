@@ -4,6 +4,7 @@ import asyncio
 from functools import cached_property
 from types import SimpleNamespace
 
+from cached_classproperty import cached_classproperty
 from corio import Path
 from corio.iterator import ilist
 
@@ -19,9 +20,13 @@ from xah.toolsets.base.toolset import Base as ToolsetBase
 from pydantic_acp import compose_projection_maps
 from pydantic_acp.projection import FileEditToolCallContent
 from pydantic_ai import RunContext
+from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.usage import RunUsage
+from xah.toolsets.fs.toolset import Files
 from xah.toolsets.python.toolset import Python
 from xah.toolsets.shell.toolset import Shell
+from xah.toolsets.skills.toolset import Skills
+from xah.toolsets.subagent.toolset import Subagent
 from xah.toolsets.todo.toolset import Todo
 
 
@@ -214,6 +219,30 @@ def test_harness_creates_fresh_agents():
     assert second.description == "Root/orchestrator agent"
 
 
+def test_harness_subclass_adds_capabilities_after_thinking():
+    class CustomCapability(AbstractCapability):
+        pass
+
+    capability = CustomCapability()
+
+    class CustomHarness(HarnessBase):
+        @cached_property
+        def capabilities(self):
+            return [capability]
+
+    selected = CustomHarness(
+        SETTINGS,
+        session=SimpleNamespace(cwd=Path.cwd()),
+    )
+
+    assert selected.capabilities == [capability]
+    assert selected.agent_capabilities[:3] == [
+        selected.thinking,
+        capability,
+        selected.stuck_loop_detection,
+    ]
+
+
 def test_harness_deps_are_generic():
     assert HarnessDeps().toolsets == []
 
@@ -222,15 +251,29 @@ def test_harness_subclass_defines_its_toolset_catalogue():
     class Planner(HarnessBase):
         title = "Planner"
 
-        @cached_property
-        def TOOLSETS(self):
-            return ilist([Todo])
+        @cached_classproperty
+        def TOOLSETS(cls):
+            return {
+                Files: False,
+                Shell: False,
+                Python: False,
+                Skills: False,
+                Subagent: False,
+            }
 
     session = SimpleNamespace(cwd=Path.cwd())
     planner = Planner(SETTINGS, session=session)
 
     assert planner.name == "Planner"
     assert planner.title == "Planner"
+    assert planner.TOOLSETS == {
+        Files: False,
+        Shell: False,
+        Python: False,
+        Skills: False,
+        Subagent: False,
+    }
+    assert planner.toolset_classes == [Todo]
     assert planner.toolsets.cls[Todo].name == "Todo"
     assert planner.deps.toolsets is planner.toolsets
 
@@ -256,9 +299,17 @@ def test_harness_flattens_toolset_option_lists():
             ])
 
     class MultiOptionHarness(HarnessBase):
-        @cached_property
-        def TOOLSETS(self):
-            return ilist([MultiOptionToolset])
+        @cached_classproperty
+        def TOOLSETS(cls):
+            return {
+                Files: False,
+                Shell: False,
+                Python: False,
+                Skills: False,
+                Subagent: False,
+                Todo: False,
+                MultiOptionToolset: True,
+            }
 
     selected = MultiOptionHarness(
         SETTINGS,

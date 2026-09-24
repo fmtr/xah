@@ -1,6 +1,5 @@
 from cached_classproperty import cached_classproperty
 
-from corio.iterator import ilist
 from xah.options import base as options
 from xah.toolsets.base.toolset import Base
 
@@ -20,4 +19,4 @@ class Files(Base):
         from xah.toolsets.fs.search import Search
         from xah.toolsets.fs.write import Write
 
-        return ilist([Read, Write, Edit, Move, Search, Mkdir, Remove])
+        return [Read, Write, Edit, Move, Search, Mkdir, Remove]

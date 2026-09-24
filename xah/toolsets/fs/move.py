@@ -5,7 +5,6 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path
-from corio.iterator import ilist
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 
@@ -23,7 +22,7 @@ class Move(FileTool):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([MovePermissions])
+        return [MovePermissions]
 
     async def run(self) -> str:
         if self.is_copy:

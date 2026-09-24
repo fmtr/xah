@@ -1,6 +1,5 @@
 from cached_classproperty import cached_classproperty
 
-from corio.iterator import ilist
 from xah.options import base as options
 from xah.toolsets.base.toolset import Base
 
@@ -17,4 +16,4 @@ class Python(Base):
         from xah.toolsets.python.run_code import RunCode
         from xah.toolsets.python.test import Test
 
-        return ilist([Pip, Run, RunCode, Test])
+        return [Pip, Run, RunCode, Test]

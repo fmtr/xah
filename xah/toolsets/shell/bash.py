@@ -3,7 +3,6 @@ from functools import cached_property
 from cached_classproperty import cached_classproperty
 from pydantic import Field
 
-from corio.iterator import ilist
 from xah.constants import PROJECTION_BASH_TOOL_NAMES
 from corio.shell.dsl import arg, shell
 from xah.toolsets.base.subprocess import SubprocessRunner
@@ -18,7 +17,7 @@ class Bash(Tool, SubprocessRunner):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([RequiresApproval])
+        return [RequiresApproval]
 
     projections = PROJECTION_BASH_TOOL_NAMES
 

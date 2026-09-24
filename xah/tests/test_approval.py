@@ -20,7 +20,7 @@ class ApprovalTool(Tool):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return cls.merge_validators(super().VALIDATORS, ApprovalWarning)
+        return [ApprovalWarning]
 
     async def run(self) -> str:
         return self.value
@@ -34,16 +34,64 @@ class ApprovalWarning(ApprovalTool):
 class ApprovalToolset(Base):
     @cached_classproperty
     def TOOLS(cls):
-        return cls.merge_tools(super().TOOLS, ApprovalTool)
+        return [ApprovalTool]
 
     @cached_property
     def options(self):
         return ilist([options.Policy.from_value(self.name, options.APPROVAL)])
 
 
+class ReplacementWarning(ApprovalWarning):
+    NAME = ApprovalWarning.local_name
+
+
+class ReplacementApprovalTool(ApprovalTool):
+    NAME = ApprovalTool.local_name
+
+    @cached_classproperty
+    def VALIDATORS(cls):
+        return [ReplacementWarning]
+
+
+class ReplacementApprovalToolset(ApprovalToolset):
+    @cached_classproperty
+    def TOOLS(cls):
+        return {ReplacementApprovalTool: True}
+
+
+class SecondaryTool(ApprovalTool):
+    pass
+
+
+class SecondaryToolset(Base):
+    @cached_classproperty
+    def TOOLS(cls):
+        return [SecondaryTool]
+
+
+class CombinedToolset(ApprovalToolset, SecondaryToolset):
+    @cached_classproperty
+    def TOOLS(cls):
+        return {ApprovalTool: False}
+
+
 def context(toolset, approved=False):
     deps = SimpleNamespace(toolsets=ilist([toolset]))
     return RunContext(deps=deps, model=None, usage=RunUsage(), tool_call_approved=approved)
+
+
+def test_declarative_collections_merge_replace_and_remove_by_name():
+    replacement = ReplacementApprovalToolset()
+    combined = CombinedToolset()
+    instance = ReplacementApprovalTool(
+        ctx=context(replacement),
+        toolset=replacement,
+        value="result",
+    )
+
+    assert replacement.tool_classes == [ReplacementApprovalTool]
+    assert instance.validator_classes == [ReplacementWarning]
+    assert combined.tool_classes == [SecondaryTool]
 
 
 def test_local_approval_wrapper_serializes_validator_messages():

@@ -7,7 +7,6 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path, strings
-from corio.iterator import ilist
 from xah.constants import PROJECTION_SEARCH_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 
@@ -107,7 +106,7 @@ class Search(FileTool):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([SearchPermissions])
+        return [SearchPermissions]
 
     async def run(self) -> str:
         searcher_type = SearcherFiles if self.pattern is None else SearcherContent

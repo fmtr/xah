@@ -4,7 +4,6 @@ from cached_classproperty import cached_classproperty
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
-from corio.iterator import ilist
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.todo.constants import TodoStatus
 
@@ -17,7 +16,7 @@ class UpdateStatus(Tool):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([ExistingTodo])
+        return [ExistingTodo]
 
     async def run(self) -> str:
         todo = self.toolset.items.id[self.todo_id]

@@ -2,7 +2,6 @@ from typing import ClassVar
 
 from cached_classproperty import cached_classproperty
 
-from corio.iterator import ilist
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
 from xah.toolsets.fs.path import PathPermissions, PathTool
 
@@ -14,7 +13,7 @@ class Remove(PathTool):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([PathPermissions])
+        return [PathPermissions]
 
     async def run(self) -> str:
         item_type = "Directory" if self.path.is_dir() else "File"

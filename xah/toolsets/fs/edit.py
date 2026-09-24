@@ -6,7 +6,6 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path, strings
-from corio.iterator import ilist
 from xah.constants import PROJECTION_EDIT_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 from xah.toolsets.fs.similarity import get_similarity
@@ -26,7 +25,7 @@ class Edit(FileTool):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([EditPermissions, ValidEdit, EditWarnings])
+        return [EditPermissions, ValidEdit, EditWarnings]
 
     @cached_property
     def current(self) -> str:

@@ -4,7 +4,6 @@ from cached_classproperty import cached_classproperty
 from pydantic import Field
 
 from corio import Path
-from corio.iterator import ilist
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 from xah.toolsets.fs.similarity import get_similarity
@@ -22,7 +21,7 @@ class Write(FileTool):
 
     @cached_classproperty
     def VALIDATORS(cls):
-        return ilist([WritePermissions, WriteWarnings])
+        return [WritePermissions, WriteWarnings]
 
     async def run(self) -> str:
         self.path.parent.mkdirf()
