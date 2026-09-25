@@ -72,7 +72,7 @@ class ValidEdit(Edit):
 
 
 class EditWarnings(Edit):
-    MIN_LENGTH: ClassVar[int] = 0
+    MIN_LENGTH: ClassVar[int] = 250
     MIN_SIMILARITY: ClassVar[int] = 80
 
     async def validate(self) -> list[str]:

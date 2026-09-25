@@ -8,14 +8,12 @@ from pydantic_ai import ModelRetry
 
 from corio.shell.dsl import arg, shell
 from xah.toolsets.base.subprocess import SubprocessRunner
-from xah.toolsets.base.tool import Tool
 
 
-class RunCode(Tool, SubprocessRunner):
+class RunCode(SubprocessRunner):
     """Run a short Python source fragment directly, like `python -c`."""
 
     code: str = Field(description="Short Python source fragment to execute directly.")
-    timeout: int | None = Field(default=120, gt=0, description="Maximum execution time in seconds.")
 
     @cached_classproperty
     def VALIDATORS(cls):

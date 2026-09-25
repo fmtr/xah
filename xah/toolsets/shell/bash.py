@@ -6,14 +6,12 @@ from pydantic import Field
 from xah.constants import PROJECTION_BASH_TOOL_NAMES
 from corio.shell.dsl import arg, shell
 from xah.toolsets.base.subprocess import SubprocessRunner
-from xah.toolsets.base.tool import Tool
 
 
-class Bash(Tool, SubprocessRunner):
+class Bash(SubprocessRunner):
     """Run a bash shell command in the working directory."""
 
     shell: str = Field(description="Bash source to execute in the working directory.")
-    timeout: int | None = Field(default=120, gt=0, description="Maximum execution time in seconds.")
 
     @cached_classproperty
     def VALIDATORS(cls):

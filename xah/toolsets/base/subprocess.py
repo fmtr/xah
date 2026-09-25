@@ -3,17 +3,19 @@ import os
 import signal
 from functools import cached_property
 
+from pydantic import Field
 from pydantic_ai import ToolFailed
 
 from corio import Path, strings
 from corio.shell.dsl import Expression
+from xah.toolsets.base.tool import Tool
 
 
 MAX_EXECUTE_OUTPUT = 100_000
 
 
-class SubprocessRunner:
-    timeout: int | None
+class SubprocessRunner(Tool):
+    timeout: int | None = Field(default=120, gt=0, description="Maximum execution time in seconds.")
 
     @cached_property
     def cwd(self) -> Path:

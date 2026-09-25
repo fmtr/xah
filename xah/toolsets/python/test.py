@@ -5,10 +5,9 @@ from pydantic import Field
 
 from corio.shell.dsl import Expression, arg, shell
 from xah.toolsets.base.subprocess import SubprocessRunner
-from xah.toolsets.base.tool import Tool
 
 
-class Test(Tool, SubprocessRunner):
+class Test(SubprocessRunner):
     """Run the current repository's test suite."""
 
     tests: list[str] = Field(
@@ -19,7 +18,6 @@ class Test(Tool, SubprocessRunner):
         default="normal",
         description="Test output level.",
     )
-    timeout: int | None = Field(default=120, gt=0, description="Maximum execution time in seconds.")
 
     @cached_property
     def expression(self) -> Expression:

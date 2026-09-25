@@ -6,14 +6,12 @@ from pydantic_ai import ModelRetry
 
 from corio.shell.dsl import shell
 from xah.toolsets.base.subprocess import SubprocessRunner
-from xah.toolsets.base.tool import Tool
 
 
-class Run(Tool, SubprocessRunner):
+class Run(SubprocessRunner):
     """Run Python in the current project, with script paths relative to the working directory."""
 
     args: list[str] = Field(description="Arguments to pass to Python as plain tokens.")
-    timeout: int | None = Field(default=120, gt=0, description="Maximum execution time in seconds.")
 
     @cached_classproperty
     def VALIDATORS(cls):
