@@ -28,6 +28,7 @@ from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.skills.toolset import Skills
 from xah.toolsets.subagent.toolset import Subagent
 from xah.toolsets.todo.toolset import Todo
+from xah.toolsets.utils.toolset import Utils
 
 
 SETTINGS = SimpleNamespace(port=8765, path=PathAgent())
@@ -284,7 +285,7 @@ def test_harness_subclass_defines_its_toolset_catalogue():
         Skills: False,
         Subagent: False,
     }
-    assert planner.toolset_classes == [Todo]
+    assert planner.toolset_classes == [Todo, Utils]
     assert planner.toolsets.cls[Todo].name == "Todo"
     assert planner.deps.toolsets is planner.toolsets
 
@@ -328,6 +329,7 @@ def test_harness_flattens_toolset_option_lists():
     )
 
     assert [option.id for option in selected.options_toolsets] == [
+        "Utils/Policy",
         "MultiOptionToolset/Policy",
         "MultiOptionToolset/ExtraOption",
     ]

@@ -49,6 +49,7 @@ from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.skills.toolset import Skills
 from xah.toolsets.subagent.toolset import Subagent
 from xah.toolsets.todo.toolset import Todo
+from xah.toolsets.utils.toolset import Utils
 
 
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
@@ -88,7 +89,7 @@ class HarnessBase(Generic[DepsT]):
 
     @cached_classproperty
     def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[DepsT]]:
-        return [Files, Shell, Python, Skills, Subagent, Todo]
+        return [Files, Shell, Python, Skills, Subagent, Todo, Utils]
 
     @cached_property
     def toolset_classes(self) -> ilist[type[ToolsetBase[DepsT]]]:
