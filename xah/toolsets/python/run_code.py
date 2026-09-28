@@ -27,10 +27,6 @@ class RunCode(SubprocessRunner):
 class CodeLength(RunCode):
     MAX_CODE_LENGTH: ClassVar[float] = inf
 
-    @cached_property
-    def enabled(self) -> bool:
-        return True
-
     async def validate(self) -> list[str]:
         if len(self.code) > self.MAX_CODE_LENGTH:
             message = f"This tool is limited to {self.MAX_CODE_LENGTH} characters. Write longer code to a .py file and run it with Python."

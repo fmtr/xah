@@ -17,7 +17,7 @@ from xah.toolsets.base.approval import (
     ApprovalMetadata,
     ApprovalRequiredToolsetMetadata,
 )
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Tool, ValidationAction
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
@@ -95,6 +95,21 @@ class Base(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         ctx: RunContext[AgentDepsT],
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
+    ) -> list[str]:
+        local_name = self.local_tool_name(tool_def.name)
+        tool_class = self.tool_classes.local_name[local_name]
+        try:
+            instance = tool_class(ctx=ctx, toolset=self, **tool_args)
+        except ValidationError as error:
+            raise ModelRetry(str(error)) from error
+
+        return await instance.validate()
+
+    async def approval(
+        self,
+        ctx: RunContext[AgentDepsT],
+        tool_def: ToolDefinition,
+        tool_args: dict[str, Any],
     ) -> ApprovalMetadata:
         local_name = self.local_tool_name(tool_def.name)
         tool_class = self.tool_classes.local_name[local_name]
@@ -103,12 +118,11 @@ class Base(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         except ValidationError as error:
             raise ModelRetry(str(error)) from error
 
-        messages = await instance.validate()
-        return ApprovalMetadata(msgs=messages)
+        return ApprovalMetadata.from_bool(instance.approval)
 
     @cached_property
     def wrapper(self) -> ApprovalRequiredToolsetMetadata[AgentDepsT]:
-        return ApprovalRequiredToolsetMetadata(self, self.validate)
+        return ApprovalRequiredToolsetMetadata(self, self.approval)
 
     async def call_tool(
         self,
@@ -117,5 +131,14 @@ class Base(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         ctx: RunContext[AgentDepsT],
         tool: ToolsetTool[AgentDepsT],
     ) -> Any:
+        messages = await self.validate(ctx, tool.tool_def, tool_args)
         instance = await super().call_tool(name, tool_args, ctx, tool)
-        return await instance.run()
+        if instance.validation_action == ValidationAction.RAISE_IF_MESSAGES and messages:
+            raise ModelRetry("\n".join(messages))
+
+        result = await instance.run()
+        if instance.validation_action != ValidationAction.WARN_IF_MESSAGES or not messages:
+            return result
+        result_text = result if isinstance(result, str) else str(result)
+        warnings = "\n".join(messages)
+        return f"{result_text}\n\nWarnings:\n{warnings}"

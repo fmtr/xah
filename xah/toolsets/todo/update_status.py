@@ -1,5 +1,3 @@
-from functools import cached_property
-
 from cached_classproperty import cached_classproperty
 from pydantic import Field
 from pydantic_ai import ModelRetry
@@ -25,10 +23,6 @@ class UpdateStatus(Tool):
 
 
 class ExistingTodo(UpdateStatus):
-    @cached_property
-    def enabled(self) -> bool:
-        return True
-
     async def validate(self) -> list[str]:
         if self.todo_id not in self.toolset.items.id:
             raise ModelRetry(f"Todo with ID '{self.todo_id}' not found")

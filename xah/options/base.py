@@ -5,6 +5,7 @@ from acp.schema import SessionConfigOptionSelect, SessionConfigSelectOption
 
 DISABLED = "disabled"
 APPROVAL = "approval"
+AUTO = "auto"
 FULL = "full"
 
 
@@ -19,7 +20,7 @@ class Select(SessionConfigOptionSelect):
 
     @property
     def approval(self) -> bool:
-        return self.current_value != FULL
+        return self.current_value == APPROVAL
 
     @classmethod
     def get_name(cls, name: str | None = None) -> str:
@@ -57,7 +58,7 @@ class Select(SessionConfigOptionSelect):
 
 
 class Policy(Select):
-    VALUES: ClassVar[list[str]] = [DISABLED, APPROVAL, FULL]
+    VALUES: ClassVar[list[str]] = [DISABLED, APPROVAL, AUTO, FULL]
 
     @classmethod
     def from_value(

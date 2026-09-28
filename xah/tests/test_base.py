@@ -121,7 +121,7 @@ def test_shell_requires_approval_when_policy_is_approval():
     assert toolset.options.cls[options.Policy].value == options.DISABLED
     toolset.options.cls[options.Policy].current_value = options.APPROVAL
 
-    assert asyncio.run(toolset.validate(ctx, tool_def, {"shell": "echo hello"})) == ApprovalMetadata(
+    assert asyncio.run(toolset.approval(ctx, tool_def, {"shell": "echo hello"})) == ApprovalMetadata(
         msgs=["Approval required"],
     )
 
@@ -155,8 +155,8 @@ def test_python_policy_has_one_value_representation():
     option = deps.toolsets.cls[Python].options.cls[options.Policy]
 
     assert option.value == options.APPROVAL
-    assert [item.value for item in option.options] == [options.DISABLED, options.APPROVAL, options.FULL]
-    assert [item.name for item in option.options] == [options.DISABLED, options.APPROVAL, options.FULL]
+    assert [item.value for item in option.options] == [options.DISABLED, options.APPROVAL, options.AUTO, options.FULL]
+    assert [item.name for item in option.options] == [options.DISABLED, options.APPROVAL, options.AUTO, options.FULL]
 
 
 def test_select_enabled_can_be_overridden():

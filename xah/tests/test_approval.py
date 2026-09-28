@@ -117,7 +117,7 @@ def test_approved_call_constructs_a_fresh_model_and_runs_it():
         name = toolset.tool_name(ApprovalTool)
         return await toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])
 
-    assert asyncio.run(call()) == "result"
+    assert asyncio.run(call()) == "result\n\nWarnings:\nApproval required"
 
 
 def test_approval_metadata_truth_tracks_messages():
@@ -132,9 +132,32 @@ def test_toolset_converts_model_validation_errors_to_model_retry():
         asyncio.run(toolset.validate(context(toolset), tool_def, {}))
 
 
-def test_full_policy_disables_default_approval_validator():
+def test_full_policy_keeps_warning_messages():
     toolset = ApprovalToolset()
     toolset.options.cls[options.Policy].current_value = options.FULL
     tool_def = next(iter(toolset.tools.values())).tool_def
-    metadata = asyncio.run(toolset.validate(context(toolset), tool_def, {"value": "result"}))
-    assert not metadata
+    messages = asyncio.run(toolset.validate(context(toolset), tool_def, {"value": "result"}))
+    assert messages == ["Approval required"]
+
+
+def test_auto_policy_turns_warnings_into_model_retry():
+    toolset = ApprovalToolset()
+    toolset.options.cls[options.Policy].current_value = options.AUTO
+    ctx = context(toolset)
+    tools = asyncio.run(toolset.wrapper.get_tools(ctx))
+    name = toolset.tool_name(ApprovalTool)
+
+    with pytest.raises(ModelRetry, match="Approval required"):
+        asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
+
+
+def test_full_policy_runs_and_reports_warnings():
+    toolset = ApprovalToolset()
+    toolset.options.cls[options.Policy].current_value = options.FULL
+    ctx = context(toolset)
+    tools = asyncio.run(toolset.wrapper.get_tools(ctx))
+    name = toolset.tool_name(ApprovalTool)
+
+    result = asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
+
+    assert result == "result\n\nWarnings:\nApproval required"

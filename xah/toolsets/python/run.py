@@ -23,10 +23,6 @@ class Run(SubprocessRunner):
 
 
 class ValidArguments(Run):
-    @cached_property
-    def enabled(self) -> bool:
-        return True
-
     async def validate(self) -> list[str]:
         if not self.args:
             raise ModelRetry("No arguments provided.")

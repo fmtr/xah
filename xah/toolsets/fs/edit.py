@@ -48,10 +48,6 @@ class EditPermissions(PermissionsValidator, Edit):
 
 
 class ValidEdit(Edit):
-    @cached_property
-    def enabled(self) -> bool:
-        return True
-
     async def validate(self) -> list[str]:
         if not self.path.is_file():
             raise ModelRetry(f'Path "{self.path}" does not exist.')
