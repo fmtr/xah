@@ -8,7 +8,7 @@ from pydantic_ai import ModelRetry
 from corio import Path, strings
 from xah.constants import PROJECTION_EDIT_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
-from xah.toolsets.fs.similarity import get_similarity
+from xah.toolsets.fs.similarity import SimilarityValidator
 
 
 class Edit(FileTool):
@@ -71,18 +71,10 @@ class ValidEdit(Edit):
         return []
 
 
-class EditWarnings(Edit):
-    MIN_LENGTH: ClassVar[int] = 250
-    MIN_SIMILARITY: ClassVar[int] = 80
-
+class EditWarnings(SimilarityValidator, Edit):
     async def validate(self) -> list[str]:
-        messages = []
-        if min(len(self.old_text), len(self.new_text)) < self.MIN_LENGTH:
-            return messages
-
-        similarity = get_similarity(self.old_text, self.new_text)
-        if similarity < self.MIN_SIMILARITY:
-            return messages
-        message = f"Your old and new strings are {similarity}% similar. Replace only the smallest substring that changes."
-        messages.append(message)
-        return messages
+        return self.similarity_warnings(
+            self.old_text,
+            self.new_text,
+            "Your old and new strings are {similarity}% similar. Replace only the smallest substring that changes.",
+        )
