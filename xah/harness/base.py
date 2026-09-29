@@ -43,7 +43,7 @@ from xah.obs import logger
 from xah.options.path import PathRead, PathWrite
 from xah.options.provider import ConfigOptionsProvider
 from xah.toolsets.fs.toolset import Files
-from xah.toolsets.base.toolset import Base as ToolsetBase
+from xah.toolsets.base.toolset import Toolset as ToolsetBase
 from xah.toolsets.python.toolset import Python
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.skills.toolset import Skills

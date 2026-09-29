@@ -12,7 +12,7 @@ from pydantic_deep import DeepAgentDeps
 
 from corio import Path
 from corio.iterator import ilist
-from xah.toolsets.base.toolset import Base as ToolsetBase
+from xah.toolsets.base.toolset import Toolset as ToolsetBase
 
 @dataclass
 class HarnessDeps(DeepAgentDeps):

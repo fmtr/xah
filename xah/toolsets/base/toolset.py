@@ -9,21 +9,19 @@ from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
+from corio import strings
 from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration, resolve_class_collection
 from xah.options import base as options
-from xah.toolsets.base.approval import (
-    ApprovalMetadata,
-    ApprovalRequiredToolsetMetadata,
-)
-from xah.toolsets.base.tool import Tool, ValidationAction
+from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
+from xah.toolsets.base.tool import Tool
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
 
 
-class Base(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
+class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     DESCRIPTION: ClassVar[str | None] = None
     POLICY: ClassVar[str] = options.FULL
 
@@ -62,6 +60,13 @@ class Base(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         return name.removeprefix(f"{self.name}-")
 
     def register(self, tool_class: type[Tool]) -> None:
+        """
+        Register the framework-facing constructor for a tool class.
+
+        The preflight hooks construct temporary instances directly because
+        they run before Pydantic AI dispatches the registered tool. The
+        registered constructor is the execution path used by ``call_tool``.
+        """
         async def construct(
             ctx: RunContext[AgentDepsT],
             **tool_args: Any,
@@ -90,39 +95,41 @@ class Base(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             )
         ])
 
-    async def validate(
+    @cached_property
+    def wrapper(self) -> ApprovalRequiredToolsetMetadata[AgentDepsT]:
+        return ApprovalRequiredToolsetMetadata(self, self.approval)
+
+    def init_tool(
         self,
         ctx: RunContext[AgentDepsT],
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
-    ) -> list[str]:
+    ) -> Tool:
+        """
+        Initialize a temporary tool for preflight inspection.
+
+        This direct constructor is separate from the registered constructor
+        used by Pydantic AI during execution because approval runs before the
+        framework dispatches the tool.
+        """
         local_name = self.local_tool_name(tool_def.name)
         tool_class = self.tool_classes.local_name[local_name]
         try:
-            instance = tool_class(ctx=ctx, toolset=self, **tool_args)
+            return tool_class(ctx=ctx, toolset=self, **tool_args)
         except ValidationError as error:
             raise ModelRetry(str(error)) from error
-
-        return await instance.validate()
 
     async def approval(
         self,
         ctx: RunContext[AgentDepsT],
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
-    ) -> ApprovalMetadata:
-        local_name = self.local_tool_name(tool_def.name)
-        tool_class = self.tool_classes.local_name[local_name]
-        try:
-            instance = tool_class(ctx=ctx, toolset=self, **tool_args)
-        except ValidationError as error:
-            raise ModelRetry(str(error)) from error
+    ) -> bool:
+        """Return whether this tool requires approval before execution."""
+        instance = self.init_tool(ctx, tool_def, tool_args)
+        return instance.approval
 
-        return ApprovalMetadata.from_bool(instance.approval)
 
-    @cached_property
-    def wrapper(self) -> ApprovalRequiredToolsetMetadata[AgentDepsT]:
-        return ApprovalRequiredToolsetMetadata(self, self.approval)
 
     async def call_tool(
         self,
@@ -131,14 +138,28 @@ class Base(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         ctx: RunContext[AgentDepsT],
         tool: ToolsetTool[AgentDepsT],
     ) -> Any:
-        messages = await self.validate(ctx, tool.tool_def, tool_args)
+        """
+        Validate and execute a tool through the framework dispatch path.
+
+        Pydantic AI constructs the execution instance through the registered
+        tool function. Validation then runs on that instance before ``run``.
+        Approval uses ``init_tool`` separately because it occurs before this
+        framework execution path.
+        """
         instance = await super().call_tool(name, tool_args, ctx, tool)
-        if instance.validation_action == ValidationAction.RAISE_IF_MESSAGES and messages:
-            raise ModelRetry("\n".join(messages))
+        messages = await instance.validate()
+        message_text = "\n".join(messages)
+        if messages and instance.raise_on_warn:
+            raise ModelRetry(message_text)
 
         result = await instance.run()
-        if instance.validation_action != ValidationAction.WARN_IF_MESSAGES or not messages:
+        if not messages:
             return result
-        result_text = result if isinstance(result, str) else str(result)
-        warnings = "\n".join(messages)
-        return f"{result_text}\n\nWarnings:\n{warnings}"
+
+        result = str(result)
+        return strings.trim(f"""
+            {result}
+
+            Warnings:
+            {message_text}
+        """)

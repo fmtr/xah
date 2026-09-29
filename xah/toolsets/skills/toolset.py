@@ -5,11 +5,11 @@ from pydantic_deep import SkillsDirectory
 
 from corio import Path
 from corio.iterator import ilist
-from xah.toolsets.base.toolset import Base
+from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.skills.skill import Skill
 
 
-class Skills(Base):
+class Skills(Toolset):
     """Skill discovery and loading tools."""
 
     @cached_classproperty

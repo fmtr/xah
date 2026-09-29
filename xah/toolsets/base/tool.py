@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import StrEnum
 from functools import cached_property
 from typing import ClassVar
 
@@ -15,11 +14,6 @@ from corio import dm
 from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration, resolve_class_collection
-
-
-class ValidationAction(StrEnum):
-    RAISE_IF_MESSAGES = "raise_if_messages"
-    WARN_IF_MESSAGES = "warn_if_messages"
 
 
 class Tool(dm.Base):
@@ -69,12 +63,16 @@ class Tool(dm.Base):
         return self.policy.approval
 
     @cached_property
-    def validation_action(self) -> ValidationAction:
+    def raise_on_warn(self) -> bool:
+        """
+        Return whether validation messages should stop tool execution.
+
+        The auto policy raises on messages; all other policies run the tool
+        and report the messages as warnings.
+        """
         from xah.options import base as options
 
-        if self.policy.value == options.AUTO:
-            return ValidationAction.RAISE_IF_MESSAGES
-        return ValidationAction.WARN_IF_MESSAGES
+        return self.policy.value == options.AUTO
 
     async def validate(self) -> list[str]:
         messages = []

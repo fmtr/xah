@@ -1,10 +1,10 @@
 from cached_classproperty import cached_classproperty
 
 from xah.options import base as options
-from xah.toolsets.base.toolset import Base
+from xah.toolsets.base.toolset import Toolset
 
 
-class Shell(Base):
+class Shell(Toolset):
     """Shell execution tools."""
 
     POLICY = options.DISABLED

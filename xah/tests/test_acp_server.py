@@ -3,17 +3,17 @@ from functools import cached_property
 from pathlib import Path
 from types import SimpleNamespace
 
-from xah.toolsets.base import approval
-from pydantic_acp import MemorySessionStore, compose_projection_maps
+from pydantic_acp import (
+    DefaultPermissionToolCallBuilder,
+    MemorySessionStore,
+    PermissionRequestContext,
+    compose_projection_maps,
+)
 from pydantic_acp.projection import FileEditToolCallContent
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.tools import DeferredToolRequests, ToolDenied
 
-from xah.acp.server import (
-    ApprovalBridgeMetadata,
-    PermissionRequestContextMetadata,
-    PermissionToolCallBuilderMetadata,
-)
+from xah.acp.server import ApprovalBridgeMetadata
 from xah.settings import PathAgent
 from xah.harness.base import HarnessBase
 
@@ -24,29 +24,6 @@ class Classifier:
 
     def approval_policy_key(self, tool_name, raw_input):
         return (tool_name, tuple(sorted(raw_input)))
-
-
-def test_permission_tool_call_includes_validation_diagnostics():
-    context = PermissionRequestContextMetadata(
-        session=None,
-        tool_call=ToolCallPart(
-            tool_name="write_file",
-            args={"path": "broken.py", "content": "def broken("},
-            tool_call_id="call-1",
-        ),
-        raw_input={"path": "broken.py", "content": "def broken("},
-        cwd=Path.cwd(),
-        classifier=Classifier(),
-        projection_map=None,
-        metadata=approval.ApprovalMetadata(msgs=["SyntaxError: '(' was never closed"]),
-    )
-
-    update = PermissionToolCallBuilderMetadata().build_tool_call_update(context)
-
-    assert update.content
-    assert "SyntaxError: '(' was never closed" in update.content[-1].content.text
-    assert update.locations[0].path == "broken.py"
-
 
 def test_denied_permission_returns_validation_diagnostics_to_model():
     class Client:
@@ -63,7 +40,6 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
                 tool_call_id="call-1",
             )
         ],
-        metadata={"call-1": {"msgs": ["SyntaxError: '(' was never closed"]}},
     )
 
     async def resolve():
@@ -77,7 +53,7 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
     resolution = asyncio.run(resolve())
     result = resolution.deferred_tool_results.approvals["call-1"]
     assert isinstance(result, ToolDenied)
-    assert result.message == "The tool call was denied.\n\nSyntaxError: '(' was never closed"
+    assert result.message == "The tool call was denied."
 
 
 def test_acp_session_starts_without_a_model(tmp_path):
@@ -105,8 +81,8 @@ def test_acp_session_starts_without_a_model(tmp_path):
     assert agent._tool_classifier.classify("Files-Write") == "edit"
 
     raw_input = {"path": "example.py", "content": "print('ok')\n"}
-    update = PermissionToolCallBuilderMetadata().build_tool_call_update(
-        PermissionRequestContextMetadata(
+    update = DefaultPermissionToolCallBuilder().build_tool_call_update(
+        PermissionRequestContext(
             session=session,
             tool_call=ToolCallPart(
                 tool_name="Files-Write",
@@ -117,7 +93,6 @@ def test_acp_session_starts_without_a_model(tmp_path):
             cwd=tmp_path,
             classifier=agent._tool_classifier,
             projection_map=compose_projection_maps(agent._config.projection_maps),
-            metadata=approval.ApprovalMetadata(msgs=["Approval required"]),
         )
     )
     assert update.kind == "edit"
@@ -129,4 +104,3 @@ def test_acp_session_starts_without_a_model(tmp_path):
             new_text="print('ok')\n",
         )
     )
-    assert update.content[-1].content.text == "Approval required"

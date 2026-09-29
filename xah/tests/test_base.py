@@ -15,8 +15,7 @@ from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
 from xah.options import base as options
-from xah.toolsets.base.approval import ApprovalMetadata
-from xah.toolsets.base.toolset import Base as ToolsetBase
+from xah.toolsets.base.toolset import Toolset as ToolsetBase
 from pydantic_acp import compose_projection_maps
 from pydantic_acp.projection import FileEditToolCallContent
 from pydantic_ai import RunContext
@@ -121,9 +120,7 @@ def test_shell_requires_approval_when_policy_is_approval():
     assert toolset.options.cls[options.Policy].value == options.DISABLED
     toolset.options.cls[options.Policy].current_value = options.APPROVAL
 
-    assert asyncio.run(toolset.approval(ctx, tool_def, {"shell": "echo hello"})) == ApprovalMetadata(
-        msgs=["Approval required"],
-    )
+    assert asyncio.run(toolset.approval(ctx, tool_def, {"shell": "echo hello"}))
 
 
 def test_policy_value_controls_toolset_visibility():

@@ -10,9 +10,8 @@ from pydantic_ai.usage import RunUsage
 
 from corio.iterator import ilist
 from xah.options import base as options
-from xah.toolsets.base.approval import ApprovalMetadata
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.base.toolset import Base
+from xah.toolsets.base.toolset import Toolset
 
 
 class ApprovalTool(Tool):
@@ -31,7 +30,7 @@ class ApprovalWarning(ApprovalTool):
         return ["Approval required"]
 
 
-class ApprovalToolset(Base):
+class ApprovalToolset(Toolset):
     @cached_classproperty
     def TOOLS(cls):
         return [ApprovalTool]
@@ -63,7 +62,7 @@ class SecondaryTool(ApprovalTool):
     pass
 
 
-class SecondaryToolset(Base):
+class SecondaryToolset(Toolset):
     @cached_classproperty
     def TOOLS(cls):
         return [SecondaryTool]
@@ -105,7 +104,7 @@ def test_local_approval_wrapper_serializes_validator_messages():
 
     with pytest.raises(ApprovalRequired) as error:
         asyncio.run(call())
-    assert error.value.metadata == {"msgs": ["Approval required"]}
+    assert error.value.metadata is None
 
 
 def test_approved_call_constructs_a_fresh_model_and_runs_it():
@@ -119,24 +118,19 @@ def test_approved_call_constructs_a_fresh_model_and_runs_it():
 
     assert asyncio.run(call()) == "result\n\nWarnings:\nApproval required"
 
-
-def test_approval_metadata_truth_tracks_messages():
-    assert not ApprovalMetadata()
-    assert ApprovalMetadata(msgs=["Approval required"])
-
-
 def test_toolset_converts_model_validation_errors_to_model_retry():
     toolset = ApprovalToolset()
     tool_def = next(iter(toolset.tools.values())).tool_def
     with pytest.raises(ModelRetry):
-        asyncio.run(toolset.validate(context(toolset), tool_def, {}))
+        toolset.init_tool(context(toolset), tool_def, {})
 
 
 def test_full_policy_keeps_warning_messages():
     toolset = ApprovalToolset()
     toolset.options.cls[options.Policy].current_value = options.FULL
     tool_def = next(iter(toolset.tools.values())).tool_def
-    messages = asyncio.run(toolset.validate(context(toolset), tool_def, {"value": "result"}))
+    instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"})
+    messages = asyncio.run(instance.validate())
     assert messages == ["Approval required"]
 
 

@@ -5,7 +5,7 @@ from cached_classproperty import cached_classproperty
 from corio import strings
 from corio.iterator import ilist
 from xah.constants import TODO_STATE_END, TODO_STATE_START
-from xah.toolsets.base.toolset import Base
+from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.todo.constants import COMPLETED, TODO_STATUSES
 from xah.toolsets.todo.item import TodoItem
 
@@ -16,7 +16,7 @@ TODO_SYSTEM_PROMPT = strings.trim("""
 """)
 
 
-class Todo(Base):
+class Todo(Toolset):
     """Todo list tools."""
 
     @cached_classproperty
