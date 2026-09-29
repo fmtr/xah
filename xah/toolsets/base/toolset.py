@@ -15,7 +15,7 @@ from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration, resolve_class_collection
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Tool, ValidationResult
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
@@ -97,7 +97,11 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
     @cached_property
     def wrapper(self) -> ApprovalRequiredToolsetMetadata[AgentDepsT]:
-        return ApprovalRequiredToolsetMetadata(self, self.approval)
+        return ApprovalRequiredToolsetMetadata(self, self.validate)
+
+    @cached_property
+    def validation_results(self) -> dict[str | None, ValidationResult]:
+        return {}
 
     def init_tool(
         self,
@@ -119,17 +123,20 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         except ValidationError as error:
             raise ModelRetry(str(error)) from error
 
-    async def approval(
+    async def validate(
         self,
         ctx: RunContext[AgentDepsT],
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
-    ) -> bool:
-        """Return whether this tool requires approval before execution."""
+    ) -> ValidationResult:
         instance = self.init_tool(ctx, tool_def, tool_args)
-        return instance.approval
-
-
+        result = ValidationResult(
+            approval=instance.approval,
+            raise_for_messages=instance.raise_on_warn,
+        )
+        await instance.validate(result)
+        self.validation_results[ctx.tool_call_id] = result
+        return result
 
     async def call_tool(
         self,
@@ -139,27 +146,24 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         tool: ToolsetTool[AgentDepsT],
     ) -> Any:
         """
-        Validate and execute a tool through the framework dispatch path.
+        Execute a tool after its approval-bridge validation.
 
-        Pydantic AI constructs the execution instance through the registered
-        tool function. Validation then runs on that instance before ``run``.
-        Approval uses ``init_tool`` separately because it occurs before this
-        framework execution path.
+        The validation result is keyed by the framework tool-call ID so the
+        approved retry can reuse the exact preflight result.
         """
         instance = await super().call_tool(name, tool_args, ctx, tool)
-        messages = await instance.validate()
-        message_text = "\n".join(messages)
-        if messages and instance.raise_on_warn:
-            raise ModelRetry(message_text)
-
+        validation = self.validation_results.pop(ctx.tool_call_id)
         result = await instance.run()
-        if not messages:
+        if not validation.messages:
             return result
 
-        result = str(result)
-        return strings.trim(f"""
+        return strings.trim(
+            f"""
             {result}
 
-            Warnings:
-            {message_text}
-        """)
+            # Warnings
+            
+            The tool completed, but issued the following warnings. Avoid these issues in subsequent calls.
+            """,
+            validation.text
+        )

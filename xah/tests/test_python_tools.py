@@ -7,6 +7,7 @@ from pydantic_ai.usage import RunUsage
 
 from corio import Path
 from corio.iterator import ilist
+from xah.toolsets.base.tool import ValidationResult
 from xah.toolsets.python.pip import Pip
 from xah.toolsets.python.run import Run
 from xah.toolsets.python.run_code import RunCode
@@ -58,10 +59,12 @@ def test_correctness_validator_runs_under_every_policy(tmp_path):
     ctx = context(tmp_path)
     tool = make(Run, ctx, args=[])
     with pytest.raises(ModelRetry, match="No arguments"):
-        asyncio.run(tool.validate())
+        asyncio.run(tool.validate(ValidationResult()))
 
 
 def test_run_code_has_no_length_limit(tmp_path):
     ctx = context(tmp_path)
     tool = make(RunCode, ctx, code="x" * 1001)
-    assert asyncio.run(tool.validate()) == []
+    result = ValidationResult()
+    asyncio.run(tool.validate(result))
+    assert result.messages == []

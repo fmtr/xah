@@ -9,6 +9,7 @@ from corio import Path, strings
 from xah.constants import PROJECTION_EDIT_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
 from xah.toolsets.fs.similarity import SimilarityValidator
+from xah.toolsets.base.tool import ValidationResult
 
 
 class Edit(FileTool):
@@ -48,7 +49,7 @@ class EditPermissions(PermissionsValidator, Edit):
 
 
 class ValidEdit(Edit):
-    async def validate(self) -> list[str]:
+    async def validate(self, result: ValidationResult):
         if not self.path.is_file():
             raise ModelRetry(f'Path "{self.path}" does not exist.')
         if not self.old_text:
@@ -64,13 +65,12 @@ class ValidEdit(Edit):
                 f"String found {occurrence_count}. Use replace_all or provide more context.",
             )
 
-        return []
 
 
 class EditWarnings(SimilarityValidator, Edit):
-    async def validate(self) -> list[str]:
-        return self.similarity_warnings(
+    async def validate(self, result: ValidationResult):
+        result.messages.extend(self.similarity_warnings(
             self.old_text,
             self.new_text,
             "Your old and new strings are {similarity}% similar. Replace only the smallest substring that changes.",
-        )
+        ))

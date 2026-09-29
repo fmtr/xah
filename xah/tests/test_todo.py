@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from pydantic_ai import RunContext
 from pydantic_ai.usage import RunUsage
 from corio.iterator import ilist
+from xah.toolsets.base.tool import ValidationResult
 from xah.toolsets.todo.item import TodoItem
 from xah.toolsets.todo.toolset import Todo
 from xah.toolsets.todo.write import Write
@@ -17,5 +18,7 @@ def context():
 def test_write_uses_model_todos_and_updates_toolset():
     ctx = context()
     tool = Write(ctx=ctx, toolset=ctx.deps.toolsets.cls[Todo], todos=[TodoItem(content="one")])
-    assert asyncio.run(tool.validate()) == []
+    result = ValidationResult()
+    asyncio.run(tool.validate(result))
+    assert result.messages == []
     assert asyncio.run(tool.run()).startswith("Updated 1 todo")

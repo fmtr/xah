@@ -1,7 +1,9 @@
 from json import dumps
+from dataclasses import dataclass
 from typing import Generic, TypeVar
 from acp.exceptions import RequestError
-from corio import Path, Constants
+from acp.schema import ContentToolCallContent, TextContentBlock, ToolCallUpdate
+from corio import Path, Constants, strings
 from corio.iterator import ilist
 from xah.obs import logger
 from pydantic_ai.tools import DeferredToolRequests, DeferredToolResults, ToolDenied
@@ -15,9 +17,38 @@ from pydantic_acp import (
 from pydantic_acp.approvals import ApprovalResolution
 from xah.harness.base import HarnessBase
 from xah.harness.deps import HarnessDeps
+from xah.toolsets.base.tool import ValidationResult
 
 
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PermissionRequestContextMetadata(PermissionRequestContext):
+    metadata: ValidationResult
+
+
+class PermissionToolCallBuilderMetadata(DefaultPermissionToolCallBuilder):
+    def build_tool_call_update(
+        self,
+        context: PermissionRequestContextMetadata,
+    ) -> ToolCallUpdate:
+        update = super().build_tool_call_update(context)
+        if not context.metadata.text:
+            return update
+
+        content = list(update.content or [])
+        content.append(
+            ContentToolCallContent(
+                type="content",
+                content=TextContentBlock(
+                    type="text",
+                    text=context.metadata.text,
+                ),
+            ),
+        )
+        return update.model_copy(update={"content": content})
+
 
 class ApprovalBridgeMetadata(NativeApprovalBridge):
     async def resolve_deferred_approvals(
@@ -40,17 +71,22 @@ class ApprovalBridgeMetadata(NativeApprovalBridge):
                 )
                 continue
 
+            metadata = ValidationResult(
+                **requests.metadata.get(tool_call.tool_call_id, {})
+            )
+
             permission_response = await client.request_permission(
                 options=self._build_permission_options(),
                 session_id=session.session_id,
-                tool_call=DefaultPermissionToolCallBuilder().build_tool_call_update(
-                    PermissionRequestContext(
+                tool_call=PermissionToolCallBuilderMetadata().build_tool_call_update(
+                    PermissionRequestContextMetadata(
                         session=session,
                         tool_call=tool_call,
                         raw_input=dict(raw_input),
                         cwd=session.cwd,
                         classifier=classifier,
                         projection_map=projection_map,
+                        metadata=metadata,
                     ),
                 ),
             )
@@ -65,6 +101,16 @@ class ApprovalBridgeMetadata(NativeApprovalBridge):
             selected_result = self._selected_option_to_result(outcome.option_id)
             if selected_result is None:
                 raise RequestError.invalid_request({"optionId": outcome.option_id})
+            if isinstance(selected_result, ToolDenied):
+
+                if metadata.text:
+                    msg = strings.trim(
+                        "The tool call was denied.",
+                        metadata.text
+                    )
+
+                    selected_result = ToolDenied(message=msg)
+
             self._remember_policy(
                 session=session,
                 approval_policy_key=approval_policy_key,

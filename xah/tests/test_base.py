@@ -120,7 +120,11 @@ def test_shell_requires_approval_when_policy_is_approval():
     assert toolset.options.cls[options.Policy].value == options.DISABLED
     toolset.options.cls[options.Policy].current_value = options.APPROVAL
 
-    assert asyncio.run(toolset.approval(ctx, tool_def, {"shell": "echo hello"}))
+    safe_result = asyncio.run(toolset.validate(ctx, tool_def, {"shell": "echo hello"}))
+    sudo_result = asyncio.run(toolset.validate(ctx, tool_def, {"shell": "sudo echo hello"}))
+
+    assert not safe_result.approval
+    assert sudo_result.approval
 
 
 def test_policy_value_controls_toolset_visibility():

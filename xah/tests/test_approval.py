@@ -10,7 +10,7 @@ from pydantic_ai.usage import RunUsage
 
 from corio.iterator import ilist
 from xah.options import base as options
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Tool, ValidationResult
 from xah.toolsets.base.toolset import Toolset
 
 
@@ -26,8 +26,8 @@ class ApprovalTool(Tool):
 
 
 class ApprovalWarning(ApprovalTool):
-    async def validate(self) -> list[str]:
-        return ["Approval required"]
+    async def validate(self, result: ValidationResult):
+        result.messages.append("Approval required")
 
 
 class ApprovalToolset(Toolset):
@@ -104,19 +104,24 @@ def test_local_approval_wrapper_serializes_validator_messages():
 
     with pytest.raises(ApprovalRequired) as error:
         asyncio.run(call())
-    assert error.value.metadata is None
+    assert error.value.metadata == {
+        "messages": ["Approval required"],
+        "approval": True,
+        "raise_for_messages": False,
+    }
 
 
 def test_approved_call_constructs_a_fresh_model_and_runs_it():
     toolset = ApprovalToolset()
-    ctx = context(toolset, approved=True)
+    ctx = context(toolset)
+    tools = asyncio.run(toolset.wrapper.get_tools(ctx))
+    name = toolset.tool_name(ApprovalTool)
 
-    async def call():
-        tools = await toolset.wrapper.get_tools(ctx)
-        name = toolset.tool_name(ApprovalTool)
-        return await toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])
+    with pytest.raises(ApprovalRequired):
+        asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
 
-    assert asyncio.run(call()) == "result\n\nWarnings:\nApproval required"
+    ctx.tool_call_approved = True
+    assert asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])) == "result\n\nWarnings:\nApproval required"
 
 def test_toolset_converts_model_validation_errors_to_model_retry():
     toolset = ApprovalToolset()
@@ -130,8 +135,9 @@ def test_full_policy_keeps_warning_messages():
     toolset.options.cls[options.Policy].current_value = options.FULL
     tool_def = next(iter(toolset.tools.values())).tool_def
     instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"})
-    messages = asyncio.run(instance.validate())
-    assert messages == ["Approval required"]
+    result = ValidationResult()
+    asyncio.run(instance.validate(result))
+    assert result.messages == ["Approval required"]
 
 
 def test_auto_policy_turns_warnings_into_model_retry():
@@ -141,7 +147,7 @@ def test_auto_policy_turns_warnings_into_model_retry():
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
     name = toolset.tool_name(ApprovalTool)
 
-    with pytest.raises(ModelRetry, match="Approval required"):
+    with pytest.raises(ApprovalRequired):
         asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
 
 

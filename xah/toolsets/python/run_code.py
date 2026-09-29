@@ -8,6 +8,7 @@ from pydantic_ai import ModelRetry
 
 from corio.shell.dsl import arg, shell
 from xah.toolsets.base.subprocess import SubprocessRunner
+from xah.toolsets.base.tool import ValidationResult
 
 
 class RunCode(SubprocessRunner):
@@ -27,8 +28,7 @@ class RunCode(SubprocessRunner):
 class CodeLength(RunCode):
     MAX_CODE_LENGTH: ClassVar[float] = inf
 
-    async def validate(self) -> list[str]:
+    async def validate(self, result: ValidationResult):
         if len(self.code) > self.MAX_CODE_LENGTH:
             message = f"This tool is limited to {self.MAX_CODE_LENGTH} characters. Write longer code to a .py file and run it with Python."
             raise ModelRetry(message)
-        return []

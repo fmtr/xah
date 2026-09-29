@@ -6,6 +6,7 @@ from pydantic_ai import ModelRetry
 
 from corio.shell.dsl import shell
 from xah.toolsets.base.subprocess import SubprocessRunner
+from xah.toolsets.base.tool import ValidationResult
 
 
 class Run(SubprocessRunner):
@@ -23,7 +24,7 @@ class Run(SubprocessRunner):
 
 
 class ValidArguments(Run):
-    async def validate(self) -> list[str]:
+    async def validate(self, result: ValidationResult):
         if not self.args:
             raise ModelRetry("No arguments provided.")
 
@@ -37,4 +38,3 @@ class ValidArguments(Run):
             message = f"Use {run_code_name} for a short Python code fragment. Write longer code to a .py file and run that file."
             raise ModelRetry(message)
 
-        return []

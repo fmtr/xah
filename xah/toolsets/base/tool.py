@@ -16,6 +16,25 @@ from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration, resolve_class_collection
 
 
+class ValidationResult(dm.Base):
+    messages: list[str] = Field(default_factory=list)
+    approval: bool = False
+    raise_for_messages: bool = False
+
+    def __bool__(self) -> bool:
+        if self.approval:
+            return True
+
+        if self.messages and self.raise_for_messages:
+            return True
+
+        return False
+
+    @cached_property
+    def text(self) -> str:
+        return "\n".join(self.messages)
+
+
 class Tool(dm.Base):
     ctx: SkipJsonSchema[InstanceOf[RunContext]] = Field(exclude=True)
     toolset: SkipJsonSchema[InstanceOf[FunctionToolset]] = Field(exclude=True)
@@ -74,9 +93,7 @@ class Tool(dm.Base):
 
         return self.policy.value == options.AUTO
 
-    async def validate(self) -> list[str]:
-        messages = []
+    async def validate(self, result: ValidationResult):
         for validator_class in self.validator_classes:
             validator = validator_class.model_validate(self, from_attributes=True)
-            messages.extend(await validator.validate())
-        return messages
+            await validator.validate(result)

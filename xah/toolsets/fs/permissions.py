@@ -5,7 +5,7 @@ from pydantic_ai import ModelRetry
 
 from corio import Path
 from xah.options.path import PathRead, PathWrite, SelectPath
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Tool, ValidationResult
 
 
 class Permissions(frozenset[type[SelectPath]]):
@@ -32,7 +32,7 @@ class PermissionsValidator:
         if not path.is_relative_to(allowed):
             raise ModelRetry(f'Permission Denied: "{path}" is outside "{allowed}".')
 
-    async def validate(self) -> list[str]:
+    async def validate(self, result: ValidationResult):
         for name, field in type(self).model_fields.items():
             permissions = next(
                 (metadata for metadata in field.metadata if isinstance(metadata, Permissions)),
@@ -40,4 +40,3 @@ class PermissionsValidator:
             )
             for permission in permissions:
                 self.validate_path(getattr(self, name), permission)
-        return []
