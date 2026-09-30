@@ -5,8 +5,8 @@ from acp import update_agent_thought_text
 from acp.schema import AgentThoughtChunk
 from pydantic_ai.messages import PartDeltaEvent, PartStartEvent, ThinkingPart, ThinkingPartDelta
 
-from xah.acp.thinking import ThinkingPromptExecution
-from xah.acp.thinking import AgentAcp
+from xah.server.acp.thinking import ThinkingPromptExecution
+from xah.server.acp.thinking import AgentAcp
 
 
 def test_thinking_part_start_becomes_acp_thought_chunk():

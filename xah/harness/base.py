@@ -26,7 +26,7 @@ from pydantic_acp.projection import (
 )
 from pydantic_deep import StuckLoopDetection
 
-from xah.acp.thinking import AgentAcp
+from xah.server.acp.thinking import AgentAcp
 from xah import models
 from xah.constants import (
     PROJECTION_BASH_TOOL_NAMES,
@@ -272,7 +272,7 @@ class HarnessBase(Generic[DepsT]):
 
     @cached_property
     def approval_bridge(self):
-        from xah.acp.server import ApprovalBridgeMetadata
+        from xah.server.acp.server import ApprovalBridgeMetadata
 
         return ApprovalBridgeMetadata()
 
@@ -308,7 +308,7 @@ class HarnessBase(Generic[DepsT]):
 
     @cached_property
     def agent_source(self):
-        from xah.acp.server import SessionAgentSource
+        from xah.server.acp.server import SessionAgentSource
 
         return SessionAgentSource[DepsT](
             harness_type=type(self),

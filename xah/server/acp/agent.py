@@ -4,7 +4,7 @@ from acp.schema import AgentThoughtChunk
 from pydantic_acp.runtime import PydanticAcpAgent
 from pydantic_ai import UsageLimits
 
-from xah.acp.thinking import ThinkingPromptExecution
+from xah.server.acp.thinking import ThinkingPromptExecution
 
 
 class AgentAcp(PydanticAcpAgent):

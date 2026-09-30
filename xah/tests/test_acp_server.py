@@ -13,7 +13,7 @@ from pydantic_acp.projection import FileEditToolCallContent
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.tools import DeferredToolRequests, ToolDenied
 
-from xah.acp.server import ApprovalBridgeMetadata
+from xah.server.acp.server import ApprovalBridgeMetadata
 from xah.settings import PathAgent
 from xah.harness.base import HarnessBase
 

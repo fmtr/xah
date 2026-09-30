@@ -1,13 +1,15 @@
 import asyncio
 from functools import cached_property
 from pathlib import Path
-from typing import ClassVar
+
+from pydantic_acp import host
+from typing import ClassVar, Self
 
 from acpremote import TransportOptions
 from cached_classproperty import cached_classproperty
 from pydantic_settings import CliSubCommand
 
-from corio import dm
+from corio import dm, PackagePaths
 from corio import sets
 from corio.logs import logger
 
@@ -15,14 +17,15 @@ from xah.paths import paths
 
 
 class PathAgent(dm.Base):
-    home: Path = Path(f"~/.{paths.name}")
+    paths: ClassVar[PackagePaths] = paths
+    home: Path|None = None
     agents_dir: str = ".agents"
     agents_name: str = "AGENTS.md"
     skills_dir: str = "skills"
     agents: Path | None = None
 
     def model_post_init(self, __context):
-        self.home = self.home.expanduser()
+        self.home = (self.home or Path(f"~/.{paths.name}")).expanduser()
         if not self.home.exists():
             logger.warning(f"Creating missing agent home directory: {self.home}")
             self.home.mkdir(parents=True)
@@ -41,7 +44,7 @@ class Acp(dm.Base):
     url: str
 
     def run(self):
-        from xah.acp.proxy import Proxy
+        from xah.server.acp.proxy import Proxy
         from acp import run_agent
 
         agent = Proxy(
@@ -51,13 +54,20 @@ class Acp(dm.Base):
         return asyncio.run(run_agent(agent))
 
 
+
+
 class Settings(sets.Base, cli_parse_args=True):
     paths = paths
     acp: CliSubCommand[Acp]
     path: PathAgent = PathAgent()
-    port: int = 8000 + paths.metadata.port
+    port: int|None = None
     host: str='localhost'
     harness_type: ClassVar
+
+    def model_post_init(self, __context):
+
+        self.port = self.port or self.paths.metadata.port + 8000
+
 
     @cached_classproperty
     def harness_type(cls):
@@ -69,3 +79,16 @@ class Settings(sets.Base, cli_parse_args=True):
         super().run()
 
         return self.harness_type.launch(settings=self)
+
+    @classmethod
+    def subclass(cls, paths: PackagePaths) -> type[Self]:
+
+        PathAgentBase=PathAgent
+        package_paths=paths
+        class PathAgent(PathAgentBase):
+            paths=package_paths
+
+        class Settings(super().subclass(paths=package_paths)):
+            path=PathAgent
+
+        return Settings

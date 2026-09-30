@@ -8,7 +8,7 @@ from cached_classproperty import cached_classproperty
 from corio import Path
 from corio.iterator import ilist
 
-from xah.acp.server import SessionAgentSource
+from xah.server.acp.server import SessionAgentSource
 from xah.settings import PathAgent
 from xah.harness.base import HarnessBase
 from xah.harness.deps import HarnessDeps
@@ -20,6 +20,7 @@ from pydantic_acp import compose_projection_maps
 from pydantic_acp.projection import FileEditToolCallContent
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
+from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.python.toolset import Python
@@ -111,20 +112,25 @@ def test_files_write_projection_is_a_diff_without_default_tool_names():
     ]
 
 
-def test_shell_requires_approval_when_policy_is_approval():
+def test_shell_validation_uses_agent_output():
     deps = harness().deps
     toolset = deps.toolsets.cls[Shell]
-    ctx = RunContext(deps=deps, model=None, usage=RunUsage())
+    model = TestModel(
+        custom_output_args={
+            "approval": True,
+            "comments": "The command is appropriate.",
+        }
+    )
+    ctx = RunContext(deps=deps, model=model, usage=RunUsage())
     tool_def = next(iter(toolset.tools.values())).tool_def
 
     assert toolset.options.cls[options.Policy].value == options.DISABLED
     toolset.options.cls[options.Policy].current_value = options.APPROVAL
 
-    safe_result = asyncio.run(toolset.validate(ctx, tool_def, {"shell": "echo hello"}))
-    sudo_result = asyncio.run(toolset.validate(ctx, tool_def, {"shell": "sudo echo hello"}))
+    result = asyncio.run(toolset.validate(ctx, tool_def, {"shell": "echo hello"}))
 
-    assert not safe_result.approval
-    assert sudo_result.approval
+    assert result.approval
+    assert result.messages == ["The command is appropriate."]
 
 
 def test_policy_value_controls_toolset_visibility():
