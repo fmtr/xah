@@ -806,7 +806,7 @@ wheels = [
 
 [[package]]
 name = "corio"
-version = "2.11.0"
+version = "2.12.0"
 source = { editable = "../corio" }
 dependencies = [
     { name = "cached-classproperty" },
@@ -882,6 +882,14 @@ dm = [
 ]
 path-search = [
     { name = "ripgrep-rs" },
+]
+sets = [
+    { name = "pycountry" },
+    { name = "pydantic" },
+    { name = "pydantic-extra-types" },
+    { name = "pydantic-settings" },
+    { name = "pyyaml" },
+    { name = "yamlscript" },
 ]
 
 [package.metadata]
@@ -6641,7 +6649,7 @@ source = { editable = "." }
 dependencies = [
     { name = "acpremote" },
     { name = "agent-client-protocol" },
-    { name = "corio", extra = ["db-search", "dev", "dm", "path-search"] },
+    { name = "corio", extra = ["db-search", "dev", "dm", "path-search", "sets"] },
     { name = "debugpy" },
     { name = "fastmcp" },
     { name = "pydantic-acp" },
@@ -6649,17 +6657,24 @@ dependencies = [
     { name = "pydantic-deep", extra = ["all"] },
 ]
 
+[package.optional-dependencies]
+tool-kb = [
+    { name = "corio", extra = ["db-search"] },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "acpremote" },
     { name = "agent-client-protocol" },
-    { name = "corio", extras = ["dev", "db-search", "dm", "path-search"], editable = "../corio" },
+    { name = "corio", extras = ["db-search"], marker = "extra == 'tool-kb'", editable = "../corio" },
+    { name = "corio", extras = ["dev", "db-search", "dm", "path-search", "sets"], editable = "../corio" },
     { name = "debugpy" },
     { name = "fastmcp", specifier = "==3.4.4" },
     { name = "pydantic-acp" },
     { name = "pydantic-ai-slim", extras = ["logfire", "openai"] },
     { name = "pydantic-deep", extras = ["all"] },
 ]
+provides-extras = ["tool-kb"]
 
 [[package]]
 name = "xxhash"

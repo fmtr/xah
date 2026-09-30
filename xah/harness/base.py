@@ -8,7 +8,8 @@ from cached_classproperty import cached_classproperty
 from typing import Any, Generic, Sequence, TypeVar, cast
 
 from acpremote import serve_acp
-from corio import Path, strings
+from corio import Path, strings, PackagePaths
+from corio.function import ccp
 from corio.iterator import dedupe, enlist, ilist, strip_none
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import Thinking
@@ -68,13 +69,11 @@ class HarnessBase(Generic[DepsT]):
 
     def __init__(
         self,
-        settings,
         *,
         session=None,
         parent=None,
         bridges: Sequence[Any] = (),
     ):
-        self.settings = settings
         self.session = session
         self.parent = parent
         self.bridges = tuple(bridges)
@@ -162,7 +161,6 @@ class HarnessBase(Generic[DepsT]):
     @cached_property
     def subagent(self):
         return type(self)(
-            self.settings,
             session=self.session,
             parent=self,
             bridges=self.bridges,
@@ -355,10 +353,24 @@ class HarnessBase(Generic[DepsT]):
     def agent_factory(self, connection):
         del connection
         harness = type(self)(
-            self.settings,
             bridges=self.bridges,
         )
         return harness.acp_agent
+
+    @ccp
+    def paths(self)->PackagePaths:
+        from xah.paths import paths
+        return paths
+
+    @ccp
+    def Settings(cls):
+        from xah.settings import Settings
+        Settings=Settings.subclass(paths=cls.paths)
+        return Settings
+
+    @cached_property
+    def settings(self):
+        return self.Settings.instance
 
     async def serve(self):
         server = await serve_acp(self.agent_factory, host=self.settings.host, port=self.settings.port)
@@ -370,10 +382,10 @@ class HarnessBase(Generic[DepsT]):
             await server.serve_forever()
 
     @classmethod
-    async def launch_async(cls, settings):
-        self = cls(settings)
+    async def launch_async(cls,):
+        self = cls()
         await self.serve()
 
     @classmethod
-    def launch(cls, settings):
-        return asyncio.run(cls.launch_async(settings))
+    def launch(cls,):
+        return asyncio.run(cls.launch_async())

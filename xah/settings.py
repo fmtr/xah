@@ -65,30 +65,21 @@ class Settings(sets.Base, cli_parse_args=True):
     harness_type: ClassVar
 
     def model_post_init(self, __context):
-
         self.port = self.port or self.paths.metadata.port + 8000
 
-
     @cached_classproperty
-    def harness_type(cls):
-        from xah.harness.base import HarnessBase
-
-        return HarnessBase
-
-    def run(self):
-        super().run()
-
-        return self.harness_type.launch(settings=self)
+    def PathAgent(self) -> type[PathAgent]:
+        return PathAgent
 
     @classmethod
     def subclass(cls, paths: PackagePaths) -> type[Self]:
 
-        PathAgentBase=PathAgent
-        package_paths=paths
-        class PathAgent(PathAgentBase):
-            paths=package_paths
+        package_paths = paths
+
+        class PackagePath(cls.PathAgent):
+            paths = package_paths
 
         class Settings(super().subclass(paths=package_paths)):
-            path=PathAgent
+            path: PackagePath = PackagePath()
 
         return Settings

@@ -147,7 +147,6 @@ class SessionAgentSource(ilist[HarnessBase[DepsT]], Generic[DepsT]):
             return runtime
 
         runtime = self.harness_type(
-            self.settings,
             session=session,
             bridges=self.bridges,
         )

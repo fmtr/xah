@@ -39,7 +39,7 @@ keywords = []
 requires-python = ">=3.12,<3.15"
 dependencies = [
     "agent-client-protocol",
-    "corio[dev,db.search,dm,path.search]",
+    "corio[dev,db.search,dm,path.search,sets]",
     "debugpy",
     "pydantic-acp",
     "acpremote",
