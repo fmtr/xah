@@ -28,7 +28,7 @@ from pydantic_acp.projection import (
 from pydantic_deep import StuckLoopDetection
 
 from xah.server.acp.thinking import AgentAcp
-from xah import models
+from xah.models import AdapterModel, Luna
 from xah.constants import (
     PROJECTION_BASH_TOOL_NAMES,
     PROJECTION_EDIT_TOOL_NAMES,
@@ -90,6 +90,10 @@ class HarnessBase(Generic[DepsT]):
     def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[DepsT]]:
         return [Files, Shell, Python, Skills, Subagent, Todo, Utils]
 
+    @cached_classproperty
+    def MODELS(cls) -> list[type[AdapterModel]]:
+        return [Luna]
+
     @cached_property
     def toolset_classes(self) -> ilist[type[ToolsetBase[DepsT]]]:
         return resolve_class_collection(type(self), "TOOLSETS", "name")
@@ -125,8 +129,12 @@ class HarnessBase(Generic[DepsT]):
         return options
 
     @cached_property
-    def models(self):
-        return ilist(models.models)
+    def model_classes(self) -> ilist[type[AdapterModel]]:
+        return resolve_class_collection(type(self), "MODELS", "name")
+
+    @cached_property
+    def models(self) -> ilist[AdapterModel]:
+        return ilist(model_type() for model_type in self.model_classes)
 
     @cached_property
     def deps_kwargs(self) -> dict[str, Any]:

@@ -1,19 +1,100 @@
-from pydantic_acp import AdapterModel
+from __future__ import annotations
+
+from functools import cached_property
+from typing import Any, ClassVar
+
+from cached_classproperty import cached_classproperty
+from pydantic_acp import AdapterModel as AcpAdapterModel
 from pydantic_ai import ModelSettings
+from pydantic_ai.models import Model
+from pydantic_ai.models.ollama import OllamaModel
 from pydantic_ai.models.openai import OpenAIResponsesModel
+from pydantic_ai.providers.ollama import OllamaProvider
+from pydantic_ai.providers.openai import OpenAIProvider
 
 
-LUNA_MODEL_NAME = "gpt-5.6-luna"
-LUNA_ID = f"openai:{LUNA_MODEL_NAME}"
+class AdapterModel(AcpAdapterModel):
+    """Define an ACP model from a small set of overridable class variables."""
 
-luna = OpenAIResponsesModel(
-    LUNA_MODEL_NAME,
-    settings=ModelSettings(
+    NAME: ClassVar[str] = ""
+    MODEL_CLASS: ClassVar[type[Model]] = OpenAIResponsesModel
+    PROVIDER_CLASS: ClassVar = OpenAIProvider
+    PROVIDER_NAME: ClassVar[str] = "openai"
+    MODEL_SETTINGS: ClassVar[ModelSettings] = ModelSettings()
+    MODEL_KWARGS: ClassVar[dict[str, Any]] = {}
+
+    @cached_classproperty
+    def name(cls) -> str:
+        return cls.NAME
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        object.__setattr__(self, name, value)
+
+    def __init__(self) -> None:
+        super().__init__(
+            model_id=self.id,
+            name=self.name,
+            override=self.model,
+        )
+
+    @cached_property
+    def provider_name(self) -> str:
+        return self.PROVIDER_NAME
+
+    @cached_property
+    def id(self) -> str:
+        return f"{self.provider_name}:{self.name}"
+
+    @cached_property
+    def provider(self):
+        return self.PROVIDER_CLASS(**self.provider_kwargs)
+
+    @cached_property
+    def provider_kwargs(self) -> dict[str, Any]:
+        return {}
+
+    @cached_property
+    def settings(self) -> ModelSettings:
+        return self.MODEL_SETTINGS
+
+    @cached_property
+    def model_class(self) -> type[Model]:
+        return self.MODEL_CLASS
+
+    @cached_property
+    def model(self) -> Model:
+        return self.model_class(
+            self.name,
+            provider=self.provider,
+            settings=self.settings,
+            **self.MODEL_KWARGS,
+        )
+
+
+class AdapterModelOpenAI(AdapterModel):
+    """Configure models served by OpenAI's provider."""
+
+
+class AdapterModelOllama(AdapterModel):
+    """Configure models served by an Ollama endpoint."""
+
+    MODEL_CLASS = OllamaModel
+    PROVIDER_CLASS = OllamaProvider
+    PROVIDER_NAME = "ollama"
+    BASE_URL: ClassVar[str]
+    HTTP_CLIENT: ClassVar[Any]
+
+    @cached_property
+    def provider_kwargs(self) -> dict[str, Any]:
+        return {
+            "base_url": self.BASE_URL,
+            "http_client": self.HTTP_CLIENT,
+        }
+
+
+class Luna(AdapterModelOpenAI):
+    NAME = "gpt-5.6-luna"
+    MODEL_SETTINGS = ModelSettings(
         openai_reasoning_effort="medium",
         openai_reasoning_summary="detailed",
-    ),
-)
-
-models: list[AdapterModel] = [
-    AdapterModel(model_id=LUNA_ID, name=LUNA_MODEL_NAME, override=luna),
-]
+    )
