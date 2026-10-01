@@ -187,6 +187,7 @@ def test_select_enabled_can_be_overridden():
 def test_session_options_include_paths(tmp_path):
     deps = harness(Path(tmp_path)).deps
 
+    assert deps.options.name["PathCwd"].value == Path(tmp_path).resolve()
     assert deps.options.name["PathRead"].value == Path(tmp_path).resolve()
     assert deps.options.name["PathWrite"].value == Path(tmp_path).resolve()
     assert paths.dev_repo.as_posix() in {

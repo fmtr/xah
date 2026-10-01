@@ -5,7 +5,7 @@ from pydantic_ai import RunContext
 from pydantic_ai.usage import RunUsage
 from corio import Path
 from corio.iterator import ilist
-from xah.options.path import PathRead, PathWrite
+from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files
 
@@ -14,9 +14,9 @@ def context(tmp_path):
     cwd = Path(tmp_path).resolve()
     toolset = Files()
     deps = SimpleNamespace(
-        cwd=cwd,
         toolsets=ilist([toolset]),
         options=ilist([
+            PathCwd.from_cwd(cwd=cwd, description="Working directory."),
             PathRead.from_cwd(cwd=cwd, description="Read path."),
             PathWrite.from_cwd(cwd=cwd, description="Write path."),
         ]),

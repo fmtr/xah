@@ -10,10 +10,11 @@ from pydantic_acp import ProjectionMap
 from pydantic_ai import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from corio import dm
+from corio import Path, dm
 from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration, resolve_class_collection
+from xah.options.path import PathCwd
 
 
 class ValidationResult(dm.Base):
@@ -66,6 +67,10 @@ class Tool(dm.Base):
     @cached_property
     def validator_classes(self) -> ilist[type[Tool]]:
         return resolve_class_collection(type(self), "VALIDATORS", "local_name")
+
+    @cached_property
+    def cwd(self) -> Path:
+        return self.ctx.deps.options.cls[PathCwd].value
 
     @cached_property
     def name(self) -> str:

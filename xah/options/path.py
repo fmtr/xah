@@ -51,6 +51,10 @@ class SelectPath(options.Select):
         return (self.cwd / self.current_value).resolve()
 
 
+class PathCwd(SelectPath):
+    pass
+
+
 class PathRead(SelectPath):
     pass
 

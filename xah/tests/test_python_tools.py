@@ -7,6 +7,7 @@ from pydantic_ai.usage import RunUsage
 
 from corio import Path
 from corio.iterator import ilist
+from xah.options.path import PathCwd
 from xah.toolsets.base.tool import ValidationResult
 from xah.toolsets.python.pip import Pip
 from xah.toolsets.python.run import Run
@@ -17,7 +18,11 @@ from xah.toolsets.python.toolset import Python
 
 def context(tmp_path):
     toolset = Python()
-    deps = SimpleNamespace(cwd=Path(tmp_path), toolsets=ilist([toolset]))
+    cwd = Path(tmp_path)
+    deps = SimpleNamespace(
+        toolsets=ilist([toolset]),
+        options=ilist([PathCwd.from_cwd(cwd=cwd, description="Working directory.")]),
+    )
     return RunContext(deps=deps, model=None, usage=RunUsage())
 
 

@@ -22,7 +22,7 @@ class FileTool(Tool):
         for name, field in type(self).model_fields.items():
             if any(isinstance(metadata, Permissions) for metadata in field.metadata):
                 value = getattr(self, name)
-                setattr(self, name, (self.ctx.deps.cwd / value).resolve())
+                setattr(self, name, (self.cwd / value).resolve())
         return self
 
 

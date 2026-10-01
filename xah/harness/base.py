@@ -41,7 +41,7 @@ from xah.caps.traffic import ModelTrafficLogger
 from xah.class_collections import ClassDeclaration, resolve_class_collection
 from xah.harness.deps import HarnessDeps
 from xah.obs import logger
-from xah.options.path import PathRead, PathWrite
+from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.options.provider import ConfigOptionsProvider
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
@@ -101,7 +101,7 @@ class HarnessBase(Generic[DepsT]):
     @cached_property
     def toolsets(self) -> ilist[ToolsetBase[DepsT]]:
         return ilist(
-            toolset_type(settings=self.settings, cwd=self.cwd)
+            toolset_type(settings=self.settings, cwd=self.cwd_default)
             for toolset_type in self.toolset_classes
         )
 
@@ -115,14 +115,16 @@ class HarnessBase(Generic[DepsT]):
     @cached_property
     def options(self) -> list[SessionConfigSelect]:
         options=[
+            PathCwd.from_cwd(
+                cwd=self.cwd_default,
+                description="Working directory.",
+            ),
             PathRead.from_cwd(
-                name=None,
-                cwd=self.cwd,
+                cwd=self.cwd_default,
                 description="Directory available to read and execute from.",
             ),
             PathWrite.from_cwd(
-                name=None,
-                cwd=self.cwd,
+                cwd=self.cwd_default,
                 description="Directory available for file changes.",
             ),
         ]
@@ -141,13 +143,12 @@ class HarnessBase(Generic[DepsT]):
         return {}
 
     @cached_property
-    def cwd(self):
+    def cwd_default(self):
         return Path(self.session.cwd)
 
     @cached_property
     def deps(self) -> DepsT:
         deps = self.deps_type(
-            cwd=self.cwd,
             settings=self.settings,
             toolsets=self.toolsets,
             models=self.models,
@@ -245,7 +246,7 @@ class HarnessBase(Generic[DepsT]):
     @property
     def agents_md_instructions(self):
         path = (self.settings.path.agents / self.settings.path.agents_name).resolve()
-        cwd = (self.cwd / self.settings.path.agents_dir / self.settings.path.agents_name).resolve()
+        cwd = (self.cwd_default / self.settings.path.agents_dir / self.settings.path.agents_name).resolve()
         paths = dedupe([path, cwd])
         texts = [path.read_text() for path in paths if path.exists()]
         return texts
@@ -253,7 +254,7 @@ class HarnessBase(Generic[DepsT]):
     def get_paths_instructions(self, ctx: RunContext[DepsT]) -> str:
         instructions = strings.trim(
             f"""
-            The current working directory/repo is "{self.cwd}".
+            The current working directory/repo is "{self.cwd_default}".
             You have read access to "{ctx.deps.options.cls[PathRead].value}".
             You have write access to "{ctx.deps.options.cls[PathWrite].value}".
             """
