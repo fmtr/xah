@@ -52,7 +52,7 @@ class SelectPath(options.Select):
 
 
 class PathCwd(SelectPath):
-    pass
+    VISIBLE = False
 
 
 class PathRead(SelectPath):

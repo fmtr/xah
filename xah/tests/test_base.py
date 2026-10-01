@@ -222,8 +222,12 @@ def test_acp_provider_updates_dependency_option_state(tmp_path):
     same_deps = asyncio.run(source.get_deps(session, None))
 
     assert [option.id for option in provider.get_config_options(session, None)] == [
-        option.id for option in deps.options
+        option.id for option in deps.options if option.VISIBLE
     ]
+    assert "PathCwd" in deps.options.name
+    assert "PathCwd" not in {
+        option.id for option in provider.get_config_options(session, None)
+    }
     assert same_deps is deps
     assert source.session_id[session.session_id].deps is deps
     assert deps.options.name["PathRead"].current_value == "/"

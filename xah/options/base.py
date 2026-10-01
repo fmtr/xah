@@ -10,6 +10,8 @@ FULL = "full"
 
 
 class Select(SessionConfigOptionSelect):
+    VISIBLE: ClassVar[bool] = True
+
     @property
     def value(self) -> str:
         return self.current_value

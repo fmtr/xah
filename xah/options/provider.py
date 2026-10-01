@@ -13,7 +13,9 @@ class ConfigOptionsProvider(AcpConfigOptionsProvider):
 
     def get_config_options(self, session: AcpSessionContext, agent):
         del agent
-        return self._source.get_runtime(session).deps.options
+        options = self._source.get_runtime(session).deps.options
+        options= [option for option in options if option.VISIBLE]
+        return options
 
     def set_config_option(self, session: AcpSessionContext, agent, config_id, value):
         del agent
