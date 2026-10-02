@@ -9,6 +9,7 @@ from corio import Path
 from corio.iterator import ilist
 
 from xah.server.acp.server import SessionAgentSource
+from xah.server.acp.usage import UsageReporterRegistry
 from xah.settings import PathAgent
 from xah.harness.base import HarnessBase
 from xah.harness.deps import HarnessDeps
@@ -45,7 +46,7 @@ def test_harness_instructions_load_home_and_project_files(tmp_path):
     settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
     harness = HarnessBase(
         settings,
-        session=SimpleNamespace(cwd=project),
+        session=SimpleNamespace(cwd=project, session_id="test-session"),
     )
 
     result = asyncio.run(harness.dynamic_instructions(SimpleNamespace(deps=harness.deps)))
@@ -62,14 +63,17 @@ def test_harness_instructions_ignore_missing_files(tmp_path):
     settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
     harness = HarnessBase(
         settings,
-        session=SimpleNamespace(cwd=Path(tmp_path)),
+        session=SimpleNamespace(cwd=Path(tmp_path), session_id="test-session"),
     )
 
     assert harness.agents_md_instructions == []
 
 
 def harness(cwd=None):
-    session = SimpleNamespace(cwd=cwd or Path.cwd())
+    session = SimpleNamespace(
+        cwd=cwd or Path.cwd(),
+        session_id="test-session",
+    )
     return HarnessBase(SETTINGS, session=session)
 
 
@@ -207,7 +211,7 @@ def test_subagent_clone_has_independent_options(tmp_path):
 
 
 def test_acp_provider_updates_dependency_option_state(tmp_path):
-    source = SessionAgentSource(HarnessBase, SETTINGS)
+    source = SessionAgentSource(HarnessBase, SETTINGS, usage_reporters=UsageReporterRegistry())
     session = SimpleNamespace(
         cwd=str(tmp_path),
         session_id="session",
@@ -256,7 +260,7 @@ def test_harness_subclass_adds_capabilities_after_thinking():
 
     selected = CustomHarness(
         SETTINGS,
-        session=SimpleNamespace(cwd=Path.cwd()),
+        session=SimpleNamespace(cwd=Path.cwd(), session_id="test-session"),
     )
 
     assert selected.capabilities == [capability]
@@ -337,7 +341,7 @@ def test_harness_flattens_toolset_option_lists():
 
     selected = MultiOptionHarness(
         SETTINGS,
-        session=SimpleNamespace(cwd=Path.cwd()),
+        session=SimpleNamespace(cwd=Path.cwd(), session_id="test-session"),
     )
 
     assert [option.id for option in selected.deps.options if option.category == "tools"] == [

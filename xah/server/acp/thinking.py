@@ -3,7 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from acp import update_agent_thought_text
-from acp.schema import AgentMessageChunk, AgentThoughtChunk, TextContentBlock, ToolCallStart
+from acp.schema import (
+    AgentMessageChunk,
+    AgentThoughtChunk,
+    TextContentBlock,
+    ToolCallStart,
+    UsageUpdate,
+)
 from pydantic_acp.runtime.adapter import PydanticAcpAgent
 from pydantic_acp.runtime._prompt_execution import _PromptExecution
 from pydantic_ai import AgentRunResultEvent, UsageLimits
@@ -17,6 +23,9 @@ from pydantic_ai.messages import (
     ThinkingPartDelta,
 )
 
+from xah.server.acp.usage import UsageReporterRegistry
+from xah.obs import logger
+
 from pydantic_acp.projection import (
     _is_output_tool,
     build_tool_progress_update,
@@ -26,6 +35,29 @@ from pydantic_acp.projection import (
 
 class ThinkingPromptExecution(_PromptExecution):
     """Forward Pydantic AI thinking events as native ACP thought chunks."""
+
+    async def _record_execution_updates(self, **kwargs):
+        logger.info(
+            f"ACP execution updates hook entered for session {kwargs['session'].session_id}"
+        )
+        await super()._record_execution_updates(**kwargs)
+        reporter = self._runtime._owner.usage_reporters.for_session(
+            kwargs["session"].session_id
+        )
+        logger.info(f"ACP usage reporter state: used={reporter.used}, size={reporter.size}")
+        if reporter.used is None:
+            logger.info("ACP usage update skipped because no context usage was reported")
+            return
+        update = UsageUpdate(
+            session_update="usage_update",
+            used=reporter.used,
+            size=reporter.size,
+        )
+        logger.info(f"Sending ACP usage update: used={update.used}, size={update.size}")
+        await self._runtime._owner._client.session_update(
+            session_id=kwargs["session"].session_id,
+            update=update,
+        )
 
     @staticmethod
     def thought_update_from_event(event: Any):
@@ -112,13 +144,27 @@ class ThinkingPromptExecution(_PromptExecution):
 class AgentAcp(PydanticAcpAgent):
     """ACP agent that forwards Pydantic AI thinking events."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, usage_reporters: UsageReporterRegistry, **kwargs):
         super().__init__(*args, **kwargs)
+        self.usage_reporters = usage_reporters
         self._prompt_runtime._execution = ThinkingPromptExecution(self._prompt_runtime)
+        logger.info(f"Initialized ACP AgentAcp execution: {type(self._prompt_runtime._execution).__name__}")
+
+    def __call__(self, conn):
+        del conn
+        logger.info("Creating per-connection ACP AgentAcp instance")
+        return type(self)(
+            self._agent_source,
+            config=self._connection_factory_config,
+            usage_reporters=self.usage_reporters,
+        )
 
     def _build_run_kwargs(self, **kwargs):
+        logger.info(f"Building ACP run kwargs for model {kwargs['model_override']}")
         run_kwargs = super()._build_run_kwargs(**kwargs)
         run_kwargs["usage_limits"] = UsageLimits(request_limit=None)
+        reporter = self.usage_reporters.for_session(kwargs["session"].session_id)
+        reporter.begin(kwargs["model_override"])
         return run_kwargs
 
     async def _record_update(self, session, update):

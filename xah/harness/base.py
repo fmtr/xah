@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from functools import cached_property
+from itertools import chain
 
 from cached_classproperty import cached_classproperty
 from typing import Any, Generic, Sequence, TypeVar, cast
@@ -23,9 +24,10 @@ from pydantic_acp.projection import (
     FileSystemProjectionMap,
     ProjectionAwareToolClassifier,
 )
-from pydantic_deep import StuckLoopDetection
+from pydantic_deep import ContextManagerCapability, StuckLoopDetection
 
 from xah.server.acp.thinking import AgentAcp
+from xah.server.acp.usage import UsageReporter, UsageReporterRegistry
 from xah.models import AdapterModel, Luna
 from xah.constants import (
     PROJECTION_BASH_TOOL_NAMES,
@@ -43,6 +45,7 @@ from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.options.provider import ConfigOptionsProvider
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
+from xah.toolsets.context.toolset import Context
 from xah.toolsets.python.toolset import Python
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.skills.toolset import Skills
@@ -71,10 +74,12 @@ class HarnessBase(Generic[DepsT]):
         session=None,
         parent=None,
         bridges: Sequence[Any] = (),
+        usage_reporters: UsageReporterRegistry | None = None,
     ):
         self.session = session
         self.parent = parent
         self.bridges = tuple(bridges)
+        self.usage_reporters = usage_reporters or UsageReporterRegistry()
 
     @cached_property
     def name(self):
@@ -86,7 +91,7 @@ class HarnessBase(Generic[DepsT]):
 
     @cached_classproperty
     def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[DepsT]]:
-        return [Files, Shell, Python, Skills, Subagent, Todo, Utils]
+        return [Context, Files, Shell, Python, Skills, Subagent, Todo, Utils]
 
     @cached_classproperty
     def MODELS(cls) -> list[type[AdapterModel]]:
@@ -113,12 +118,26 @@ class HarnessBase(Generic[DepsT]):
         return Path(self.session.cwd)
 
     @cached_property
+    def context_manager(self):
+        return ContextManagerCapability(
+            include_compact_tool=False,
+            on_usage_update=self.session_usage_reporter.report,
+        )
+
+    @cached_property
+    def session_usage_reporter(self):
+        if self.session is None:
+            return UsageReporter()
+        return self.usage_reporters.for_session(self.session.session_id)
+
+    @cached_property
     def deps(self) -> DepsT:
         deps = self.deps_type(
             settings=self.settings,
             cwd_default=self.cwd_default,
             toolsets_classes=self.toolset_classes,
             models=self.models,
+            context_manager=self.context_manager,
             **self.deps_kwargs,
         )
         if self.parent is None:
@@ -180,6 +199,7 @@ class HarnessBase(Generic[DepsT]):
     def agent_capabilities(self):
         return strip_none(
             self.thinking,
+            self.context_manager,
             *self.capabilities,
             self.stuck_loop_detection,
             self.model_traffic_logger,
@@ -253,30 +273,43 @@ class HarnessBase(Generic[DepsT]):
         if self.session is None:
             return ilist()
 
-        projections = []
-        for toolset in self.deps.toolsets:
-            for tool_class in toolset.tool_classes:
-                for projection in enlist(tool_class.projections):
-                    if projection is None:
-                        continue
-                    if isinstance(projection, str):
-                        tool_name = toolset.tool_name(tool_class)
-                        if projection == PROJECTION_BASH_TOOL_NAMES:
-                            projection = FileSystemProjectionMap(
-                                bash_tool_names=frozenset({tool_name}),
-                                command_arg="shell",
-                            )
-                        else:
-                            projection_fields = {
-                                PROJECTION_READ_TOOL_NAMES: frozenset(),
-                                PROJECTION_WRITE_TOOL_NAMES: frozenset(),
-                                PROJECTION_EDIT_TOOL_NAMES: frozenset(),
-                                PROJECTION_SEARCH_TOOL_NAMES: frozenset(),
-                            }
-                            projection_fields[projection] = frozenset({tool_name})
-                            projection = HarnessFileSystemProjectionMap(**projection_fields)
-                    projections.append(projection)
-        return ilist(projections)
+        toolsets = list(self.deps.toolsets)
+        toolset_tools = [
+            [(toolset, tool_class) for tool_class in toolset.tool_classes]
+            for toolset in toolsets
+        ]
+        tools = list(chain.from_iterable(toolset_tools))
+        projections = [
+            (toolset, tool_class, projection)
+            for toolset, tool_class in tools
+            for projection in strip_none(*enlist(tool_class.projections))
+        ]
+        projection_maps = []
+        for toolset, tool_class, projection in projections:
+            if not isinstance(projection, str):
+                projection_maps.append(projection)
+                continue
+
+            tool_name = toolset.tool_name(tool_class)
+            if projection == PROJECTION_BASH_TOOL_NAMES:
+                projection_maps.append(
+                    FileSystemProjectionMap(
+                        bash_tool_names=frozenset({tool_name}),
+                        command_arg="shell",
+                    )
+                )
+                continue
+
+            projection_fields = {
+                PROJECTION_READ_TOOL_NAMES: frozenset(),
+                PROJECTION_WRITE_TOOL_NAMES: frozenset(),
+                PROJECTION_EDIT_TOOL_NAMES: frozenset(),
+                PROJECTION_SEARCH_TOOL_NAMES: frozenset(),
+            }
+            projection_fields[projection] = frozenset({tool_name})
+            projection_maps.append(HarnessFileSystemProjectionMap(**projection_fields))
+
+        return ilist(projection_maps)
 
     @cached_property
     def agent_source(self):
@@ -285,6 +318,7 @@ class HarnessBase(Generic[DepsT]):
         return SessionAgentSource[DepsT](
             harness_type=type(self),
             settings=self.settings,
+            usage_reporters=self.usage_reporters,
             capability_bridges=self.bridges,
             projection_maps=self.projections,
         )
@@ -312,7 +346,11 @@ class HarnessBase(Generic[DepsT]):
 
     @cached_property
     def acp_agent(self):
-        return AgentAcp(self.agent_source, config=self.adapter_config)
+        return AgentAcp(
+            self.agent_source,
+            config=self.adapter_config,
+            usage_reporters=self.usage_reporters,
+        )
 
     @property
     def url(self) -> str:

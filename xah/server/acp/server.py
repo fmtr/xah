@@ -6,6 +6,7 @@ from acp.schema import ContentToolCallContent, TextContentBlock, ToolCallUpdate
 from corio import Path, Constants, strings
 from corio.iterator import ilist
 from xah.obs import logger
+from xah.server.acp.usage import UsageReporterRegistry
 from pydantic_ai.tools import DeferredToolRequests, DeferredToolResults, ToolDenied
 from pydantic_ai import Agent
 from pydantic_acp import (
@@ -132,6 +133,7 @@ class SessionAgentSource(ilist[HarnessBase[DepsT]], Generic[DepsT]):
         self,
         harness_type: type[HarnessBase[DepsT]],
         settings,
+        usage_reporters: UsageReporterRegistry,
         capability_bridges=(),
         projection_maps=None,
     ):
@@ -140,6 +142,7 @@ class SessionAgentSource(ilist[HarnessBase[DepsT]], Generic[DepsT]):
         self.settings = settings
         self.bridges = tuple(capability_bridges)
         self.projection_maps = projection_maps
+        self.usage_reporters = usage_reporters
 
     def get_runtime(self, session: AcpSessionContext) -> HarnessBase[DepsT]:
         runtime = self.session_id.get(session.session_id)
@@ -149,7 +152,10 @@ class SessionAgentSource(ilist[HarnessBase[DepsT]], Generic[DepsT]):
         runtime = self.harness_type(
             session=session,
             bridges=self.bridges,
+            usage_reporters=self.usage_reporters,
         )
+        reporter = self.usage_reporters.for_session(session.session_id)
+        logger.info(f"ACP session runtime uses usage reporter {id(reporter)}")
         runtime.restore_session()
         if self.projection_maps is not None and not self.projection_maps:
             # AdapterConfig is created before ACP supplies a session and keeps

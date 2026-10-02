@@ -8,7 +8,7 @@ from corio import Path
 from corio.iterator import ilist
 from pydantic_acp import AdapterModel
 from pydantic_ai import ApprovalRequiredToolset
-from pydantic_deep import DeepAgentDeps
+from pydantic_deep import ContextManagerCapability, DeepAgentDeps
 
 from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.settings import Settings
@@ -21,6 +21,7 @@ class HarnessDeps(DeepAgentDeps):
     cwd_default: Path = field(default_factory=Path.cwd)
     toolsets_classes: Sequence[type[ToolsetBase[Self]]] = field(default_factory=tuple)
     models: ilist[AdapterModel] = field(default_factory=ilist)
+    context_manager: ContextManagerCapability | None = field(default=None, kw_only=True)
 
     @cached_property
     def toolsets(self) -> ilist[ToolsetBase[Self]]:
