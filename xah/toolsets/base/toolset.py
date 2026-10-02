@@ -74,7 +74,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             try:
                 return tool_class(ctx=ctx, toolset=self, **tool_args)
             except ValidationError as error:
-                raise ModelRetry(str(error)) from error
+                raise ModelRetry(self.validation_error_message(error)) from error
 
         pydantic_tool = PydanticTool.from_schema(
             function=construct,
@@ -103,6 +103,22 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     def validation_results(self) -> dict[str | None, ValidationResult]:
         return {}
 
+    @staticmethod
+    def validation_error_message(error: ValidationError) -> str:
+        details = error.errors(
+            include_context=False,
+            include_input=False,
+            include_url=False,
+        )
+        messages = []
+        for detail in details:
+            location = ".".join(str(part) for part in detail["loc"])
+            description = detail["msg"]
+            message = f"{location}: {description}"
+            messages.append(message)
+
+        return strings.trim(*messages)
+
     def init_tool(
         self,
         ctx: RunContext[AgentDepsT],
@@ -121,7 +137,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         try:
             return tool_class(ctx=ctx, toolset=self, **tool_args)
         except ValidationError as error:
-            raise ModelRetry(str(error)) from error
+            raise ModelRetry(self.validation_error_message(error)) from error
 
     async def validate(
         self,
