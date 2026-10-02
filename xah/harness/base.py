@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from functools import cached_property
 
-from acp.schema import SessionConfigSelect
 from cached_classproperty import cached_classproperty
 from typing import Any, Generic, Sequence, TypeVar, cast
 
@@ -13,7 +12,6 @@ from corio.function import ccp
 from corio.iterator import dedupe, enlist, ilist, strip_none
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import Thinking
-from pydantic_ai.toolsets import CombinedToolset
 from pydantic_acp import (
     AdapterConfig,
     AgentBridgeBuilder,
@@ -99,38 +97,6 @@ class HarnessBase(Generic[DepsT]):
         return resolve_class_collection(type(self), "TOOLSETS", "name")
 
     @cached_property
-    def toolsets(self) -> ilist[ToolsetBase[DepsT]]:
-        return ilist(
-            toolset_type(settings=self.settings, cwd=self.cwd_default)
-            for toolset_type in self.toolset_classes
-        )
-
-    @cached_property
-    def options_toolsets(self) -> list[SessionConfigSelect]:
-        options = []
-        for toolset in self.toolsets:
-            options += toolset.options
-        return options
-
-    @cached_property
-    def options(self) -> list[SessionConfigSelect]:
-        options=[
-            PathCwd.from_cwd(
-                cwd=self.cwd_default,
-                description="Working directory.",
-            ),
-            PathRead.from_cwd(
-                cwd=self.cwd_default,
-                description="Directory available to read and execute from.",
-            ),
-            PathWrite.from_cwd(
-                cwd=self.cwd_default,
-                description="Directory available for file changes.",
-            ),
-        ]
-        return options
-
-    @cached_property
     def model_classes(self) -> ilist[type[AdapterModel]]:
         return resolve_class_collection(type(self), "MODELS", "name")
 
@@ -150,22 +116,19 @@ class HarnessBase(Generic[DepsT]):
     def deps(self) -> DepsT:
         deps = self.deps_type(
             settings=self.settings,
-            toolsets=self.toolsets,
+            cwd_default=self.cwd_default,
+            toolsets_classes=self.toolset_classes,
             models=self.models,
-            options=ilist(self.options_toolsets+self.options),
             **self.deps_kwargs,
         )
         if self.parent is None:
             deps.subagents["default"] = self.subagent.agent
         return deps
 
-    def set_config_option(self, config_id, value):
-        self.deps.options.name[config_id].current_value = value
-
     def restore_session(self):
         for config_id, value in self.session.config_values.items():
             if config_id in self.deps.options.name:
-                self.set_config_option(config_id, value)
+                self.deps.set_config_value(config_id, value)
 
     @cached_property
     def subagent(self):
@@ -224,17 +187,13 @@ class HarnessBase(Generic[DepsT]):
             *self.bridge_capabilities,
         )
 
-    @staticmethod
-    def get_toolset(ctx: RunContext[DepsT]) -> CombinedToolset[DepsT]:
-        return CombinedToolset[DepsT](ctx.deps.approval_toolsets)
-
     @cached_property
     def agent(self) -> Agent[DepsT, str]:
         agent = Agent[DepsT, str](
             model=self.deps.models.current.override,
             #model_settings=self.model_settings,
             deps_type=self.deps_type,
-            toolsets=[self.get_toolset],
+            toolsets=[self.deps_type.get_toolset],
             capabilities=self.agent_capabilities,
             retries=self.retries,
         )
@@ -243,35 +202,41 @@ class HarnessBase(Generic[DepsT]):
         agent.description = self.description
         return agent
 
-    @property
-    def agents_md_instructions(self):
-        path = (self.settings.path.agents / self.settings.path.agents_name).resolve()
-        cwd = (self.cwd_default / self.settings.path.agents_dir / self.settings.path.agents_name).resolve()
+    @classmethod
+    def agents_md_instructions(cls, ctx: RunContext[DepsT]):
+        settings = ctx.deps.settings
+        path = (settings.path.agents / settings.path.agents_name).resolve()
+        cwd = (
+            ctx.deps.options.cls[PathCwd].value
+            / settings.path.agents_dir
+            / settings.path.agents_name
+        ).resolve()
         paths = dedupe([path, cwd])
         texts = [path.read_text() for path in paths if path.exists()]
         return texts
 
-    def get_paths_instructions(self, ctx: RunContext[DepsT]) -> str:
-        instructions = strings.trim(
+    @classmethod
+    def get_paths_instructions(cls, ctx: RunContext[DepsT]) -> str:
+        cwd = ctx.deps.options.cls[PathCwd].value
+        read = ctx.deps.options.cls[PathRead].value
+        write = ctx.deps.options.cls[PathWrite].value
+        return strings.trim(
             f"""
-            The current working directory/repo is "{self.cwd_default}".
-            You have read access to "{ctx.deps.options.cls[PathRead].value}".
-            You have write access to "{ctx.deps.options.cls[PathWrite].value}".
+            The current working directory/repo is "{cwd}".
+            You have read access to "{read}".
+            You have write access to "{write}".
             """
         )
 
-        return instructions
-
-    async def dynamic_instructions(self, ctx: RunContext[DepsT]) -> str:
+    @classmethod
+    async def dynamic_instructions(cls, ctx: RunContext[DepsT]) -> str:
         instructions = [
-            self.instructions,
-            *self.agents_md_instructions,
-            self.get_paths_instructions(ctx),
+            cls.instructions,
+            *cls.agents_md_instructions(ctx),
+            cls.get_paths_instructions(ctx),
             ctx.deps.toolsets.name[Todo.name].system_prompt,
         ]
-
-        instructions = '\n\n'.join(instructions)
-        return instructions
+        return '\n\n'.join(instructions)
 
     @cached_property
     def session_store(self):
@@ -289,7 +254,7 @@ class HarnessBase(Generic[DepsT]):
             return ilist()
 
         projections = []
-        for toolset in self.toolsets:
+        for toolset in self.deps.toolsets:
             for tool_class in toolset.tool_classes:
                 for projection in enlist(tool_class.projections):
                     if projection is None:

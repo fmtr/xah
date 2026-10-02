@@ -21,4 +21,4 @@ class ConfigOptionsProvider(AcpConfigOptionsProvider):
         del agent
         runtime = self._source.get_runtime(session)
         logger.info(f"Setting config option {config_id} {Constants.ARROW_RIGHT} {value}")
-        runtime.set_config_option(config_id, value)
+        runtime.deps.set_config_value(config_id, value)

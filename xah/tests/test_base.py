@@ -340,7 +340,7 @@ def test_harness_flattens_toolset_option_lists():
         session=SimpleNamespace(cwd=Path.cwd()),
     )
 
-    assert [option.id for option in selected.options_toolsets] == [
+    assert [option.id for option in selected.deps.options if option.category == "tools"] == [
         "Utils/Policy",
         "MultiOptionToolset/Policy",
         "MultiOptionToolset/ExtraOption",
