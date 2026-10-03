@@ -183,6 +183,8 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         approved retry can reuse the exact preflight result.
         """
         instance = await super().call_tool(name, tool_args, ctx, tool)
+        if ctx.tool_call_id not in self.validation_results:
+            await self.validate(ctx, tool.tool_def, tool_args) # Validation didn't already run during approval prompt check (i.e. we're a non-ACP/subagent).
         validation = self.validation_results.pop(ctx.tool_call_id)
         result = await instance.run()
         if not validation.messages:
