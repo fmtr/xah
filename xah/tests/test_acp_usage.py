@@ -8,7 +8,7 @@ from acp.schema import TextContentBlock, UsageUpdate
 from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 
-from xah.harness.base import HarnessBase
+from xah.harness.base import Harness
 from xah.server.acp.usage import UsageReporterRegistry
 
 
@@ -21,7 +21,7 @@ class RecordingClient:
 
 
 def test_acp_session_emits_context_usage_update(tmp_path):
-    class TestHarness(HarnessBase):
+    class TestHarness(Harness):
         @cached_property
         def agent(self):
             agent = Agent(

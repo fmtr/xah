@@ -10,10 +10,10 @@ def test_luna_model_has_medium_reasoning_and_detailed_summary():
 def test_available_models_are_declared_on_harness():
     from types import SimpleNamespace
 
-    from xah.harness.base import HarnessBase
+    from xah.harness.base import Harness
     from xah.server.acp.usage import UsageReporterRegistry
 
-    harness = HarnessBase(
+    harness = Harness(
         session=SimpleNamespace(cwd=".", session_id="test-session"),
         usage_reporters=UsageReporterRegistry(),
     )

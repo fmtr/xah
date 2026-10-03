@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import asyncio
 from functools import cached_property
-from itertools import chain
-
-from cached_classproperty import cached_classproperty
-from typing import Any, Generic, Sequence, TypeVar, cast
+from typing import Any, Generic, Self, Sequence, TypeVar, cast
 
 from acpremote import serve_acp
-from corio import Path, strings, PackagePaths
+from cached_classproperty import cached_classproperty
+from corio import PackagePaths, Path, strings
 from corio.function import ccp
 from corio.iterator import dedupe, enlist, ilist, strip_none
 from pydantic_ai import Agent, RunContext
@@ -26,9 +24,6 @@ from pydantic_acp.projection import (
 )
 from pydantic_deep import ContextManagerCapability, StuckLoopDetection
 
-from xah.server.acp.thinking import AgentAcp
-from xah.server.acp.usage import UsageReporterRegistry
-from xah.models import AdapterModel, Luna
 from xah.constants import (
     PROJECTION_BASH_TOOL_NAMES,
     PROJECTION_EDIT_TOOL_NAMES,
@@ -36,37 +31,162 @@ from xah.constants import (
     PROJECTION_SEARCH_TOOL_NAMES,
     PROJECTION_WRITE_TOOL_NAMES,
 )
-from xah.caps.retry import ToolCallArgsDeserialzer
 from xah.caps.traffic import ModelTrafficLogger
 from xah.class_collections import ClassDeclaration, resolve_class_collection
-from xah.harness.deps import HarnessDeps
+from xah.harness.deps import HarnessAgentDeps, HarnessDeps
+from xah.models import AdapterModel, Luna
 from xah.obs import logger
 from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.options.provider import ConfigOptionsProvider
-from xah.toolsets.fs.toolset import Files
+from xah.server.acp.thinking import AgentAcp
+from xah.server.acp.usage import UsageReporterRegistry
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
-from xah.toolsets.context.toolset import Context
-from xah.toolsets.python.toolset import Python
-from xah.toolsets.shell.toolset import Shell
-from xah.toolsets.skills.toolset import Skills
-from xah.toolsets.subagent.toolset import Subagent
-from xah.toolsets.todo.toolset import Todo
-from xah.toolsets.utils.toolset import Utils
 
 
+AgentDepsT = TypeVar("AgentDepsT", bound=HarnessAgentDeps)
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
 
 
-class HarnessBase(Generic[DepsT]):
+class HarnessAgent(Generic[AgentDepsT]):
+    """A directly usable agent without ACP session or launch machinery."""
+
     title = "Xah"
     description = "Root/orchestrator agent"
     instructions = "Use the prompt and the skills to complete the task."
-
-    deps_type = cast(type[DepsT], HarnessDeps)
+    deps_type = cast(type[AgentDepsT], HarnessAgentDeps)
     model_settings = {}
     retries = 20
-    thinking_effort = "low"
     stuck_loop_max_repeated = 3
+
+    def __init__(self, *, model, cwd_default: Path, settings):
+        self.model = model
+        self.cwd_default = cwd_default
+        self.settings = settings
+
+    @cached_property
+    def name(self):
+        return type(self).__name__
+
+    @cached_classproperty
+    def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[AgentDepsT]]:
+        return []
+
+    @cached_property
+    def toolset_classes(self) -> ilist[type[ToolsetBase[AgentDepsT]]]:
+        return resolve_class_collection(type(self), "TOOLSETS", "name")
+
+    @cached_property
+    def toolsets(self) -> ilist[ToolsetBase[AgentDepsT]]:
+        return ilist(
+            toolset_type(settings=self.settings, cwd=self.cwd_default)
+            for toolset_type in self.toolset_classes
+        )
+
+    @cached_property
+    def deps_kwargs(self) -> dict[str, Any]:
+        return {}
+
+    @cached_property
+    def deps(self) -> AgentDepsT:
+        return self.deps_type(
+            settings=self.settings,
+            cwd_default=self.cwd_default,
+            toolsets_classes=self.toolset_classes,
+            model=self.model,
+            **self.deps_kwargs,
+        )
+
+    @cached_property
+    def capabilities(self):
+        return []
+
+    @cached_property
+    def stuck_loop_detection(self):
+        return StuckLoopDetection(max_repeated=self.stuck_loop_max_repeated, ignore_tools=set())
+
+    @cached_property
+    def model_traffic_logger(self):
+        return ModelTrafficLogger(label=self.name)
+
+    @cached_property
+    def agent_capabilities(self):
+        return strip_none(
+            *self.capabilities,
+            self.stuck_loop_detection,
+            self.model_traffic_logger,
+        )
+
+    @cached_property
+    def agent(self) -> Agent[AgentDepsT, str]:
+        agent = Agent[AgentDepsT, str](
+            model=self.model,
+            deps_type=self.deps_type,
+            toolsets=[self.deps_type.get_toolset],
+            capabilities=self.agent_capabilities,
+            retries=self.retries,
+        )
+        agent.instructions(self.dynamic_instructions)
+        agent.description = self.description
+        return agent
+
+    @classmethod
+    def agents_md_instructions(cls, ctx: RunContext[AgentDepsT]):
+        settings = ctx.deps.settings
+        path = (settings.path.agents / settings.path.agents_name).resolve()
+        cwd = (
+            ctx.deps.options.cls[PathCwd].value
+            / settings.path.agents_dir
+            / settings.path.agents_name
+        ).resolve()
+        paths = dedupe([path, cwd])
+        texts = [path.read_text() for path in paths if path.exists()]
+        return texts
+
+    @classmethod
+    def get_paths_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
+        cwd = ctx.deps.options.cls[PathCwd].value
+        read = ctx.deps.options.cls[PathRead].value
+        write = ctx.deps.options.cls[PathWrite].value
+        return strings.trim(
+            f"""
+            The current working directory/repo is "{cwd}".
+            You have read access to "{read}".
+            You have write access to "{write}".
+            """
+        )
+
+    @classmethod
+    async def dynamic_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
+        instructions = [
+            cls.instructions,
+            *cls.agents_md_instructions(ctx),
+            cls.get_paths_instructions(ctx),
+        ]
+        return "\n\n".join(instructions)
+
+    @classmethod
+    def from_parent(cls, parent: Harness) -> Self:
+        self = cls(
+            model=parent.deps.model,
+            settings=parent.settings,
+            cwd_default=parent.cwd_default,
+        )
+        from xah.options.base import Policy, FULL
+
+        for option in self.deps.options:
+            parent_option = parent.deps.options.name[option.name]
+            if isinstance(option, Policy):
+                self.deps.set_config_value(option.name, FULL)
+                continue
+            option.current_value = parent_option.current_value
+        return self
+
+
+class Harness(HarnessAgent[DepsT], Generic[DepsT]):
+    """The ACP-backed harness and launchable application entry point."""
+
+    deps_type = HarnessDeps
+    thinking_effort = "low"
 
     def __init__(
         self,
@@ -80,24 +200,25 @@ class HarnessBase(Generic[DepsT]):
         self.usage_reporters = usage_reporters
 
     @cached_property
-    def name(self):
-        return type(self).__name__
-
-    @cached_property
     def session_id(self):
         return self.session.session_id
 
     @cached_classproperty
-    def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[DepsT]]:
+    def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[HarnessDeps]]:
+        from xah.toolsets.context.toolset import Context
+        from xah.toolsets.fs.toolset import Files
+        from xah.toolsets.python.toolset import Python
+        from xah.toolsets.shell.toolset import Shell
+        from xah.toolsets.skills.toolset import Skills
+        from xah.toolsets.subagent.toolset import Subagent
+        from xah.toolsets.todo.toolset import Todo
+        from xah.toolsets.utils.toolset import Utils
+
         return [Context, Files, Shell, Python, Skills, Todo, Utils]
 
     @cached_classproperty
     def MODELS(cls) -> list[type[AdapterModel]]:
         return [Luna]
-
-    @cached_property
-    def toolset_classes(self) -> ilist[type[ToolsetBase[DepsT]]]:
-        return resolve_class_collection(type(self), "TOOLSETS", "name")
 
     @cached_property
     def model_classes(self) -> ilist[type[AdapterModel]]:
@@ -106,10 +227,6 @@ class HarnessBase(Generic[DepsT]):
     @cached_property
     def models(self) -> ilist[AdapterModel]:
         return ilist(model_type() for model_type in self.model_classes)
-
-    @cached_property
-    def deps_kwargs(self) -> dict[str, Any]:
-        return {}
 
     @cached_property
     def cwd_default(self):
@@ -127,21 +244,15 @@ class HarnessBase(Generic[DepsT]):
         return self.usage_reporters.for_session(self.session.session_id)
 
     @cached_property
-    def deps(self) -> DepsT:
-        deps = self.deps_type(
+    def deps(self) -> HarnessDeps:
+        return self.deps_type(
             settings=self.settings,
             cwd_default=self.cwd_default,
             toolsets_classes=self.toolset_classes,
             models=self.models,
+            model=self.models.current.override,
             context_manager=self.context_manager,
-            **self.deps_kwargs,
         )
-        return deps
-
-    def restore_session(self):
-        for config_id, value in self.session.config_values.items():
-            if config_id in self.deps.options.name:
-                self.deps.set_config_value(config_id, value)
 
     @cached_property
     def thinking(self):
@@ -150,16 +261,12 @@ class HarnessBase(Generic[DepsT]):
     @cached_property
     def stuck_loop_detection(self):
         from xah.toolsets.fs.edit import Edit
+        from xah.toolsets.fs.toolset import Files
 
-        name_edit = f"{Files.name}-{Edit.local_name}"
         return StuckLoopDetection(
             max_repeated=self.stuck_loop_max_repeated,
-            ignore_tools={name_edit},
+            ignore_tools={f"{Files.name}-{Edit.local_name}"},
         )
-
-    @cached_property
-    def model_traffic_logger(self):
-        return ModelTrafficLogger(label=self.name)
 
     @cached_property
     def bridge_capabilities(self):
@@ -167,10 +274,6 @@ class HarnessBase(Generic[DepsT]):
             session=self.session,
             capability_bridges=self.bridges,
         ).build_capabilities()
-
-    @cached_property
-    def capabilities(self):
-        return []
 
     @cached_property
     def agent_capabilities(self):
@@ -184,55 +287,34 @@ class HarnessBase(Generic[DepsT]):
         )
 
     @cached_property
-    def agent(self) -> Agent[DepsT, str]:
-        agent = Agent[DepsT, str](
+    def agent(self) -> Agent[HarnessDeps, str]:
+        agent = Agent[HarnessDeps, str](
             model=self.deps.models.current.override,
-            #model_settings=self.model_settings,
             deps_type=self.deps_type,
             toolsets=[self.deps_type.get_toolset],
             capabilities=self.agent_capabilities,
             retries=self.retries,
         )
-
         agent.instructions(self.dynamic_instructions)
         agent.description = self.description
         return agent
 
     @classmethod
-    def agents_md_instructions(cls, ctx: RunContext[DepsT]):
-        settings = ctx.deps.settings
-        path = (settings.path.agents / settings.path.agents_name).resolve()
-        cwd = (
-            ctx.deps.options.cls[PathCwd].value
-            / settings.path.agents_dir
-            / settings.path.agents_name
-        ).resolve()
-        paths = dedupe([path, cwd])
-        texts = [path.read_text() for path in paths if path.exists()]
-        return texts
+    async def dynamic_instructions(cls, ctx: RunContext[HarnessDeps]) -> str:
+        from xah.toolsets.todo.toolset import Todo
 
-    @classmethod
-    def get_paths_instructions(cls, ctx: RunContext[DepsT]) -> str:
-        cwd = ctx.deps.options.cls[PathCwd].value
-        read = ctx.deps.options.cls[PathRead].value
-        write = ctx.deps.options.cls[PathWrite].value
-        return strings.trim(
-            f"""
-            The current working directory/repo is "{cwd}".
-            You have read access to "{read}".
-            You have write access to "{write}".
-            """
-        )
-
-    @classmethod
-    async def dynamic_instructions(cls, ctx: RunContext[DepsT]) -> str:
         instructions = [
             cls.instructions,
             *cls.agents_md_instructions(ctx),
             cls.get_paths_instructions(ctx),
-            ctx.deps.toolsets.name[Todo.name].system_prompt, # todo: silly. adds the prompt even when tool is disabled.
+            ctx.deps.toolsets.name[Todo.name].system_prompt,
         ]
-        return '\n\n'.join(instructions)
+        return "\n\n".join(instructions)
+
+    def restore_session(self):
+        for config_id, value in self.session.config_values.items():
+            if config_id in self.deps.options.name:
+                self.deps.set_config_value(config_id, value)
 
     @cached_property
     def session_store(self):
@@ -249,12 +331,11 @@ class HarnessBase(Generic[DepsT]):
         if self.session is None:
             return ilist()
 
-        toolsets = list(self.deps.toolsets)
-        toolset_tools = [
-            [(toolset, tool_class) for tool_class in toolset.tool_classes]
-            for toolset in toolsets
+        tools = [
+            (toolset, tool_class)
+            for toolset in self.deps.toolsets
+            for tool_class in toolset.tool_classes
         ]
-        tools = list(chain.from_iterable(toolset_tools))
         projections = [
             (toolset, tool_class, projection)
             for toolset, tool_class in tools
@@ -268,12 +349,9 @@ class HarnessBase(Generic[DepsT]):
 
             tool_name = toolset.tool_name(tool_class)
             if projection == PROJECTION_BASH_TOOL_NAMES:
-                projection_maps.append(
-                    FileSystemProjectionMap(
-                        bash_tool_names=frozenset({tool_name}),
-                        command_arg="shell",
-                    )
-                )
+                projection_maps.append(FileSystemProjectionMap(
+                    bash_tool_names=frozenset({tool_name}), command_arg="shell"
+                ))
                 continue
 
             projection_fields = {
@@ -291,7 +369,7 @@ class HarnessBase(Generic[DepsT]):
     def agent_source(self):
         from xah.server.acp.server import SessionAgentSource
 
-        return SessionAgentSource[DepsT](
+        return SessionAgentSource[HarnessDeps](
             harness_type=type(self),
             settings=self.settings,
             usage_reporters=self.usage_reporters,
@@ -340,14 +418,11 @@ class HarnessBase(Generic[DepsT]):
 
     def agent_factory(self, connection):
         del connection
-        harness = type(self)(
-            bridges=self.bridges,
-            usage_reporters=self.usage_reporters,
-        )
+        harness = type(self)(bridges=self.bridges, usage_reporters=self.usage_reporters)
         return harness.acp_agent
 
     @ccp
-    def paths(self)->PackagePaths:
+    def paths(self) -> PackagePaths:
         from xah.paths import paths
         return paths
 
@@ -363,18 +438,15 @@ class HarnessBase(Generic[DepsT]):
 
     async def serve(self):
         server = await serve_acp(self.agent_factory, host=self.settings.host, port=self.settings.port)
-
-        url = f'http://{self.settings.host}:{self.settings.port}'
-        message = f"Launching {self.name} at {url}"
-        logger.info(message)
+        logger.info(f"Launching {self.name} at {self.url}")
         async with server:
             await server.serve_forever()
 
     @classmethod
-    async def launch_async(cls,):
+    async def launch_async(cls):
         self = cls(usage_reporters=UsageReporterRegistry())
         await self.serve()
 
     @classmethod
-    def launch(cls,):
+    def launch(cls):
         return asyncio.run(cls.launch_async())

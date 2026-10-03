@@ -14,7 +14,7 @@ from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.tools import DeferredToolRequests, ToolDenied
 
 from xah.server.acp.server import ApprovalBridgeMetadata
-from xah.harness.base import HarnessBase
+from xah.harness.base import Harness
 from xah.server.acp.usage import UsageReporterRegistry
 
 
@@ -58,7 +58,7 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
 
 def test_acp_session_starts_without_a_model(tmp_path):
     session_store = MemorySessionStore()
-    class TestXah(HarnessBase):
+    class TestXah(Harness):
         @cached_property
         def session_store(self):
             return session_store

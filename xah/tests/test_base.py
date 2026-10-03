@@ -11,7 +11,7 @@ from corio.iterator import ilist
 from xah.server.acp.server import SessionAgentSource
 from xah.server.acp.usage import UsageReporterRegistry
 from xah.settings import PathAgent
-from xah.harness.base import HarnessBase
+from xah.harness.base import Harness, HarnessAgent
 from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
@@ -44,7 +44,7 @@ def test_harness_instructions_load_home_and_project_files(tmp_path):
     (home / ".agents" / "AGENTS.md").write_text("home instructions")
     (project / ".agents" / "AGENTS.md").write_text("project instructions")
     settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
-    harness = HarnessBase(
+    harness = Harness(
         session=SimpleNamespace(cwd=project, session_id="test-session"),
         usage_reporters=UsageReporterRegistry(),
     )
@@ -61,7 +61,7 @@ def test_harness_instructions_ignore_missing_files(tmp_path):
     home = Path(tmp_path / "skills")
     home.mkdirf()
     settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
-    harness = HarnessBase(
+    harness = Harness(
         session=SimpleNamespace(cwd=Path(tmp_path), session_id="test-session"),
         usage_reporters=UsageReporterRegistry(),
     )
@@ -74,7 +74,7 @@ def harness(cwd=None):
         cwd=cwd or Path.cwd(),
         session_id="test-session",
     )
-    return HarnessBase(
+    return Harness(
         session=session,
         usage_reporters=UsageReporterRegistry(),
     )
@@ -214,7 +214,7 @@ def test_subagent_clone_has_independent_options(tmp_path):
 
 
 def test_acp_provider_updates_dependency_option_state(tmp_path):
-    source = SessionAgentSource(HarnessBase, SETTINGS, usage_reporters=UsageReporterRegistry())
+    source = SessionAgentSource(Harness, SETTINGS, usage_reporters=UsageReporterRegistry())
     session = SimpleNamespace(
         cwd=str(tmp_path),
         session_id="session",
@@ -256,7 +256,7 @@ def test_harness_subclass_adds_capabilities_after_thinking():
 
     capability = CustomCapability()
 
-    class CustomHarness(HarnessBase):
+    class CustomHarness(Harness):
         @cached_property
         def capabilities(self):
             return [capability]
@@ -279,7 +279,7 @@ def test_harness_deps_are_generic():
 
 
 def test_harness_subclass_defines_its_toolset_catalogue():
-    class Planner(HarnessBase):
+    class Planner(Harness):
         title = "Planner"
 
         @cached_classproperty
@@ -332,7 +332,7 @@ def test_harness_flattens_toolset_option_lists():
                 ),
             ])
 
-    class MultiOptionHarness(HarnessBase):
+    class MultiOptionHarness(Harness):
         @cached_classproperty
         def TOOLSETS(cls):
             return {
