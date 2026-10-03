@@ -125,12 +125,12 @@ class HarnessAgent(Generic[AgentDepsT]):
             capabilities=self.agent_capabilities,
             retries=self.retries,
         )
-        agent.instructions(self.dynamic_instructions)
+        agent.instructions(self.get_instructions)
         agent.description = self.description
         return agent
 
     @classmethod
-    def agents_md_instructions(cls, ctx: RunContext[AgentDepsT]):
+    def get_instructions_agent_md(cls, ctx: RunContext[AgentDepsT]):
         settings = ctx.deps.settings
         path = (settings.path.agents / settings.path.agents_name).resolve()
         cwd = (
@@ -156,10 +156,10 @@ class HarnessAgent(Generic[AgentDepsT]):
         )
 
     @classmethod
-    async def dynamic_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
+    async def get_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
         instructions = [
             cls.instructions,
-            *cls.agents_md_instructions(ctx),
+            #*cls.get_instructions_agent_md(ctx),
             cls.get_paths_instructions(ctx),
         ]
         return "\n\n".join(instructions)
@@ -295,19 +295,19 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
             capabilities=self.agent_capabilities,
             retries=self.retries,
         )
-        agent.instructions(self.dynamic_instructions)
+        agent.instructions(self.get_instructions)
         agent.description = self.description
         return agent
 
     @classmethod
-    async def dynamic_instructions(cls, ctx: RunContext[HarnessDeps]) -> str:
+    async def get_instructions(cls, ctx: RunContext[HarnessDeps]) -> str:
         from xah.toolsets.todo.toolset import Todo
 
         instructions = [
             cls.instructions,
-            *cls.agents_md_instructions(ctx),
+            *cls.get_instructions_agent_md(ctx),
             cls.get_paths_instructions(ctx),
-            ctx.deps.toolsets.name[Todo.name].system_prompt,
+            ctx.deps.toolsets.name[Todo.name].system_prompt # todo silly. should be in Toolset.get_instructions
         ]
         return "\n\n".join(instructions)
 

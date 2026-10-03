@@ -49,7 +49,7 @@ def test_harness_instructions_load_home_and_project_files(tmp_path):
         usage_reporters=UsageReporterRegistry(),
     )
 
-    result = asyncio.run(harness.dynamic_instructions(SimpleNamespace(deps=harness.deps)))
+    result = asyncio.run(harness.get_instructions(SimpleNamespace(deps=harness.deps)))
 
     assert "home instructions" in result
     assert "project instructions" in result
@@ -66,7 +66,7 @@ def test_harness_instructions_ignore_missing_files(tmp_path):
         usage_reporters=UsageReporterRegistry(),
     )
 
-    assert harness.agents_md_instructions == []
+    assert harness.get_instructions_agent_md == []
 
 
 def harness(cwd=None):
