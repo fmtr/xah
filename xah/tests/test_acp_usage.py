@@ -9,6 +9,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 
 from xah.harness.base import HarnessBase
+from xah.server.acp.usage import UsageReporterRegistry
 
 
 class RecordingClient:
@@ -32,7 +33,8 @@ def test_acp_session_emits_context_usage_update(tmp_path):
             return agent
 
     harness = TestHarness(
-        session=SimpleNamespace(cwd=tmp_path, session_id="test-session")
+        session=SimpleNamespace(cwd=tmp_path, session_id="test-session"),
+        usage_reporters=UsageReporterRegistry(),
     )
     with patch.object(sys, "argv", [sys.argv[0]]):
         assert any(

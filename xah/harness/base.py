@@ -27,7 +27,7 @@ from pydantic_acp.projection import (
 from pydantic_deep import ContextManagerCapability, StuckLoopDetection
 
 from xah.server.acp.thinking import AgentAcp
-from xah.server.acp.usage import UsageReporter, UsageReporterRegistry
+from xah.server.acp.usage import UsageReporterRegistry
 from xah.models import AdapterModel, Luna
 from xah.constants import (
     PROJECTION_BASH_TOOL_NAMES,
@@ -72,14 +72,12 @@ class HarnessBase(Generic[DepsT]):
         self,
         *,
         session=None,
-        parent=None,
         bridges: Sequence[Any] = (),
-        usage_reporters: UsageReporterRegistry | None = None,
+        usage_reporters: UsageReporterRegistry,
     ):
         self.session = session
-        self.parent = parent
         self.bridges = tuple(bridges)
-        self.usage_reporters = usage_reporters or UsageReporterRegistry()
+        self.usage_reporters = usage_reporters
 
     @cached_property
     def name(self):
@@ -91,7 +89,7 @@ class HarnessBase(Generic[DepsT]):
 
     @cached_classproperty
     def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[DepsT]]:
-        return [Context, Files, Shell, Python, Skills, Subagent, Todo, Utils]
+        return [Context, Files, Shell, Python, Skills, Todo, Utils]
 
     @cached_classproperty
     def MODELS(cls) -> list[type[AdapterModel]]:
@@ -126,8 +124,6 @@ class HarnessBase(Generic[DepsT]):
 
     @cached_property
     def session_usage_reporter(self):
-        if self.session is None:
-            return UsageReporter()
         return self.usage_reporters.for_session(self.session.session_id)
 
     @cached_property
@@ -140,27 +136,12 @@ class HarnessBase(Generic[DepsT]):
             context_manager=self.context_manager,
             **self.deps_kwargs,
         )
-        if self.parent is None:
-            deps.subagents["default"] = self.subagent.agent
         return deps
 
     def restore_session(self):
         for config_id, value in self.session.config_values.items():
             if config_id in self.deps.options.name:
                 self.deps.set_config_value(config_id, value)
-
-    @cached_property
-    def subagent(self):
-        return type(self)(
-            session=self.session,
-            parent=self,
-            bridges=self.bridges,
-            **self.subagent_kwargs,
-        )
-
-    @cached_property
-    def subagent_kwargs(self) -> dict[str, Any]:
-        return {}
 
     @cached_property
     def thinking(self):
@@ -366,6 +347,7 @@ class HarnessBase(Generic[DepsT]):
         del connection
         harness = type(self)(
             bridges=self.bridges,
+            usage_reporters=self.usage_reporters,
         )
         return harness.acp_agent
 
@@ -395,7 +377,7 @@ class HarnessBase(Generic[DepsT]):
 
     @classmethod
     async def launch_async(cls,):
-        self = cls()
+        self = cls(usage_reporters=UsageReporterRegistry())
         await self.serve()
 
     @classmethod

@@ -173,7 +173,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         if not validation.messages:
             return result
 
-        return strings.trim(
+        return strings.trim( # Todo consider using this for serialisazation: subagents_pydantic_ai._observability.serialize_output
             f"""
             {result}
 

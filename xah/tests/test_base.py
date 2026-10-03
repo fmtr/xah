@@ -45,8 +45,8 @@ def test_harness_instructions_load_home_and_project_files(tmp_path):
     (project / ".agents" / "AGENTS.md").write_text("project instructions")
     settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
     harness = HarnessBase(
-        settings,
         session=SimpleNamespace(cwd=project, session_id="test-session"),
+        usage_reporters=UsageReporterRegistry(),
     )
 
     result = asyncio.run(harness.dynamic_instructions(SimpleNamespace(deps=harness.deps)))
@@ -62,8 +62,8 @@ def test_harness_instructions_ignore_missing_files(tmp_path):
     home.mkdirf()
     settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
     harness = HarnessBase(
-        settings,
         session=SimpleNamespace(cwd=Path(tmp_path), session_id="test-session"),
+        usage_reporters=UsageReporterRegistry(),
     )
 
     assert harness.agents_md_instructions == []
@@ -74,7 +74,10 @@ def harness(cwd=None):
         cwd=cwd or Path.cwd(),
         session_id="test-session",
     )
-    return HarnessBase(SETTINGS, session=session)
+    return HarnessBase(
+        session=session,
+        usage_reporters=UsageReporterRegistry(),
+    )
 
 
 def test_harness_ignores_the_full_edit_tool_name_in_stuck_loop_detection():
@@ -259,8 +262,8 @@ def test_harness_subclass_adds_capabilities_after_thinking():
             return [capability]
 
     selected = CustomHarness(
-        SETTINGS,
         session=SimpleNamespace(cwd=Path.cwd(), session_id="test-session"),
+        usage_reporters=UsageReporterRegistry(),
     )
 
     assert selected.capabilities == [capability]
@@ -289,8 +292,11 @@ def test_harness_subclass_defines_its_toolset_catalogue():
                 Subagent: False,
             }
 
-    session = SimpleNamespace(cwd=Path.cwd())
-    planner = Planner(SETTINGS, session=session)
+    session = SimpleNamespace(cwd=Path.cwd(), session_id="test-session")
+    planner = Planner(
+        session=session,
+        usage_reporters=UsageReporterRegistry(),
+    )
 
     assert planner.name == "Planner"
     assert planner.title == "Planner"
@@ -340,8 +346,8 @@ def test_harness_flattens_toolset_option_lists():
             }
 
     selected = MultiOptionHarness(
-        SETTINGS,
         session=SimpleNamespace(cwd=Path.cwd(), session_id="test-session"),
+        usage_reporters=UsageReporterRegistry(),
     )
 
     assert [option.id for option in selected.deps.options if option.category == "tools"] == [
