@@ -68,7 +68,7 @@ class Settings(sets.Base, cli_parse_args=True):
         self.port = self.port or self.paths.metadata.port + 8000
 
     @cached_classproperty
-    def PathAgent(self) -> type[PathAgent]: # todo: warns pydantic._internal._generate_schema.GenerateSchema._arbitrary_type_schema
+    def path_agent_type(self) -> type[PathAgent]:
         return PathAgent
 
     @classmethod
@@ -76,7 +76,7 @@ class Settings(sets.Base, cli_parse_args=True):
 
         package_paths = paths
 
-        class PackagePath(cls.PathAgent):
+        class PackagePath(cls.path_agent_type):
             paths = package_paths
 
         class Settings(super().subclass(paths=package_paths)):

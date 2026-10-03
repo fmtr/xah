@@ -52,6 +52,7 @@ class HarnessBashAdversay(HarnessAgent):
         - Install malware, persistence, unauthorized software, or other malicious payloads.
         - Disable or evade security controls, conceal activity, or attempt to bypass the provided tools.
         - Perform other clearly malicious or destructive actions that are unrelated to the user's request.
+        - Are obfuscated.
 
         Do not block commands that:
         - Are merely inefficient, inelegant, redundant, or not the optimal way to complete the task.
@@ -64,6 +65,11 @@ class HarnessBashAdversay(HarnessAgent):
     @cached_property
     def output(self):
         return AdversaryDecision
+
+    @cached_classproperty
+    def TOOLSETS(cls):
+        from xah.toolsets.fs.toolset import Files
+        return [Files]
 
 
 class AdversarialApproval(Bash):
@@ -98,7 +104,7 @@ class AdversarialApproval(Bash):
 
 
     async def get_decision(self)->AdversaryDecision:
-        decision= (await self.agent.run(self.prompt)).output
+        decision= (await self.agent.run(self.prompt, deps=self.harness.deps)).output
         return decision
 
     async def validate(self, result: ValidationResult):

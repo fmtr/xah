@@ -1,5 +1,11 @@
+import importlib
+import warnings
+
+from pydantic.warnings import ArbitraryTypeWarning
+
 from corio import Path
 
+import xah.settings as settings_module
 from xah.paths import paths
 from xah.settings import PathAgent, Settings
 
@@ -27,6 +33,14 @@ def test_path_home_expands_user(tmp_path):
 def test_settings_uses_xah_paths_and_environment_prefix():
     assert Settings.paths is paths
     assert Settings.get_env_prefix() == "XAH__"
+
+
+def test_settings_path_annotation_does_not_emit_arbitrary_type_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ArbitraryTypeWarning)
+        importlib.reload(settings_module)
+
+    assert not [warning for warning in caught if warning.category is ArbitraryTypeWarning]
 
 
 def test_path_directories_are_settable(tmp_path):
