@@ -105,6 +105,15 @@ def test_toolset_projections_are_owned_by_toolsets():
     assert len(write_projections) == 1
 
 
+def test_harness_builds_projections_from_toolset_classes_without_deps():
+    harness_instance = harness()
+
+    projections = harness_instance.projections
+
+    assert projections
+    assert "deps" not in harness_instance.__dict__
+
+
 def test_files_write_projection_is_a_diff_without_default_tool_names():
     harness_instance = harness()
     write_projection = next(

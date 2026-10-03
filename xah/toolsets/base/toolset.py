@@ -4,12 +4,13 @@ from functools import cached_property
 from typing import Any, ClassVar, Generic, TypeVar
 
 from cached_classproperty import cached_classproperty
-from pydantic import ValidationError
+from pydantic import ValidationError, ConfigDict
 from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
 from corio import strings
+from corio.function import ccm
 from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration, resolve_class_collection
@@ -22,6 +23,9 @@ AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
 
 
 class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
+
+    model_config = ConfigDict(ignored_types=(cached_classproperty,))
+
     DESCRIPTION: ClassVar[str | None] = None
     POLICY: ClassVar[str] = options.FULL
 
@@ -43,15 +47,15 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     def TOOLS(cls) -> ClassDeclaration[Tool]:
         return []
 
-    @cached_property
-    def tool_classes(self) -> ilist[type[Tool]]:
-        return resolve_class_collection(type(self), "TOOLS", "local_name")
+    @cached_classproperty
+    def tool_classes(cls) -> ilist[type[Tool]]:
+        return resolve_class_collection(cls, "TOOLS", "local_name")
 
-    @cached_property
-    def projections(self) -> list:
+    @cached_classproperty
+    def projections(cls) -> list:
         projections = []
-        for tool_class in self.tool_classes:
-            tool_name = self.tool_name(tool_class)
+        for tool_class in cls.tool_classes:
+            tool_name = cls.tool_name(tool_class)
             projection=tool_class.build_projections(tool_name)
             projections.extend(projection)
         return projections
@@ -62,11 +66,13 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         for tool_class in self.tool_classes:
             self.register(tool_class)
 
-    def tool_name(self, tool_class: type[Tool]) -> str:
-        return f"{self.name}-{tool_class.local_name}"
+    @ccm
+    def tool_name(cls, tool_class: type[Tool]) -> str:
+        return f"{cls.name}-{tool_class.local_name}"
 
-    def local_tool_name(self, name: str) -> str:
-        return name.removeprefix(f"{self.name}-")
+    @ccm
+    def local_tool_name(cls, name: str) -> str:
+        return name.removeprefix(f"{cls.name}-")
 
     def register(self, tool_class: type[Tool]) -> None:
         """

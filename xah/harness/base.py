@@ -101,9 +101,14 @@ class HarnessAgent(Generic[AgentDepsT]):
         )
 
     @cached_property
+    def output(self):
+        return str
+
+    @cached_property
     def agent(self) -> Agent[AgentDepsT, str]:
         agent = Agent[AgentDepsT, str](
             model=self.model,
+            output_type=self.output,
             deps_type=self.deps_type,
             toolsets=[self.deps_type.get_toolset],
             capabilities=self.agent_capabilities,
@@ -276,6 +281,7 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
     def agent(self) -> Agent[HarnessDeps, str]:
         agent = Agent[HarnessDeps, str](
             model=self.deps.models.current.override,
+            output_type=self.output,
             deps_type=self.deps_type,
             toolsets=[self.deps_type.get_toolset],
             capabilities=self.agent_capabilities,
@@ -314,9 +320,10 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
 
     @cached_property
     def projections(self):
+
         projections = []
-        for toolset in self.deps.toolsets:
-            projections.extend(toolset.projections)
+        for toolset_type in self.toolset_classes:
+            projections.extend(toolset_type.projections)
         return ilist(projections)
 
     @cached_property
