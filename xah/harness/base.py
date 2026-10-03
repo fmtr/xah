@@ -162,10 +162,6 @@ class HarnessBase(Generic[DepsT]):
         return ModelTrafficLogger(label=self.name)
 
     @cached_property
-    def model_retry_logger(self):
-        return ToolCallArgsDeserialzer(label=self.name)
-
-    @cached_property
     def bridge_capabilities(self):
         return AgentBridgeBuilder(
             session=self.session,
@@ -184,7 +180,6 @@ class HarnessBase(Generic[DepsT]):
             *self.capabilities,
             self.stuck_loop_detection,
             self.model_traffic_logger,
-            self.model_retry_logger,
             *self.bridge_capabilities,
         )
 
@@ -235,7 +230,7 @@ class HarnessBase(Generic[DepsT]):
             cls.instructions,
             *cls.agents_md_instructions(ctx),
             cls.get_paths_instructions(ctx),
-            ctx.deps.toolsets.name[Todo.name].system_prompt,
+            ctx.deps.toolsets.name[Todo.name].system_prompt, # todo: silly. adds the prompt even when tool is disabled.
         ]
         return '\n\n'.join(instructions)
 
