@@ -47,6 +47,15 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     def tool_classes(self) -> ilist[type[Tool]]:
         return resolve_class_collection(type(self), "TOOLS", "local_name")
 
+    @cached_property
+    def projections(self) -> list:
+        projections = []
+        for tool_class in self.tool_classes:
+            tool_name = self.tool_name(tool_class)
+            projection=tool_class.build_projections(tool_name)
+            projections.extend(projection)
+        return projections
+
     def __init__(self, **kwargs):
         del kwargs
         super().__init__(id=self.name)

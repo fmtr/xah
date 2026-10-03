@@ -11,7 +11,7 @@ from pydantic_ai import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
 from corio import Path, dm
-from corio.iterator import ilist
+from corio.iterator import enlist, ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration, resolve_class_collection
 from xah.options.path import PathCwd
@@ -42,9 +42,40 @@ class Tool(dm.Base):
 
     NAME: ClassVar[str | None] = None
     DESCRIPTION: ClassVar[str | None] = None
-    projections: ClassVar[
-        str | ProjectionMap | list[str | ProjectionMap] | None
-    ] = None
+    PROJECTIONS: ClassVar[str | list[str]] = []
+
+    @classmethod
+    def build_projection(cls, field_name: str, tool_name: str | None = None) -> ProjectionMap:
+        from pydantic_acp import FileSystemProjectionMap, HarnessFileSystemProjectionMap
+        from xah.constants import (
+            PROJECTION_BASH_TOOL_NAMES,
+            PROJECTION_EDIT_TOOL_NAMES,
+            PROJECTION_READ_TOOL_NAMES,
+            PROJECTION_SEARCH_TOOL_NAMES,
+            PROJECTION_WRITE_TOOL_NAMES,
+        )
+
+        tool_name = tool_name or cls.local_name
+        if field_name == PROJECTION_BASH_TOOL_NAMES:
+            return FileSystemProjectionMap(
+                bash_tool_names=frozenset({tool_name}), command_arg="shell"
+            )
+
+        projection_fields = {
+            PROJECTION_READ_TOOL_NAMES: frozenset(),
+            PROJECTION_WRITE_TOOL_NAMES: frozenset(),
+            PROJECTION_EDIT_TOOL_NAMES: frozenset(),
+            PROJECTION_SEARCH_TOOL_NAMES: frozenset(),
+        }
+        projection_fields[field_name] = frozenset({tool_name})
+        return HarnessFileSystemProjectionMap(**projection_fields)
+
+    @classmethod
+    def build_projections(cls, tool_name: str) -> list[ProjectionMap]:
+        projections = []
+        for field_name in enlist(cls.PROJECTIONS):
+            projections.append(cls.build_projection(field_name, tool_name))
+        return projections
 
     @cached_classproperty
     def local_name(cls) -> str:

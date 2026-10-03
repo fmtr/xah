@@ -24,6 +24,7 @@ from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 from xah.toolsets.fs.toolset import Files
+from xah.toolsets.fs.write import Write
 from xah.toolsets.python.toolset import Python
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.skills.toolset import Skills
@@ -89,6 +90,19 @@ def test_similarity_validator_has_shared_thresholds():
 
     assert SimilarityValidator.SIMILARITY_MIN_LENGTH == 250
     assert SimilarityValidator.SIMILARITY_MIN_PERCENT == 80
+
+
+def test_toolset_projections_are_owned_by_toolsets():
+    harness_instance = harness()
+    toolset = harness_instance.deps.toolsets.name[Files.name]
+
+    write_projections = [
+        projection
+        for projection in toolset.projections
+        if toolset.tool_name(Write) in projection.write_tool_names
+    ]
+
+    assert len(write_projections) == 1
 
 
 def test_files_write_projection_is_a_diff_without_default_tool_names():

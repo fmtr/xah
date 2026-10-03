@@ -18,7 +18,7 @@ class Read(FileTool):
     offset: int = Field(default=0, ge=0, description="Zero-based line offset at which to start reading.")
     limit: int = Field(default=2000, gt=0, description="Maximum number of lines to return.")
 
-    projections: ClassVar = PROJECTION_READ_TOOL_NAMES
+    PROJECTIONS: ClassVar[str] = PROJECTION_READ_TOOL_NAMES
 
     @cached_classproperty
     def VALIDATORS(cls):

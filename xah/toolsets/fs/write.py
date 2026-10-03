@@ -18,7 +18,7 @@ class Write(FileTool):
     )
     content: str = Field(description="Complete file content to write.")
 
-    projections: ClassVar = PROJECTION_WRITE_TOOL_NAMES
+    PROJECTIONS: ClassVar[str] = PROJECTION_WRITE_TOOL_NAMES
 
     @cached_classproperty
     def VALIDATORS(cls):

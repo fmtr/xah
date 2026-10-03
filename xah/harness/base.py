@@ -8,29 +8,13 @@ from acpremote import serve_acp
 from cached_classproperty import cached_classproperty
 from corio import PackagePaths, Path, strings
 from corio.function import ccp
-from corio.iterator import dedupe, enlist, ilist, strip_none
+from corio.iterator import dedupe, ilist, strip_none
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import Thinking
-from pydantic_acp import (
-    AdapterConfig,
-    AgentBridgeBuilder,
-    FileSessionStore,
-    HarnessFileSystemProjectionMap,
-)
-from pydantic_acp.projection import (
-    DefaultToolClassifier,
-    FileSystemProjectionMap,
-    ProjectionAwareToolClassifier,
-)
+from pydantic_acp import AdapterConfig, AgentBridgeBuilder, FileSessionStore
+from pydantic_acp.projection import DefaultToolClassifier, ProjectionAwareToolClassifier
 from pydantic_deep import ContextManagerCapability, StuckLoopDetection
 
-from xah.constants import (
-    PROJECTION_BASH_TOOL_NAMES,
-    PROJECTION_EDIT_TOOL_NAMES,
-    PROJECTION_READ_TOOL_NAMES,
-    PROJECTION_SEARCH_TOOL_NAMES,
-    PROJECTION_WRITE_TOOL_NAMES,
-)
 from xah.caps.traffic import ModelTrafficLogger
 from xah.class_collections import ClassDeclaration, resolve_class_collection
 from xah.harness.deps import HarnessAgentDeps, HarnessDeps
@@ -165,18 +149,20 @@ class HarnessAgent(Generic[AgentDepsT]):
         return "\n\n".join(instructions)
 
     @classmethod
-    def from_parent(cls, parent: Harness) -> Self:
+    def from_parent(cls, parent: HarnessDeps) -> Self:
         self = cls(
-            model=parent.deps.model,
+            model=parent.model,
             settings=parent.settings,
             cwd_default=parent.cwd_default,
         )
         from xah.options.base import Policy, FULL
 
         for option in self.deps.options:
-            parent_option = parent.deps.options.name[option.name]
             if isinstance(option, Policy):
                 self.deps.set_config_value(option.name, FULL)
+                continue
+            parent_option = parent.options.name.get(option.name)
+            if parent_option is None:
                 continue
             option.current_value = parent_option.current_value
         return self
@@ -328,42 +314,10 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
 
     @cached_property
     def projections(self):
-        if self.session is None:
-            return ilist()
-
-        tools = [
-            (toolset, tool_class)
-            for toolset in self.deps.toolsets
-            for tool_class in toolset.tool_classes
-        ]
-        projections = [
-            (toolset, tool_class, projection)
-            for toolset, tool_class in tools
-            for projection in strip_none(*enlist(tool_class.projections))
-        ]
-        projection_maps = []
-        for toolset, tool_class, projection in projections:
-            if not isinstance(projection, str):
-                projection_maps.append(projection)
-                continue
-
-            tool_name = toolset.tool_name(tool_class)
-            if projection == PROJECTION_BASH_TOOL_NAMES:
-                projection_maps.append(FileSystemProjectionMap(
-                    bash_tool_names=frozenset({tool_name}), command_arg="shell"
-                ))
-                continue
-
-            projection_fields = {
-                PROJECTION_READ_TOOL_NAMES: frozenset(),
-                PROJECTION_WRITE_TOOL_NAMES: frozenset(),
-                PROJECTION_EDIT_TOOL_NAMES: frozenset(),
-                PROJECTION_SEARCH_TOOL_NAMES: frozenset(),
-            }
-            projection_fields[projection] = frozenset({tool_name})
-            projection_maps.append(HarnessFileSystemProjectionMap(**projection_fields))
-
-        return ilist(projection_maps)
+        projections = []
+        for toolset in self.deps.toolsets:
+            projections.extend(toolset.projections)
+        return ilist(projections)
 
     @cached_property
     def agent_source(self):

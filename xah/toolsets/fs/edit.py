@@ -22,7 +22,7 @@ class Edit(FileTool):
     new_text: str = Field(description="Replacement text.")
     replace_all: bool = Field(default=False, description="Replace every exact occurrence.")
 
-    projections: ClassVar = PROJECTION_EDIT_TOOL_NAMES
+    PROJECTIONS: ClassVar[str] = PROJECTION_EDIT_TOOL_NAMES
 
     @cached_classproperty
     def VALIDATORS(cls):

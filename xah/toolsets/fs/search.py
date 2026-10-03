@@ -102,7 +102,7 @@ class Search(FileTool):
     )
     glob: str | None = Field(default=None, description="Optional file glob filter.")
 
-    projections: ClassVar = PROJECTION_SEARCH_TOOL_NAMES
+    PROJECTIONS: ClassVar[str] = PROJECTION_SEARCH_TOOL_NAMES
 
     @cached_classproperty
     def VALIDATORS(cls):

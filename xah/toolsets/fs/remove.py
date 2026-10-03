@@ -9,7 +9,7 @@ from xah.toolsets.fs.path import PathPermissions, PathTool
 class Remove(PathTool):
     """Remove one file or directory path."""
 
-    projections: ClassVar = PROJECTION_WRITE_TOOL_NAMES
+    PROJECTIONS: ClassVar[str] = PROJECTION_WRITE_TOOL_NAMES
 
     @cached_classproperty
     def VALIDATORS(cls):

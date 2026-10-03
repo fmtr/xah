@@ -19,7 +19,7 @@ class Move(FileTool):
     target: Annotated[Path, Permissions(Permissions.Write)] = Field(description="Destination path.")
     is_copy: bool = Field(default=False, description="Copy the source instead of moving it.")
 
-    projections: ClassVar = PROJECTION_WRITE_TOOL_NAMES
+    PROJECTIONS: ClassVar[str] = PROJECTION_WRITE_TOOL_NAMES
 
     @cached_classproperty
     def VALIDATORS(cls):

@@ -20,7 +20,7 @@ class Bash(SubprocessRunner):
 
     shell: str = Field(description="Bash source to execute in the working directory.")
 
-    projections = PROJECTION_BASH_TOOL_NAMES
+    PROJECTIONS = PROJECTION_BASH_TOOL_NAMES
 
     @cached_classproperty
     def VALIDATORS(cls):
