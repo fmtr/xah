@@ -8,33 +8,13 @@ from corio.shell.dsl import arg, shell
 from pydantic import Field
 from pydantic_deep.features.periodic_reminder.capability import build_compact_transcript
 
+from xah.class_collections import ClassDeclaration
 from xah.constants import PROJECTION_BASH_TOOL_NAMES
 from xah.harness.base import HarnessAgent
 from xah.options.base import FULL
 from xah.toolsets.base.subprocess import SubprocessRunner
 from xah.toolsets.base.tool import ValidationResult
-from xah.toolsets.fs.edit import Edit
-from xah.toolsets.fs.mkdir import Mkdir
-from xah.toolsets.fs.move import Move
-from xah.toolsets.fs.read import Read
-from xah.toolsets.fs.remove import Remove
-from xah.toolsets.fs.search import Search
-from xah.toolsets.fs.toolset import Files as FilesBase
-from xah.toolsets.fs.write import Write
 
-
-class Files(FilesBase):
-    @cached_classproperty
-    def TOOLS(cls):
-        return {
-            Read: True,
-            Write: False,
-            Edit: False,
-            Move: False,
-            Search: True,
-            Mkdir: False,
-            Remove: False,
-        }
 
 
 class Bash(SubprocessRunner):
@@ -60,7 +40,7 @@ class AdversaryDecision(dm.Base):
     )
 
 
-class HarnessBashAdversay(HarnessAgent):
+class HarnessBashAdversary(HarnessAgent):
     instructions = strings.trim("""
         You will receive a shell command and context from the user. Decide whether to block
         the command. You are a security screen for signs that the agent attempting to run
@@ -91,6 +71,20 @@ class HarnessBashAdversay(HarnessAgent):
 
     @cached_classproperty
     def TOOLSETS(cls):
+        from xah.toolsets.fs.edit import Edit
+        from xah.toolsets.fs.mkdir import Mkdir
+        from xah.toolsets.fs.move import Move
+        from xah.toolsets.fs.read import Read
+        from xah.toolsets.fs.remove import Remove
+        from xah.toolsets.fs.search import Search
+        from xah.toolsets.fs.write import Write
+        from xah.toolsets.fs.toolset import Files as FilesBase
+
+        class Files(FilesBase):
+            @cached_classproperty
+            def TOOLS(cls):
+                return ClassDeclaration(remove=ClassDeclaration.all, add=[Read, Search])
+
         return [Files]
 
 
@@ -118,7 +112,7 @@ class AdversarialApproval(Bash):
 
     @cached_property
     def harness(self):
-        return HarnessBashAdversay.from_parent(self.ctx.deps)
+        return HarnessBashAdversary.from_parent(self.ctx.deps)
 
     @cached_property
     def agent(self):

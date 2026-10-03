@@ -9,6 +9,7 @@ from pydantic_ai import ApprovalRequired, ModelRetry, RunContext
 from pydantic_ai.usage import RunUsage
 
 from corio.iterator import ilist
+from xah.class_collections import ClassDeclaration
 from xah.options import base as options
 from xah.toolsets.base.tool import Tool, ValidationResult
 from xah.toolsets.base.toolset import Toolset
@@ -55,7 +56,7 @@ class ReplacementApprovalTool(ApprovalTool):
 class ReplacementApprovalToolset(ApprovalToolset):
     @cached_classproperty
     def TOOLS(cls):
-        return {ReplacementApprovalTool: True}
+        return ClassDeclaration(add=[ReplacementApprovalTool])
 
 
 class SecondaryTool(ApprovalTool):
@@ -71,7 +72,7 @@ class SecondaryToolset(Toolset):
 class CombinedToolset(ApprovalToolset, SecondaryToolset):
     @cached_classproperty
     def TOOLS(cls):
-        return {ApprovalTool: False}
+        return ClassDeclaration(remove=[ApprovalTool])
 
 
 def context(toolset, approved=False):

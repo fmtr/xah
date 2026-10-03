@@ -8,6 +8,7 @@ from cached_classproperty import cached_classproperty
 from corio import Path
 from corio.iterator import ilist
 
+from xah.class_collections import ClassDeclaration
 from xah.server.acp.server import SessionAgentSource
 from xah.server.acp.usage import UsageReporterRegistry
 from xah.settings import PathAgent
@@ -307,13 +308,7 @@ def test_harness_subclass_defines_its_toolset_catalogue():
 
         @cached_classproperty
         def TOOLSETS(cls):
-            return {
-                Files: False,
-                Shell: False,
-                Python: False,
-                Skills: False,
-                Subagent: False,
-            }
+            return ClassDeclaration(remove=[Files, Shell, Python, Skills, Subagent])
 
     session = SimpleNamespace(cwd=Path.cwd(), session_id="test-session")
     planner = Planner(
@@ -323,13 +318,7 @@ def test_harness_subclass_defines_its_toolset_catalogue():
 
     assert planner.name == "Planner"
     assert planner.title == "Planner"
-    assert planner.TOOLSETS == {
-        Files: False,
-        Shell: False,
-        Python: False,
-        Skills: False,
-        Subagent: False,
-    }
+    assert planner.TOOLSETS == ClassDeclaration(remove=[Files, Shell, Python, Skills, Subagent])
     assert planner.toolset_classes == [Todo, Utils]
     assert planner.toolsets.cls[Todo].name == "Todo"
     assert planner.deps.toolsets is planner.toolsets
@@ -358,15 +347,10 @@ def test_harness_flattens_toolset_option_lists():
     class MultiOptionHarness(Harness):
         @cached_classproperty
         def TOOLSETS(cls):
-            return {
-                Files: False,
-                Shell: False,
-                Python: False,
-                Skills: False,
-                Subagent: False,
-                Todo: False,
-                MultiOptionToolset: True,
-            }
+            return ClassDeclaration(
+                remove=[Files, Shell, Python, Skills, Subagent, Todo],
+                add=[MultiOptionToolset],
+            )
 
     selected = MultiOptionHarness(
         session=SimpleNamespace(cwd=Path.cwd(), session_id="test-session"),

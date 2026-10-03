@@ -16,7 +16,7 @@ from pydantic_acp.projection import DefaultToolClassifier, ProjectionAwareToolCl
 from pydantic_deep import ContextManagerCapability, StuckLoopDetection
 
 from xah.caps.traffic import ModelTrafficLogger
-from xah.class_collections import ClassDeclaration, resolve_class_collection
+from xah.class_collections import ClassDeclaration
 from xah.harness.deps import HarnessAgentDeps, HarnessDeps
 from xah.models import AdapterModel, Luna
 from xah.obs import logger
@@ -57,7 +57,7 @@ class HarnessAgent(Generic[AgentDepsT]):
 
     @cached_property
     def toolset_classes(self) -> ilist[type[ToolsetBase[AgentDepsT]]]:
-        return resolve_class_collection(type(self), "TOOLSETS", "name")
+        return ClassDeclaration.classes(type(self), "TOOLSETS", "name")
 
     @cached_property
     def toolsets(self) -> ilist[ToolsetBase[AgentDepsT]]:
@@ -213,7 +213,7 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
 
     @cached_property
     def model_classes(self) -> ilist[type[AdapterModel]]:
-        return resolve_class_collection(type(self), "MODELS", "name")
+        return ClassDeclaration.classes(type(self), "MODELS", "name")
 
     @cached_property
     def models(self) -> ilist[AdapterModel]:

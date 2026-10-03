@@ -13,7 +13,7 @@ from pydantic_ai.toolsets import FunctionToolset
 from corio import Path, dm
 from corio.iterator import enlist, ilist
 from corio.strings import get_docstring
-from xah.class_collections import ClassDeclaration, resolve_class_collection
+from xah.class_collections import ClassDeclaration
 from xah.options.path import PathCwd
 
 
@@ -97,7 +97,7 @@ class Tool(dm.Base):
 
     @cached_property
     def validator_classes(self) -> ilist[type[Tool]]:
-        return resolve_class_collection(type(self), "VALIDATORS", "local_name")
+        return ClassDeclaration.classes(type(self), "VALIDATORS", "local_name")
 
     @cached_property
     def cwd(self) -> Path:

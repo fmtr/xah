@@ -13,7 +13,7 @@ from corio import strings
 from corio.function import ccm
 from corio.iterator import ilist
 from corio.strings import get_docstring
-from xah.class_collections import ClassDeclaration, resolve_class_collection
+from xah.class_collections import ClassDeclaration
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
 from xah.toolsets.base.tool import Tool, ValidationResult
@@ -49,7 +49,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
     @cached_classproperty
     def tool_classes(cls) -> ilist[type[Tool]]:
-        return resolve_class_collection(cls, "TOOLS", "local_name")
+        return ClassDeclaration.classes(cls, "TOOLS", "local_name")
 
     @cached_classproperty
     def projections(cls) -> list:
