@@ -50,6 +50,7 @@ dependencies = [
 
 [project.optional-dependencies]
 "tool.kb" = ["corio[db.search]"]
+"tool.web" = ["crawl4ai", "playwright==1.61.0"]
 
 [[project.authors]]
 name = "Frontmatter AI"

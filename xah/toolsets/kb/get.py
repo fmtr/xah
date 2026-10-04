@@ -1,18 +1,21 @@
 from pydantic import Field
 
-from corio import yml
-from corio.iterator import ilist
 from xah.toolsets.base.tool import Tool
 
 
 class Get(Tool):
-    """Fetch a complete document from the knowledgebase by ID."""
+    """Fetch selected document chunks from the knowledgebase by ID."""
 
-    doc_type: str = Field(description="Document type name from the knowledgebase.")
-    id: str = Field(description="Document ID to fetch.")
+    id: str = Field(description="Document ID to fetch chunks from.")
+    chunks: list[int] = Field(
+        min_length=1,
+        max_length=5,
+        description="Chunk indexes to fetch; select at most five chunks.",
+    )
 
-    async def run(self) -> str:
-        documents = ilist(self.toolset.DOCUMENTS)
-        document = documents.name[self.doc_type]
-        result = document.get(client=self.toolset.client, id=self.id)
-        return yml.to_yaml(result.model_dump())
+    async def run(self) -> list:
+        return self.toolset.DOCUMENT.get_chunks(
+            client=self.toolset.client,
+            id=self.id,
+            chunks=self.chunks,
+        )

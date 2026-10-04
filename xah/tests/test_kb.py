@@ -1,76 +1,188 @@
+from functools import cached_property
 from types import SimpleNamespace
 
 import pytest
-from cached_classproperty import cached_classproperty
 from pydantic_ai import RunContext
 from pydantic_ai.usage import RunUsage
+from qdrant_client.http import models
 
+from corio.db.search.client import Client
 from corio.db.search.document import Document
+from corio.db.search.query import Query as SearchQuery
 from corio.hash import get_hash_int
-from corio.iterator import ilist
 
+from xah.toolsets.kb.db import WebPage, WebPageBuilder
 from xah.toolsets.kb.get import Get
-from xah.toolsets.kb.list import List
 from xah.toolsets.kb.query import Query
-from xah.toolsets.kb.toolset import Knowledgebase
+from xah.toolsets.kb.toolset import Knowledgebase as KnowledgebaseBase
 
 
 class DummyDocument(Document):
     """Document model used by the knowledgebase tool tests."""
 
 
-class DummyKnowledgebase(Knowledgebase):
-    @cached_classproperty
-    def DOCUMENTS(cls):
-        return [DummyDocument]
+class DummyKnowledgebase(KnowledgebaseBase):
+    DOCUMENT = DummyDocument
+
+
+class MemoryKnowledgebase(KnowledgebaseBase):
+    @cached_property
+    def client(self) -> Client:
+        return Client(location=Client.MEMORY)
 
 
 @pytest.fixture
 def kb():
     toolset = DummyKnowledgebase()
     toolset.client = object()
-    ctx = RunContext(deps=SimpleNamespace(toolsets=ilist([toolset])), model=None, usage=RunUsage())
+    ctx = RunContext(deps=SimpleNamespace(toolsets=[toolset]), model=None, usage=RunUsage())
     return toolset, ctx
 
 
-@pytest.mark.asyncio
-async def test_list_returns_available_document_types(kb):
-    toolset, ctx = kb
-
-    result = await List(ctx=ctx, toolset=toolset).run()
-
-    assert "DummyDocument:" in result
+@pytest.fixture
+def knowledgebase():
+    toolset = MemoryKnowledgebase()
+    client = toolset.client
+    client.create_collection(
+        collection_name=toolset.DOCUMENT.name,
+        vectors_config=models.VectorParams(size=2, distance=models.Distance.COSINE),
+    )
+    client.create_payload_index(
+        collection_name=toolset.DOCUMENT.name,
+        field_name="id",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+    )
+    client.create_payload_index(
+        collection_name=toolset.DOCUMENT.name,
+        field_name="chunk_idx",
+        field_schema=models.PayloadSchemaType.INTEGER,
+    )
+    return toolset
 
 
 @pytest.mark.asyncio
 async def test_query_returns_document_hits(kb, monkeypatch):
     toolset, ctx = kb
     hit = DummyDocument(id="doc-1", text="text")
-    monkeypatch.setattr(DummyDocument, "query", classmethod(lambda cls, **kwargs: iter([SimpleNamespace(hits=[hit])])))
+    monkeypatch.setattr(
+        DummyDocument,
+        "query",
+        classmethod(lambda cls, **kwargs: iter([SimpleNamespace(hits=[hit])])),
+    )
 
-    result = await Query(ctx=ctx, toolset=toolset, doc_type="DummyDocument", query="question").run()
+    result = await Query(ctx=ctx, toolset=toolset, query="question").run()
 
     assert "doc-1" in result
     assert "Full documents should be fetched using the `DummyKnowledgebase-Get` tool." in result
 
 
 @pytest.mark.asyncio
-async def test_get_returns_document(kb):
+async def test_get_returns_selected_chunks(kb):
     toolset, ctx = kb
     calls = []
 
-    def retrieve(**kwargs):
+    def scroll(**kwargs):
         calls.append(kwargs)
-        return [SimpleNamespace(payload={"id": "doc-1", "text": "text"})]
+        return [SimpleNamespace(payload={"id": "doc-1", "text": "text", "chunk_idx": 0})], None
 
-    toolset.client = SimpleNamespace(retrieve=retrieve)
+    toolset.client = SimpleNamespace(scroll=scroll)
 
-    result = await Get(ctx=ctx, toolset=toolset, doc_type="DummyDocument", id="doc-1").run()
+    result = await Get(ctx=ctx, toolset=toolset, id="doc-1", chunks=[0]).run()
 
-    assert "doc-1" in result
-    assert calls == [{
-        "collection_name": "DummyDocument",
-        "ids": [get_hash_int("doc-1")],
-        "with_payload": True,
-        "with_vectors": False,
-    }]
+    assert result[0].id == "doc-1"
+    assert calls[0]["collection_name"] == "DummyDocument"
+    assert calls[0]["limit"] == 1
+
+
+def test_client_supports_in_memory_location():
+    client = Client(location=Client.MEMORY)
+
+    assert client.location == Client.MEMORY
+    assert client.get_collections().collections == []
+
+
+def test_webpage_builder_uses_runtime_documents():
+    document = WebPage(
+        id="page-1",
+        research_id="research-1",
+        title="Example",
+        url="https://example.com",
+        text="content",
+    )
+    builder = WebPageBuilder(
+        document_type=WebPage,
+        client=Client(location=Client.MEMORY),
+        data=[document],
+    )
+
+    point = next(iter(builder.points))
+
+    assert point.document == document
+
+
+def test_query_prefetch_adds_runtime_filter():
+    chunk_filter = models.Filter(
+        must=[
+            models.FieldCondition(
+                key="chunk_idx",
+                match=models.MatchAny(any=[0, 2]),
+            )
+        ]
+    )
+    query = SearchQuery("subject", limit=5, runtime_filter=chunk_filter)
+    query.embedding = SimpleNamespace(
+        sparse=models.SparseVector(indices=[1], values=[1.0]),
+        dense=[0.1, 0.2],
+        multi=[[0.1, 0.2]],
+        simple=models.SparseVector(indices=[1], values=[1.0]),
+    )
+
+    assert len(query.filter["filter"].must) == 2
+    assert query.filter["filter"].must[1] == chunk_filter
+    assert all(
+        prefetch.filter.must[1] == chunk_filter
+        for prefetch in query.data["prefetch"].prefetch
+    )
+
+
+@pytest.mark.asyncio
+async def test_kb_get_returns_selected_chunks(knowledgebase):
+    document_type = knowledgebase.DOCUMENT
+    doc_id = "research-page"
+    points = []
+    for chunk_idx in range(3):
+        document = document_type(
+            id=doc_id,
+            research_id="research-1",
+            title="Example",
+            url="https://example.com",
+            text=f"chunk {chunk_idx}",
+            chunk_idx=chunk_idx,
+            is_doc=False,
+        )
+        points.append(
+            models.PointStruct(
+                id=get_hash_int(f"{doc_id}/{chunk_idx}"),
+                vector=[0.1, 0.2],
+                payload=document.model_dump(),
+            )
+        )
+
+    knowledgebase.client.upload_points(
+        collection_name=document_type.name,
+        points=points,
+    )
+    ctx = RunContext(
+        deps=SimpleNamespace(),
+        model=None,
+        usage=RunUsage(),
+    )
+
+    result = await Get(
+        ctx=ctx,
+        toolset=knowledgebase,
+        id=doc_id,
+        chunks=[2, 0],
+    ).run()
+
+    assert {document.chunk_idx for document in result} == {0, 2}
