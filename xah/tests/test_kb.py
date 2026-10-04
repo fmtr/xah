@@ -1,4 +1,3 @@
-from functools import cached_property
 from types import SimpleNamespace
 
 import pytest
@@ -7,53 +6,37 @@ from pydantic_ai.usage import RunUsage
 from qdrant_client.http import models
 
 from corio.db.search.client import Client
-from corio.db.search.document import Document
 from corio.db.search.query import Query as SearchQuery
 from corio.hash import get_hash_int
 
 from xah.toolsets.kb.db import WebPage, WebPageBuilder
 from xah.toolsets.kb.get import Get
 from xah.toolsets.kb.query import Query
-from xah.toolsets.kb.toolset import Knowledgebase as KnowledgebaseBase
-
-
-class DummyDocument(Document):
-    """Document model used by the knowledgebase tool tests."""
-
-
-class DummyKnowledgebase(KnowledgebaseBase):
-    DOCUMENT = DummyDocument
-
-
-class MemoryKnowledgebase(KnowledgebaseBase):
-    @cached_property
-    def client(self) -> Client:
-        return Client(location=Client.MEMORY)
+from xah.toolsets.kb.toolset import Knowledgebase
 
 
 @pytest.fixture
 def kb():
-    toolset = DummyKnowledgebase()
-    toolset.client = object()
+    toolset = Knowledgebase()
     ctx = RunContext(deps=SimpleNamespace(toolsets=[toolset]), model=None, usage=RunUsage())
     return toolset, ctx
 
 
 @pytest.fixture
 def knowledgebase():
-    toolset = MemoryKnowledgebase()
+    toolset = Knowledgebase()
     client = toolset.client
     client.create_collection(
-        collection_name=toolset.DOCUMENT.name,
+        collection_name=WebPage.name,
         vectors_config=models.VectorParams(size=2, distance=models.Distance.COSINE),
     )
     client.create_payload_index(
-        collection_name=toolset.DOCUMENT.name,
+        collection_name=WebPage.name,
         field_name="id",
         field_schema=models.PayloadSchemaType.KEYWORD,
     )
     client.create_payload_index(
-        collection_name=toolset.DOCUMENT.name,
+        collection_name=WebPage.name,
         field_name="chunk_idx",
         field_schema=models.PayloadSchemaType.INTEGER,
     )
@@ -63,9 +46,15 @@ def knowledgebase():
 @pytest.mark.asyncio
 async def test_query_returns_document_hits(kb, monkeypatch):
     toolset, ctx = kb
-    hit = DummyDocument(id="doc-1", text="text")
+    hit = WebPage(
+        id="doc-1",
+        research_id="research-1",
+        title="Example",
+        url="https://example.com",
+        text="text",
+    )
     monkeypatch.setattr(
-        DummyDocument,
+        WebPage,
         "query",
         classmethod(lambda cls, **kwargs: iter([SimpleNamespace(hits=[hit])])),
     )
@@ -73,7 +62,7 @@ async def test_query_returns_document_hits(kb, monkeypatch):
     result = await Query(ctx=ctx, toolset=toolset, query="question").run()
 
     assert "doc-1" in result
-    assert "Full documents should be fetched using the `DummyKnowledgebase-Get` tool." in result
+    assert "Full documents should be fetched using the `Knowledgebase-Get` tool." in result
 
 
 @pytest.mark.asyncio
@@ -83,14 +72,25 @@ async def test_get_returns_selected_chunks(kb):
 
     def scroll(**kwargs):
         calls.append(kwargs)
-        return [SimpleNamespace(payload={"id": "doc-1", "text": "text", "chunk_idx": 0})], None
+        return [
+            SimpleNamespace(
+                payload={
+                    "id": "doc-1",
+                    "research_id": "research-1",
+                    "title": "Example",
+                    "url": "https://example.com",
+                    "text": "text",
+                    "chunk_idx": 0,
+                }
+            )
+        ], None
 
     toolset.client = SimpleNamespace(scroll=scroll)
 
     result = await Get(ctx=ctx, toolset=toolset, id="doc-1", chunks=[0]).run()
 
     assert result[0].id == "doc-1"
-    assert calls[0]["collection_name"] == "DummyDocument"
+    assert calls[0]["collection_name"] == "WebPage"
     assert calls[0]["limit"] == 1
 
 
@@ -147,7 +147,7 @@ def test_query_prefetch_adds_runtime_filter():
 
 @pytest.mark.asyncio
 async def test_kb_get_returns_selected_chunks(knowledgebase):
-    document_type = knowledgebase.DOCUMENT
+    document_type = WebPage
     doc_id = "research-page"
     points = []
     for chunk_idx in range(3):

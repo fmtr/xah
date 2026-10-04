@@ -19,7 +19,9 @@ class Query(Tool):
     async def run(self) -> str:
         from xah.toolsets.kb.get import Get
 
-        document = self.toolset.DOCUMENT
+        from xah.toolsets.kb.db import WebPage
+
+        document = WebPage
         results = next(document.query(texts=[self.query], client=self.toolset.client))
         hits = [hit.model_dump() for hit in results.hits]
         yaml_results = yml.to_yaml(hits)

@@ -1,6 +1,7 @@
 from pydantic import Field
 
 from xah.toolsets.base.tool import Tool
+from xah.toolsets.kb.db import WebPage
 
 
 class Get(Tool):
@@ -14,7 +15,7 @@ class Get(Tool):
     )
 
     async def run(self) -> list:
-        return self.toolset.DOCUMENT.get_chunks(
+        return WebPage.get_chunks(
             client=self.toolset.client,
             id=self.id,
             chunks=self.chunks,
