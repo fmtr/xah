@@ -1,8 +1,11 @@
 from pydantic import Field
+from pydantic_ai import ToolFailed
+from qdrant_client.http import models
 
-from corio import strings, yml
+from corio import strings
 
 from xah.toolsets.base.tool import Tool
+from xah.toolsets.kb.db import WebPage
 
 
 class Query(Tool):
@@ -15,22 +18,32 @@ class Query(Tool):
         Stuffing the query with many semantically-similar keywords will not perform well.
         """)
     )
+    research_id: str = Field(
+        description="Limit results to pages assembled by this research run.",
+    )
 
-    async def run(self) -> str:
-        from xah.toolsets.kb.get import Get
-
-        from xah.toolsets.kb.db import WebPage
-
-        document = WebPage
-        results = next(document.query(texts=[self.query], client=self.toolset.client))
-        hits = [hit.model_dump() for hit in results.hits]
-        yaml_results = yml.to_yaml(hits)
-        get_tool_name = self.toolset.tool_name(Get)
-        text = strings.trim(
-            yaml_results,
-            f"""
-            Note: These are **excerpts only** from the matching documents.
-            Full documents should be fetched using the `{get_tool_name}` tool.
-            """
+    async def run(self) -> list[WebPage]:
+        runtime_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="research_id",
+                    match=models.MatchValue(value=self.research_id),
+                )
+            ]
         )
-        return text
+        try:
+            results = next(
+                WebPage.query(
+                    texts=[self.query],
+                    client=self.toolset.client,
+                    runtime_filter=runtime_filter,
+                )
+            )
+        except ValueError as error:
+            raise ToolFailed(
+                "The knowledgebase is not ready for this research run: "
+                "the WebPage collection does not exist yet. "
+                "Continue without the knowledgebase query, or retry after pages have been indexed."
+            ) from error
+
+        return results.hits

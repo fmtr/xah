@@ -15,6 +15,8 @@ class Web(Toolset):
     def client(self) -> AsyncTavilyClient:
         return AsyncTavilyClient()
 
+
+
     @cached_classproperty
     def TOOLS(cls):
-        return [Search, Research]
+        return [Research]

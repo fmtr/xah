@@ -1,0 +1,160 @@
+from types import SimpleNamespace
+
+import pytest
+from pydantic_ai import RunContext
+from pydantic_ai.usage import RunUsage
+from qdrant_client.http import models
+
+from corio.db.search.client import Client
+from corio.db.search.embedder import Vectors
+from xah.toolsets.kb.db import WebPage
+from xah.toolsets.kb.query import Query
+from xah.toolsets.kb.toolset import Knowledgebase
+from xah.toolsets.web import research as research_module
+from xah.toolsets.web.research import Research
+from xah.toolsets.web.toolset import Web
+
+
+class FakeEmbedder:
+    batch_size = 32
+    config = {
+        "vectors_config": {
+            "dense": models.VectorParams(size=2, distance=models.Distance.COSINE),
+            "multi": models.VectorParams(
+                size=2,
+                distance=models.Distance.COSINE,
+                multivector_config=models.MultiVectorConfig(
+                    comparator=models.MultiVectorComparator.MAX_SIM,
+                ),
+            ),
+        },
+        "sparse_vectors_config": {
+            "sparse": models.SparseVectorParams(),
+            "simple": models.SparseVectorParams(),
+        },
+    }
+
+    def embed(self, batch):
+        for query in batch:
+            query.vectors = Vectors(
+                simple=models.SparseVector(indices=[1], values=[1.0]),
+                sparse=models.SparseVector(indices=[1], values=[1.0]),
+                dense=[1.0, 0.0],
+                multi=[[1.0, 0.0]],
+            )
+        return batch
+
+    def add_vectors(self, points):
+        return self._add_vectors(points)
+
+    def _add_vectors(self, points):
+        points = list(points)
+        self.embed(points)
+        yield from points
+
+
+@pytest.mark.asyncio
+async def test_fetch_indexes_raw_markdown_when_fit_markdown_is_empty(monkeypatch):
+    class Crawler:
+        def __init__(self, config):
+            self.config = config
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def arun(self, url, config):
+            return SimpleNamespace(
+                success=True,
+                markdown=SimpleNamespace(fit_markdown="", raw_markdown="# Meteor"),
+                metadata={"title": "Meteor"},
+            )
+
+    monkeypatch.setattr(research_module, "AsyncWebCrawler", Crawler)
+    research = Research.model_construct(research_id="research-1")
+
+    pages = [page async for page in research.fetch(["https://example.com"])]
+
+    assert len(pages) == 1
+    assert pages[0].text == "# Meteor"
+
+
+@pytest.fixture
+def knowledgebase(monkeypatch):
+    embedder = FakeEmbedder()
+    monkeypatch.setattr(WebPage, "embedder", embedder)
+    toolset = Knowledgebase()
+    toolset.client = Client(location=Client.MEMORY)
+    return toolset
+
+
+@pytest.mark.asyncio
+async def test_research_indexes_with_parent_knowledgebase_client(monkeypatch):
+    client = object()
+    knowledgebase = SimpleNamespace(client=client, name=Knowledgebase.name)
+    deps = SimpleNamespace(toolsets=SimpleNamespace(name={Knowledgebase.name: knowledgebase}))
+    context = RunContext(deps=deps, model=None, usage=RunUsage())
+    web = Web()
+    research = Research(ctx=context, toolset=web, prompt="question")
+    captured = {}
+
+    class Agent:
+        async def run(self, prompt, deps):
+            return SimpleNamespace(output=["https://example.com"])
+
+    class Harness:
+        agent = Agent()
+        deps = object()
+
+        @classmethod
+        def from_parent(cls, parent):
+            return cls()
+
+    async def fetch(self, urls):
+        yield SimpleNamespace(url=urls[0])
+
+    def build(cls, *, data, client):
+        captured["data"] = data
+        captured["client"] = client
+
+    monkeypatch.setattr(research_module, "HarnessResearch", Harness)
+    monkeypatch.setattr(Research, "fetch", fetch)
+    monkeypatch.setattr(WebPage, "build", classmethod(build))
+
+    await research.run()
+
+    assert captured["client"] is client
+
+
+@pytest.mark.asyncio
+async def test_research_documents_are_inserted_indexed_and_queryable(knowledgebase):
+    document = WebPage(
+        id="page-1",
+        research_id="research-1",
+        title="Meteors",
+        url="https://example.com/meteors",
+        text="Historical observations of meteors.",
+    )
+
+    WebPage.build(data=[document], client=knowledgebase.client)
+
+    collection = knowledgebase.client.get_collection(collection_name=WebPage.name)
+    assert collection.status == models.CollectionStatus.GREEN
+    assert knowledgebase.client.collection_exists(collection_name=WebPage.name)
+
+    context = RunContext(
+        deps=SimpleNamespace(toolsets=[knowledgebase]),
+        model=None,
+        usage=RunUsage(),
+    )
+    result = await Query(
+        ctx=context,
+        toolset=knowledgebase,
+        query="meteors",
+        research_id="research-1",
+    ).run()
+
+    assert [hit.url for hit in result] == [document.url]
+    assert result[0].research_id == document.research_id

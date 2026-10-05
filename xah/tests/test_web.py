@@ -23,7 +23,7 @@ def test_web_provides_tavily_client():
     assert isinstance(Web().client, AsyncTavilyClient)
 
 
-def test_web_exposes_search_and_research_only():
+def test_web_exposes_search_and_research():
     assert Web.TOOLS == [Search, Research]
 
 

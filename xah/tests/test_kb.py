@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
-from pydantic_ai import RunContext
+from pydantic_ai import RunContext, ToolFailed
 from pydantic_ai.usage import RunUsage
 from qdrant_client.http import models
 
@@ -59,10 +59,32 @@ async def test_query_returns_document_hits(kb, monkeypatch):
         classmethod(lambda cls, **kwargs: iter([SimpleNamespace(hits=[hit])])),
     )
 
-    result = await Query(ctx=ctx, toolset=toolset, query="question").run()
+    result = await Query(
+        ctx=ctx,
+        toolset=toolset,
+        query="question",
+        research_id="research-1",
+    ).run()
 
-    assert "doc-1" in result
-    assert "Full documents should be fetched using the `Knowledgebase-Get` tool." in result
+    assert result == [hit]
+
+
+@pytest.mark.asyncio
+async def test_query_reports_missing_collection_as_tool_failure(kb, monkeypatch):
+    toolset, ctx = kb
+
+    def query(**kwargs):
+        raise ValueError("Collection WebPage not found")
+
+    monkeypatch.setattr(WebPage, "query", classmethod(lambda cls, **kwargs: query(**kwargs)))
+
+    with pytest.raises(ToolFailed, match="WebPage collection does not exist"):
+        await Query(
+            ctx=ctx,
+            toolset=toolset,
+            query="question",
+            research_id="research-1",
+        ).run()
 
 
 @pytest.mark.asyncio
