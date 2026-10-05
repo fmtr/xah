@@ -5,7 +5,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 
 from cached_classproperty import cached_classproperty
 from pydantic import ValidationError, ConfigDict
-from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool
+from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool, ToolFailed
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
@@ -14,6 +14,7 @@ from corio.function import ccm
 from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration
+from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
 from xah.toolsets.base.tool import Tool, ValidationResult
@@ -73,6 +74,15 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     @ccm
     def local_tool_name(cls, name: str) -> str:
         return name.removeprefix(f"{cls.name}-")
+
+    async def raise_errors(self, method, *args):
+        try:
+            return await method(*args)
+        except (ModelRetry, ToolFailed):
+            raise
+        except Exception as exception:
+            logger.error(str(exception))
+            raise ToolFailed(str(exception)) from exception
 
     def register(self, tool_class: type[Tool]) -> None:
         """
@@ -165,7 +175,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             approval=instance.approval,
             raise_for_messages=instance.raise_on_warn,
         )
-        await instance.validate(result)
+        await self.raise_errors(instance.validate, result)
         self.validation_results[ctx.tool_call_id] = result
         return result
 
@@ -186,7 +196,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         if ctx.tool_call_id not in self.validation_results:
             await self.validate(ctx, tool.tool_def, tool_args) # Validation didn't already run during approval prompt check (i.e. we're a non-ACP/subagent).
         validation = self.validation_results.pop(ctx.tool_call_id)
-        result = await instance.run()
+        result = await self.raise_errors(instance.run)
         if not validation.messages:
             return result
 
