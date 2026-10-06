@@ -11,7 +11,7 @@ from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.toolset import Knowledgebase
 from xah.toolsets.web import research as research_module
-from xah.toolsets.web.research import Research
+from xah.toolsets.web.research import Research, ResearchOutput
 from xah.toolsets.web.toolset import Web
 
 
@@ -51,6 +51,18 @@ class FakeEmbedder:
         points = list(points)
         self.embed(points)
         yield from points
+
+
+def test_research_output_contains_only_described_urls():
+    assert set(ResearchOutput.model_fields) == {"urls"}
+    assert ResearchOutput.model_fields["urls"].description == (
+        "Relevance-ranked URLs of web pages selected for the research request."
+    )
+
+
+def test_research_output_rejects_non_https_urls():
+    with pytest.raises(ValueError, match="Each URL must start with https://"):
+        ResearchOutput(urls=["http://example.com"])
 
 
 @pytest.mark.asyncio
@@ -102,7 +114,7 @@ async def test_research_indexes_with_parent_knowledgebase_client(monkeypatch):
 
     class Agent:
         async def run(self, prompt, deps):
-            return SimpleNamespace(output=["https://example.com"])
+            return SimpleNamespace(output=ResearchOutput(urls=["https://example.com"]))
 
     class Harness:
         agent = Agent()
