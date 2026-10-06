@@ -97,8 +97,11 @@ class AdversarialApproval(Bash):
     """)
 
     @cached_property
-    def transcript(self)->str:
+    def transcript(self) -> str:
         transcript = build_compact_transcript(self.ctx.messages, 10)
+        if self.ctx.prompt:
+            goal = f"[Original goal] {self.ctx.prompt}"
+            transcript = strings.trim(goal, transcript)
         return transcript
 
     @cached_property

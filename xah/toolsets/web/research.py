@@ -18,6 +18,7 @@ from xah.harness.base import HarnessAgent
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.query import Query
+from xah.toolsets.kb.toolset import Knowledgebase
 
 from xah.toolsets.web.search import Search
 
@@ -27,6 +28,10 @@ class ResearchOutput(BaseModel):
 
     urls: list[str] = Field(
         description=f"Relevance-ranked URLs. {MSG_HTTPS}"
+    )
+    answer: str | None = Field(
+        default=None,
+        description="A potential definitive answer to the research query based on the search results, if one exists.",
     )
 
     @field_validator("urls")
@@ -76,8 +81,9 @@ class HarnessResearch(HarnessAgent):
           result; coverage and source quality matter more than quantity.
         - Include sources that directly address the request, not merely pages that mention
           its keywords.
-
-        ## Avoid
+        - Search output contains excerpts only, not full pages. A URL will contain more content than its excerpt, so choose sources accordingly.
+        
+        ### Avoid
 
         - Landing pages that do not contain the relevant material.
         - Search-result pages, link farms, link lists, and directories whose useful
@@ -87,9 +93,23 @@ class HarnessResearch(HarnessAgent):
           substantive content.
         - Search queries assembled from unsupported guesses or an unstructured list of
           synonyms.
+          
+        ## Output
+        
+        Return a relevance-ranked shortlist of URLs and, when supported by high-quality
+        search material, a potential answer. Do not return search queries, explanations,
+        titles, citations, or search-result objects.
 
-        Return a relevance-ranked shortlist containing only URLs. Do not return search
-        queries, prose, explanations, titles, citations, or search-result objects.
+        ## Answer
+
+        - The results of each search provides an extra field with a ready-made answer to its query.
+        - When providing your own answer, synthesize it from the highest-quality information available in:
+            - The answer fields from each search.
+            - The contents of the search excerpts.        
+        - If the aggregated sources do not contain a good-quality answer, you may choose not to provide one.
+        - Similarly, some open-ended requests - e.g. "Tell me about the East Germany" - are not amenable to a single, definitive answer. You should also omit one in such cases.
+
+        
     """)
 
     @cached_property
@@ -157,16 +177,28 @@ class Research(Tool):
 
         result=await self.harness.agent.run(self.prompt, deps=self.harness.deps)
         urls = result.output.urls
+        answer= result.output.answer
         documents = [page async for page in self.fetch(urls)]
 
-        WebPage.build(data=documents, client=self.client)
-        query_tool = self.toolset.tool_name(Query)
+        await asyncio.to_thread(
+            WebPage.build,
+            data=documents,
+            client=self.client,
+        )
+
         return strings.trim(
             f"""
+            Below are details on the research knowledgebase compile for this question, so you can perform deeper research yourself.
+            There is also a quick, provisional answer based on summaries seen during search.
+            
+            # Knowledgebase
+            
             Research is ready under research_id `{self.research_id}`.
-            Use the knowledgebase toolset's `{query_tool}` tool with this research_id
-            to query the indexed pages and continue the investigation.
-            """
+            Use the {Knowledgebase.name} tools with this research_id to query and page through its contents.
+            
+            # Provisional Answer         
+            """,
+            answer
         )
 
     async def fetch(self, urls: list[str]) -> AsyncIterator[WebPage]:

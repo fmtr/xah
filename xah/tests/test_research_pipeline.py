@@ -53,11 +53,15 @@ class FakeEmbedder:
         yield from points
 
 
-def test_research_output_contains_only_described_urls():
-    assert set(ResearchOutput.model_fields) == {"urls"}
+def test_research_output_describes_urls_and_answer():
+    assert set(ResearchOutput.model_fields) == {"urls", "answer"}
     assert ResearchOutput.model_fields["urls"].description == (
         "Relevance-ranked URLs. Each URL must start with https://"
     )
+    assert ResearchOutput.model_fields["answer"].description == (
+        "A potential answer to the research query based on the search results."
+    )
+    assert ResearchOutput(urls=["https://example.com"]).answer is None
 
 
 def test_research_output_rejects_non_https_urls():

@@ -4,7 +4,7 @@ import asyncio
 from functools import cached_property
 from typing import Any, Generic, Self, Sequence, TypeVar, cast
 
-from acpremote import serve_acp
+from acpremote import TransportOptions, serve_acp
 from cached_classproperty import cached_classproperty
 from corio import PackagePaths, Path, strings
 from corio.function import ccp
@@ -398,7 +398,12 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
         return self.Settings.instance
 
     async def serve(self):
-        server = await serve_acp(self.agent_factory, host=self.settings.host, port=self.settings.port)
+        server = await serve_acp(
+            self.agent_factory,
+            host=self.settings.host,
+            port=self.settings.port,
+            options=TransportOptions(ping_timeout=120.0),
+        )
         logger.info(f"Launching {self.name} at {self.url}")
         async with server:
             await server.serve_forever()

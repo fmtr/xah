@@ -5,7 +5,11 @@ from xah.toolsets.kb.db import WebPage
 
 
 class Get(Tool):
-    """Fetch selected document chunks from the knowledgebase by ID."""
+    """
+
+    Used to page through documents of interest found by search
+
+    """
 
     id: str = Field(description="Document ID to fetch chunks from.")
     chunks: list[int] = Field(
