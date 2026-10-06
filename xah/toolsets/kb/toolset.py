@@ -16,4 +16,5 @@ class Knowledgebase(Toolset):
 
     @cached_property
     def client(self) -> Client:
-        return Client(location=Client.MEMORY)
+        #return Client(location=Client.MEMORY)
+        return Client()

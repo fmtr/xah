@@ -56,7 +56,7 @@ class FakeEmbedder:
 def test_research_output_contains_only_described_urls():
     assert set(ResearchOutput.model_fields) == {"urls"}
     assert ResearchOutput.model_fields["urls"].description == (
-        "Relevance-ranked URLs of web pages selected for the research request."
+        "Relevance-ranked URLs. Each URL must start with https://"
     )
 
 

@@ -136,6 +136,23 @@ class Research(Tool):
         harness = HarnessResearch.from_parent(self.ctx.deps)
         return harness
 
+    @cached_property
+    def browser(self) -> BrowserConfig:
+        return BrowserConfig(headless=True)
+
+    @cached_property
+    def generator(self) -> DefaultMarkdownGenerator:
+        return DefaultMarkdownGenerator(
+            content_filter=PruningContentFilter(threshold=0.6)
+        )
+
+    @cached_property
+    def config(self) -> CrawlerRunConfig:
+        return CrawlerRunConfig(
+            cache_mode=CacheMode.BYPASS,
+            markdown_generator=self.generator,
+        )
+
     async def run(self) -> str:
 
         result=await self.harness.agent.run(self.prompt, deps=self.harness.deps)
@@ -153,18 +170,9 @@ class Research(Tool):
         )
 
     async def fetch(self, urls: list[str]) -> AsyncIterator[WebPage]:
-        browser_config = BrowserConfig(headless=True)
-        md_generator = DefaultMarkdownGenerator(
-            content_filter=PruningContentFilter(threshold=0.6)
-        )
-
-        config = CrawlerRunConfig(
-            cache_mode=CacheMode.BYPASS,
-            markdown_generator=md_generator
-        )
-        async with AsyncWebCrawler(config=browser_config) as crawler:
+        async with AsyncWebCrawler(config=self.browser) as crawler:
             results = await asyncio.gather(
-                *(crawler.arun(url, config=config) for url in urls)
+                *(crawler.arun(url, config=self.config) for url in urls)
             )
 
         for url, result in zip(urls, results):
