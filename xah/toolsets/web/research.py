@@ -135,9 +135,14 @@ class Research(Tool):
         description="Research request, including detailed instructions for what to investigate."
     )
 
-    @cached_property
-    def research_id(self) -> str:
-        return get_hash_readable(str(uuid4()),length=4)
+    research_id: str | None = Field(
+        default=None,
+        description="Leave empty for entirely new research, or provide an existing ID to extend existing research.",
+    )
+
+    def model_post_init(self, __context) -> None:
+        if self.research_id is None:
+            self.research_id = get_hash_readable(str(uuid4()), length=4)
 
     @cached_property
     def client(self) -> Client:
@@ -180,15 +185,14 @@ class Research(Tool):
         answer= result.output.answer
         documents = [page async for page in self.fetch(urls)]
 
-        await asyncio.to_thread(
-            WebPage.build,
+        await WebPage.build(
             data=documents,
             client=self.client,
         )
 
-        return strings.trim(
+        text= strings.trim(
             f"""
-            Below are details on the research knowledgebase compile for this question, so you can perform deeper research yourself.
+            Below are details on the research knowledgebase compiled for this question, so you can perform deeper research yourself.
             There is also a quick, provisional answer based on summaries seen during search.
             
             # Knowledgebase
@@ -200,6 +204,8 @@ class Research(Tool):
             """,
             answer
         )
+
+        return text
 
     async def fetch(self, urls: list[str]) -> AsyncIterator[WebPage]:
         async with AsyncWebCrawler(config=self.browser) as crawler:

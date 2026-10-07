@@ -19,7 +19,7 @@ class Get(Tool):
     )
 
     async def run(self) -> list:
-        return WebPage.get_chunks(
+        return await WebPage.get_chunks(
             client=self.toolset.client,
             id=self.id,
             chunks=self.chunks,

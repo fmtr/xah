@@ -32,7 +32,7 @@ class Query(Tool):
             ]
         )
         try:
-            results = next(
+            results = await anext(
                 WebPage.query(
                     texts=[self.query],
                     client=self.toolset.client,

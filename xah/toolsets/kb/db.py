@@ -1,5 +1,5 @@
 from corio.db.search.builder import Builder
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from corio.db.search.document import Document, Index, Point
@@ -34,8 +34,8 @@ class WebPageBuilder(Builder):
 
     Document = WebPage
 
-    @contextmanager
-    def disable_hnsw(self):
+    @asynccontextmanager
+    async def disable_hnsw(self):
         yield
 
     def get_point(self, data: WebPage) -> Point:

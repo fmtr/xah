@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+import pytest_asyncio
 from pydantic_ai import RunContext, ToolFailed
 from pydantic_ai.usage import RunUsage
 from qdrant_client.http import models
@@ -22,20 +23,20 @@ def kb():
     return toolset, ctx
 
 
-@pytest.fixture
-def knowledgebase():
+@pytest_asyncio.fixture
+async def knowledgebase():
     toolset = Knowledgebase()
     client = toolset.client
-    client.create_collection(
+    await client.create_collection(
         collection_name=WebPage.name,
         vectors_config=models.VectorParams(size=2, distance=models.Distance.COSINE),
     )
-    client.create_payload_index(
+    await client.create_payload_index(
         collection_name=WebPage.name,
         field_name="id",
         field_schema=models.PayloadSchemaType.KEYWORD,
     )
-    client.create_payload_index(
+    await client.create_payload_index(
         collection_name=WebPage.name,
         field_name="chunk_idx",
         field_schema=models.PayloadSchemaType.INTEGER,
@@ -53,11 +54,10 @@ async def test_query_returns_document_hits(kb, monkeypatch):
         url="https://example.com",
         text="text",
     )
-    monkeypatch.setattr(
-        WebPage,
-        "query",
-        classmethod(lambda cls, **kwargs: iter([SimpleNamespace(hits=[hit])])),
-    )
+    async def query(**kwargs):
+        yield SimpleNamespace(hits=[hit])
+
+    monkeypatch.setattr(WebPage, "query", classmethod(lambda cls, **kwargs: query(**kwargs)))
 
     result = await Query(
         ctx=ctx,
@@ -92,7 +92,7 @@ async def test_get_returns_selected_chunks(kb):
     toolset, ctx = kb
     calls = []
 
-    def scroll(**kwargs):
+    async def scroll(**kwargs):
         calls.append(kwargs)
         return [
             SimpleNamespace(
@@ -116,14 +116,16 @@ async def test_get_returns_selected_chunks(kb):
     assert calls[0]["limit"] == 1
 
 
-def test_client_supports_in_memory_location():
+@pytest.mark.asyncio
+async def test_client_supports_in_memory_location():
     client = Client(location=Client.MEMORY)
 
     assert client.location == Client.MEMORY
-    assert client.get_collections().collections == []
+    assert (await client.get_collections()).collections == []
 
 
-def test_webpage_builder_uses_runtime_documents():
+@pytest.mark.asyncio
+async def test_webpage_builder_uses_runtime_documents():
     document = WebPage(
         id="page-1",
         research_id="research-1",
@@ -137,7 +139,7 @@ def test_webpage_builder_uses_runtime_documents():
         data=[document],
     )
 
-    point = next(iter(builder.points))
+    point = await anext(builder.points())
 
     assert point.document == document
 
@@ -190,7 +192,7 @@ async def test_kb_get_returns_selected_chunks(knowledgebase):
             )
         )
 
-    knowledgebase.client.upload_points(
+    await knowledgebase.client.upload_points(
         collection_name=document_type.name,
         points=points,
     )

@@ -44,7 +44,7 @@ class FakeEmbedder:
             )
         return batch
 
-    def add_vectors(self, points):
+    async def add_vectors(self, points):
         return self._add_vectors(points)
 
     def _add_vectors(self, points):
@@ -67,6 +67,15 @@ def test_research_output_describes_urls_and_answer():
 def test_research_output_rejects_non_https_urls():
     with pytest.raises(ValueError, match="Each URL must start with https://"):
         ResearchOutput(urls=["http://example.com"])
+
+
+def test_research_id_is_generated_or_preserved():
+    assert Research.model_construct(research_id=None).research_id
+    assert Research.model_construct(research_id="research-1").research_id == "research-1"
+    assert Research.model_fields["research_id"].description == (
+        "Leave empty for entirely new research, or provide an existing research id "
+        "to extend existing research."
+    )
 
 
 @pytest.mark.asyncio
