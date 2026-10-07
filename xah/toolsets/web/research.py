@@ -190,19 +190,20 @@ class Research(Tool):
             client=self.client,
         )
 
-        text= strings.trim(
+        self.feedback(
             f"""
-            Below are details on the research knowledgebase compiled for this question, so you can perform deeper research yourself.
-            There is also a quick, provisional answer based on summaries seen during search.
-            
-            # Knowledgebase
-            
-            Research is ready under research_id `{self.research_id}`.
-            Use the {Knowledgebase.name} tools with this research_id to query and page through its contents.
-            
-            # Provisional Answer         
+            The research knowledgebase has been compiled for this question, so you can perform deeper research yourself.
+            Use the {Knowledgebase.name} tools with research_id `{self.research_id}` to query and page through its contents.
+            """
+        )
+
+        text = strings.trim(
+            f"""
+            Research completed. The research is ready under research_id `{self.research_id}`.
+
+            # Provisional Answer
             """,
-            answer
+            answer,
         )
 
         return text

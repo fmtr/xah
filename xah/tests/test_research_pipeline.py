@@ -120,7 +120,12 @@ async def test_research_indexes_with_parent_knowledgebase_client(monkeypatch):
     client = object()
     knowledgebase = SimpleNamespace(client=client, name=Knowledgebase.name)
     deps = SimpleNamespace(toolsets=SimpleNamespace(name={Knowledgebase.name: knowledgebase}))
-    context = RunContext(deps=deps, model=None, usage=RunUsage())
+    context = RunContext(
+        deps=deps,
+        model=None,
+        usage=RunUsage(),
+        pending_messages=[],
+    )
     web = Web()
     research = Research(ctx=context, toolset=web, prompt="question")
     captured = {}

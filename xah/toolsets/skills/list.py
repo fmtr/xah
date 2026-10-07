@@ -10,4 +10,5 @@ class List(Tool):
 
         load_name = self.toolset.tool_name(Load)
         lines = [skill.text_description for skill in self.toolset.skills]
-        return strings.trim(*lines, f"Summaries only. Use {load_name} to read the full texts.")
+        self.feedback(f"Summaries only. Use {load_name} to read the full texts.")
+        return strings.trim(*lines)

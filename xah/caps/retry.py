@@ -1,9 +1,12 @@
 from dataclasses import dataclass
+from pydantic_ai import RunContext
 
 from pydantic_ai.capabilities import AbstractCapability
+from pydantic_ai.messages import SystemPromptPart
 from pydantic_deep import DeepAgentDeps
 
 from corio import logs, strings, yml
+from xah.constants import HARNESS_FEEDBACK
 from corio.jsn import from_json, to_json
 from xah.obs import logger
 
@@ -14,7 +17,8 @@ class ToolCallArgsDeserialzer(AbstractCapability[DeepAgentDeps]):
     label: str
 
     def _enqueue(self, ctx, *messages: str):
-        ctx.enqueue(strings.trim(*messages))
+        content = strings.trim(HARNESS_FEEDBACK, *messages)
+        ctx.enqueue(SystemPromptPart(content=content))
 
     def _log(self, ctx: RunContext[DeepAgentDeps], *, kind: str, error, tool_name: str | None = None):
         payload = {

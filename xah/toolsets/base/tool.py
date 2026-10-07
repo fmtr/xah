@@ -8,12 +8,14 @@ from pydantic import Field, InstanceOf
 from pydantic.json_schema import SkipJsonSchema
 from pydantic_acp import ProjectionMap
 from pydantic_ai import RunContext
+from pydantic_ai.messages import SystemPromptPart
 from pydantic_ai.toolsets import FunctionToolset
 
-from corio import Path, dm
+from corio import Path, dm, strings
 from corio.iterator import enlist, ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration
+from xah.constants import HARNESS_FEEDBACK
 from xah.options.path import PathCwd
 
 
@@ -128,6 +130,14 @@ class Tool(dm.Base):
         from xah.options import base as options
 
         return self.policy.value == options.AUTO
+
+    def feedback(self, message: str | SystemPromptPart) -> str | None:
+        """Enqueue harness feedback for the next model request."""
+        if isinstance(message, str):
+            message=strings.trim(HARNESS_FEEDBACK, message)
+            message = SystemPromptPart(content=message)
+
+        return self.ctx.enqueue(message)
 
     async def validate(self, result: ValidationResult):
         for validator_class in self.validator_classes:

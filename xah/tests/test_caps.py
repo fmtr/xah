@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from corio import yml
 from corio.jsn import to_json
 from xah.caps.retry import ToolCallArgsDeserialzer
+from xah.constants import HARNESS_FEEDBACK
 
 
 def test_model_retry_logger_retries_nested_json_string(monkeypatch):
@@ -38,9 +39,9 @@ def test_model_retry_logger_retries_nested_json_string(monkeypatch):
 
     assert asyncio.run(run()) == {"path": "notes.txt"}
     assert calls == ['"{\\"path\\": \\"notes.txt\\"}"', '{"path": "notes.txt"}']
-    assert enqueued == [
-        "In future, pass tool arguments as regular JSON, not as a nested/escaped JSON string."
-    ]
+    assert len(enqueued) == 1
+    assert enqueued[0].content.startswith(HARNESS_FEEDBACK)
+    assert "pass tool arguments as regular JSON" in enqueued[0].content
 
 
 def test_model_retry_logger_raises_decoded_args_validation_error():
@@ -72,9 +73,9 @@ def test_model_retry_logger_raises_decoded_args_validation_error():
         asyncio.run(run())
 
     assert exc_info.value is decoded_error
-    assert enqueued == [
-        "In future, pass tool arguments as regular JSON, not as a nested/escaped JSON string."
-    ]
+    assert len(enqueued) == 1
+    assert enqueued[0].content.startswith(HARNESS_FEEDBACK)
+    assert "pass tool arguments as regular JSON" in enqueued[0].content
 
 
 def test_model_retry_logger_keeps_validation_error_when_args_are_not_nested_json():
@@ -137,9 +138,9 @@ def test_model_retry_logger_recovers_escaped_array_field():
         {"todos": '[{"content":"test"}]'},
         {"todos": [{"content": "test"}]},
     ]
-    assert enqueued == [
-        "In future, pass nested array and object arguments as JSON values, not escaped JSON strings."
-    ]
+    assert len(enqueued) == 1
+    assert enqueued[0].content.startswith(HARNESS_FEEDBACK)
+    assert "pass nested array and object arguments as JSON values" in enqueued[0].content
 
 
 def test_model_retry_logger_does_not_recover_wrong_nested_type():
@@ -213,10 +214,10 @@ def test_model_retry_logger_intercepts_tool_schema_errors(monkeypatch):
         "error": "invalid integer",
         "tool_name": "write_file",
     }
-    assert enqueued == [
-        "Remember the tool definition and make sure the arguments match its schema:\n\n"
-        f"{to_json(tool_def.parameters_json_schema)}"
-    ]
+    assert len(enqueued) == 1
+    assert enqueued[0].content.startswith(HARNESS_FEEDBACK)
+    assert "Remember the tool definition" in enqueued[0].content
+    assert to_json(tool_def.parameters_json_schema) in enqueued[0].content
 
 
 def test_model_retry_logger_intercepts_output_schema_errors(monkeypatch):

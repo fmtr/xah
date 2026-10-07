@@ -10,6 +10,7 @@ from pydantic_ai.usage import RunUsage
 
 from corio.iterator import ilist
 from xah.class_collections import ClassDeclaration
+from xah.constants import HARNESS_FEEDBACK
 from xah.options import base as options
 from xah.toolsets.base.tool import Tool, ValidationResult
 from xah.toolsets.base.toolset import Toolset
@@ -77,7 +78,25 @@ class CombinedToolset(ApprovalToolset, SecondaryToolset):
 
 def context(toolset, approved=False):
     deps = SimpleNamespace(toolsets=ilist([toolset]))
-    return RunContext(deps=deps, model=None, usage=RunUsage(), tool_call_approved=approved)
+    return RunContext(
+        deps=deps,
+        model=None,
+        usage=RunUsage(),
+        tool_call_approved=approved,
+        pending_messages=[],
+    )
+
+
+def test_tool_feedback_enqueues_system_prompt():
+    toolset = ApprovalToolset()
+    ctx = context(toolset)
+    instance = ApprovalTool(ctx=ctx, toolset=toolset, value="result")
+
+    instance.feedback("Keep the next call focused.")
+
+    content = ctx.pending_messages[0].messages[0].parts[0].content
+    assert content.startswith(HARNESS_FEEDBACK)
+    assert content.endswith("Keep the next call focused.")
 
 
 def test_declarative_collections_merge_replace_and_remove_by_name():
@@ -122,7 +141,12 @@ def test_approved_call_constructs_a_fresh_model_and_runs_it():
         asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
 
     ctx.tool_call_approved = True
-    assert asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])) == "result\n\nWarnings:\nApproval required"
+    assert asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])) == "result"
+    assert len(ctx.pending_messages) == 1
+    content = ctx.pending_messages[0].messages[0].parts[0].content
+    assert content.startswith(HARNESS_FEEDBACK)
+    assert "The tool completed, but issued the following warnings." in content
+    assert "Approval required" in content
 
 def test_toolset_converts_model_validation_errors_to_model_retry():
     toolset = ApprovalToolset()
@@ -161,4 +185,5 @@ def test_full_policy_runs_and_reports_warnings():
 
     result = asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
 
-    assert result == "result\n\nWarnings:\nApproval required"
+    assert result == "result"
+    assert len(ctx.pending_messages) == 1

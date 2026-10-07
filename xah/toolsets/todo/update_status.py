@@ -19,6 +19,7 @@ class UpdateStatus(Tool):
     async def run(self) -> str:
         todo = self.toolset.items.id[self.todo_id]
         todo.status = self.status
+        self.toolset.feedback_state(self)
         return todo.updated_status_text
 
 

@@ -19,6 +19,16 @@ TODO_SYSTEM_PROMPT = strings.trim("""
 class Todo(Toolset):
     """Todo list tools."""
 
+    EMPTY_FEEDBACK = "No todos are currently defined. Use Todo-Write to create tasks."
+    COMPLETED_FEEDBACK = "All tasks are completed; respond to the user."
+
+    def feedback_state(self, tool):
+        if not self.items:
+            tool.feedback(self.EMPTY_FEEDBACK)
+            return
+        if self.all_completed:
+            tool.feedback(self.COMPLETED_FEEDBACK)
+
     @cached_classproperty
     def TOOLS(cls):
         from xah.toolsets.todo.read import Read
@@ -37,15 +47,16 @@ class Todo(Toolset):
         summary = strings.join((f"{counts[status]} {status}" for status in TODO_STATUSES), sep=", ")
         text = f"Summary: {summary}"
 
-        if counts[COMPLETED] == len(self.items):
-            return f"{text}. All tasks are completed; respond to the user."
-
         return text
+
+    @property
+    def all_completed(self) -> bool:
+        return bool(self.items) and all(todo.status == COMPLETED for todo in self.items)
 
     @property
     def text(self) -> str:
         if not self.items:
-            return "No todos in the list. Use Todo-Write to create tasks."
+            return "No todos in the list."
 
         body = strings.join((f"{index}. {todo.text}" for index, todo in enumerate(self.items, 1)), sep="\n")
         return f"Current todos:\n\n{body}\n\n{self.summary}"

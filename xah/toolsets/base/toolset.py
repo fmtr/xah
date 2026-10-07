@@ -197,16 +197,12 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             await self.validate(ctx, tool.tool_def, tool_args) # Validation didn't already run during approval prompt check (i.e. we're a non-ACP/subagent).
         validation = self.validation_results.pop(ctx.tool_call_id)
         result = await self.raise_errors(instance.run)
-        if not validation.messages:
-            return result
+        if validation.messages:
+            instance.feedback(
+                strings.trim(
+                    f"The {name} tool completed, but issued the following warnings. Avoid these issues in subsequent calls.",
+                    validation.text,
+                )
+            )
 
-        return strings.trim( # Todo consider using this for serialisazation: subagents_pydantic_ai._observability.serialize_output
-            f"""
-            {result}
-
-            # Warnings
-            
-            The tool completed, but issued the following warnings. Avoid these issues in subsequent calls.
-            """,
-            validation.text
-        )
+        return result

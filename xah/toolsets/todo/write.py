@@ -13,4 +13,5 @@ class Write(Tool):
 
     async def run(self) -> str:
         self.toolset.items = ilist(self.todos)
+        self.toolset.feedback_state(self)
         return f"Updated {strings.suffix_plural(len(self.todos), 'todo')}:\n\n{self.toolset.summary}"
