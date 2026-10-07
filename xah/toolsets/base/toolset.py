@@ -81,8 +81,8 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         except (ModelRetry, ToolFailed):
             raise
         except Exception as exception:
-            logger.error(str(exception))
-            raise ToolFailed(str(exception)) from exception
+            logger.error(str(exception), _exc_info=True)
+            raise ToolFailed("Internal error") from exception
 
     def register(self, tool_class: type[Tool]) -> None:
         """

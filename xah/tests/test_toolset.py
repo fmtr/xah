@@ -32,13 +32,16 @@ async def test_raise_errors_preserves_framework_errors(error):
 async def test_raise_errors_logs_and_wraps_unexpected_errors(monkeypatch):
     toolset = Toolset()
     logged = []
-    monkeypatch.setattr("xah.toolsets.base.toolset.logger.error", logged.append)
+    monkeypatch.setattr(
+        "xah.toolsets.base.toolset.logger.error",
+        lambda message, **kwargs: logged.append((message, kwargs)),
+    )
 
     async def method():
         raise ValueError("unexpected")
 
-    with pytest.raises(ToolFailed, match="unexpected") as raised:
+    with pytest.raises(ToolFailed, match="Internal error") as raised:
         await toolset.raise_errors(method)
 
-    assert logged == ["unexpected"]
+    assert logged == [("unexpected", {"_exc_info": True})]
     assert isinstance(raised.value.__cause__, ValueError)
