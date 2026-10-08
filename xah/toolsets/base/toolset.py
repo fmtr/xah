@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from functools import cached_property
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -10,14 +11,14 @@ from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
 from corio import strings
-from corio.function import ccm
+from corio.function import ccm, cp
 from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.tool import Tool, ValidationResult
+from xah.toolsets.base.tool import Tool, ToolState, ValidationResult
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
@@ -51,6 +52,31 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     @cached_classproperty
     def tool_classes(cls) -> ilist[type[Tool]]:
         return ClassDeclaration.classes(cls, "TOOLS", "local_name")
+
+    @cp
+    def states(self) -> dict[type[Tool], ToolState]:
+        state_classes = []
+        for tool_class in self.tool_classes:
+            state_classes.append(tool_class)
+            state_classes.extend(tool_class.validator_classes)
+
+        counts = Counter(state_classes)
+        duplicates = []
+        for tool_class, count in counts.items():
+            if count > 1:
+                duplicates.append(tool_class)
+
+        if duplicates:
+            names = []
+            for tool_class in duplicates:
+                names.append(tool_class.__name__)
+            names_text = strings.join_natural(names)
+            raise ValueError(f"Duplicate tool state classes: {names_text}")
+
+        states = {}
+        for tool_class in state_classes:
+            states[tool_class] = tool_class.State()
+        return states
 
     @cached_classproperty
     def projections(cls) -> list:
@@ -195,8 +221,20 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         instance = await super().call_tool(name, tool_args, ctx, tool)
         if ctx.tool_call_id not in self.validation_results:
             await self.validate(ctx, tool.tool_def, tool_args) # Validation didn't already run during approval prompt check (i.e. we're a non-ACP/subagent).
-        validation = self.validation_results.pop(ctx.tool_call_id)
-        result = await self.raise_errors(instance.run)
+        validation = self.validation_results[ctx.tool_call_id]
+        try:
+            if ctx.tool_call_approved:
+                for validator_class in instance.validator_classes:
+                    validator = validator_class.model_validate(
+                        instance,
+                        from_attributes=True,
+                    )
+                    await self.raise_errors(validator.post_approval, validation)
+
+            result = await self.raise_errors(instance.run)
+        finally:
+            validation = self.validation_results.pop(ctx.tool_call_id)
+
         if validation.messages:
             instance.feedback(
                 strings.trim(

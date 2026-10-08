@@ -316,7 +316,7 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
     def approval_bridge(self):
         from xah.server.acp.server import ApprovalBridgeMetadata
 
-        return ApprovalBridgeMetadata()
+        return ApprovalBridgeMetadata(enable_persistent_choices=True)
 
     @cached_property
     def projections(self):
@@ -402,7 +402,7 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
             self.agent_factory,
             host=self.settings.host,
             port=self.settings.port,
-            options=TransportOptions(ping_timeout=120.0),
+            options=TransportOptions(ping_timeout=600.0),
         )
         logger.info(f"Launching {self.name} at {self.url}")
         async with server:

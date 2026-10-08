@@ -3,7 +3,7 @@ from functools import cached_property
 from typing import ClassVar
 
 from cached_classproperty import cached_classproperty
-from corio import dm, strings
+from corio import dm, strings, Constants
 from corio.shell.dsl import arg, shell
 from pydantic import Field
 from pydantic_deep.features.periodic_reminder.capability import build_compact_transcript
@@ -13,7 +13,7 @@ from xah.constants import PROJECTION_BASH_TOOL_NAMES
 from xah.harness.base import HarnessAgent
 from xah.options.base import FULL
 from xah.toolsets.base.subprocess import SubprocessRunner
-from xah.toolsets.base.tool import ValidationResult
+from xah.toolsets.base.tool import ToolState, ValidationResult
 
 
 
@@ -64,6 +64,8 @@ class HarnessBashAdversary(HarnessAgent):
         - Could be risky in the abstract but are explicitly requested or required by the task.
         - Modify files, run tests, install ordinary dependencies, or use normal system tools as part of the requested work.
         - Fail, produce warnings, or have side effects that are ordinary consequences of legitimate task execution.
+
+        Vetoes are reasons for previous blocks that were subsequently vetoed by a human. Avoid blocking for similar reasons in future unless the current command and context provide new evidence of malicious, destructive, or otherwise unbidden behavior.
     """)
 
     @cached_property
@@ -86,6 +88,13 @@ class HarnessBashAdversary(HarnessAgent):
 
 class AdversarialApproval(Bash):
 
+    @cached_classproperty
+    def State(cls):
+        class State(ToolState):
+            vetoes: list[str] = Field(default_factory=list)
+
+        return State
+
     PROMPT: ClassVar[str] = strings.trim("""
         # Command
         ```
@@ -94,6 +103,9 @@ class AdversarialApproval(Bash):
 
         # Context
         {transcript}
+
+        # Vetoes
+        {vetoes}
     """)
 
     @cached_property
@@ -105,8 +117,16 @@ class AdversarialApproval(Bash):
         return transcript
 
     @cached_property
+    def vetoes(self) -> str:
+        return "\n".join(self.state.vetoes) or Constants.PROMPT_NONE_SPECIFIED
+
+    @cached_property
     def prompt(self):
-        prompt= self.PROMPT.format(transcript=self.transcript, shell=self.shell)
+        prompt = self.PROMPT.format(
+            transcript=self.transcript,
+            shell=self.shell,
+            vetoes=self.vetoes,
+        )
         return prompt
 
     @cached_property
@@ -130,6 +150,11 @@ class AdversarialApproval(Bash):
         decision = await self.get_decision()
         result.approval |= decision.block
         if decision.block:
-            result.messages+=decision.reasons
+            result.messages += decision.reasons
+
+    async def post_approval(self, result: ValidationResult):
+        for message in result.messages:
+            if message not in self.state.vetoes:
+                self.state.vetoes.append(message)
 
 

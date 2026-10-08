@@ -131,6 +131,8 @@ class HarnessResearch(HarnessAgent):
 class Research(Tool):
     """Search, fetch, and index web pages for the user's research request."""
 
+    FETCH_TIMEOUT: ClassVar[int] = 60
+
     prompt: str = Field(
         description="Research request, including detailed instructions for what to investigate."
     )
@@ -176,6 +178,9 @@ class Research(Tool):
         return CrawlerRunConfig(
             cache_mode=CacheMode.BYPASS,
             markdown_generator=self.generator,
+            page_timeout=self.FETCH_TIMEOUT * 1000,
+            wait_for_timeout=self.FETCH_TIMEOUT * 1000,
+            max_retries=0,
         )
 
     async def run(self) -> str:
@@ -208,14 +213,21 @@ class Research(Tool):
 
         return text
 
+    async def fetch_url(self, crawler, url):
+        try:
+            async with asyncio.timeout(self.FETCH_TIMEOUT):
+                return await crawler.arun(url, config=self.config)
+        except TimeoutError:
+            return None
+
     async def fetch(self, urls: list[str]) -> AsyncIterator[WebPage]:
         async with AsyncWebCrawler(config=self.browser) as crawler:
             results = await asyncio.gather(
-                *(crawler.arun(url, config=self.config) for url in urls)
+                *(self.fetch_url(crawler, url) for url in urls)
             )
 
         for url, result in zip(urls, results):
-            if not result.success:
+            if result is None or not result.success:
                 continue
             md_fit=result.markdown.fit_markdown
             md_raw=result.markdown.raw_markdown

@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -104,6 +105,30 @@ async def test_fetch_indexes_raw_markdown_when_fit_markdown_is_empty(monkeypatch
 
     assert len(pages) == 1
     assert pages[0].text == "# Meteor"
+
+
+@pytest.mark.asyncio
+async def test_fetch_skips_timed_out_urls(monkeypatch):
+    class Crawler:
+        def __init__(self, config):
+            self.config = config
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def arun(self, url, config):
+            await asyncio.sleep(1)
+
+    monkeypatch.setattr(research_module, "AsyncWebCrawler", Crawler)
+    monkeypatch.setattr(Research, "FETCH_TIMEOUT", 0.01)
+    research = Research.model_construct(research_id="research-1")
+
+    pages = [page async for page in research.fetch(["https://example.com"])]
+
+    assert pages == []
 
 
 @pytest.fixture

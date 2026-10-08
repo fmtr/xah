@@ -12,11 +12,16 @@ from pydantic_ai.messages import SystemPromptPart
 from pydantic_ai.toolsets import FunctionToolset
 
 from corio import Path, dm, strings
+from corio.function import ccp, cp
 from corio.iterator import enlist, ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration
 from xah.constants import HARNESS_FEEDBACK
 from xah.options.path import PathCwd
+
+
+class ToolState(dm.Base):
+    """Serializable state shared by instances of one tool class."""
 
 
 class ValidationResult(dm.Base):
@@ -41,6 +46,18 @@ class ValidationResult(dm.Base):
 class Tool(dm.Base):
     ctx: SkipJsonSchema[InstanceOf[RunContext]] = Field(exclude=True)
     toolset: SkipJsonSchema[InstanceOf[FunctionToolset]] = Field(exclude=True)
+
+    @ccp
+    def State(cls) -> type[ToolState]:
+        return ToolState
+
+    @cp
+    def state(self) -> ToolState:
+        return self.toolset.states[type(self)]
+
+    @property
+    def validation_result(self) -> ValidationResult:
+        return self.toolset.validation_results[self.ctx.tool_call_id]
 
     NAME: ClassVar[str | None] = None
     DESCRIPTION: ClassVar[str | None] = None
@@ -97,9 +114,9 @@ class Tool(dm.Base):
     def VALIDATORS(cls) -> ClassDeclaration[Tool]:
         return []
 
-    @cached_property
-    def validator_classes(self) -> ilist[type[Tool]]:
-        return ClassDeclaration.classes(type(self), "VALIDATORS", "local_name")
+    @ccp
+    def validator_classes(cls) -> ilist[type[Tool]]:
+        return ClassDeclaration.classes(cls, "VALIDATORS", "local_name")
 
     @cached_property
     def cwd(self) -> Path:
@@ -143,3 +160,6 @@ class Tool(dm.Base):
         for validator_class in self.validator_classes:
             validator = validator_class.model_validate(self, from_attributes=True)
             await validator.validate(result)
+
+    async def post_approval(self, result: ValidationResult):
+        pass
