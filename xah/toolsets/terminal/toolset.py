@@ -1,0 +1,40 @@
+from cached_classproperty import cached_classproperty
+from pydantic_ai import RunContext
+from pydantic_ai.messages import InstructionPart
+
+from corio.function import cp
+from corio.iterator import ilist
+from xah.toolsets.base.toolset import Toolset
+
+from xah.toolsets.terminal.terminal import Terminal
+
+
+class Terminals(Toolset):
+    """Start and manage background shell commands."""
+
+    def __init__(self, settings, cwd):
+        self.shell = settings.shell
+        super().__init__(settings=settings, cwd=cwd)
+
+    async def get_instructions(self, ctx: RunContext) -> list[InstructionPart]:
+        instructions = await super().get_instructions(ctx) or []
+        instructions.append(
+            InstructionPart(
+                content=f"Terminal commands are executed using `{self.shell.name}`.",
+                dynamic=True,
+            )
+        )
+        return instructions
+
+    @cp
+    def terminals(self) -> ilist[Terminal]:
+        return ilist()
+
+    @cached_classproperty
+    def TOOLS(cls):
+        from xah.toolsets.terminal.check import Check
+        from xah.toolsets.terminal.kill import Kill
+        from xah.toolsets.terminal.output import Output
+        from xah.toolsets.terminal.start import Start
+
+        return [Start, Check, Kill, Output]

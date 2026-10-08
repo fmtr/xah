@@ -11,12 +11,11 @@ from pydantic_ai import RunContext
 from pydantic_ai.messages import SystemPromptPart
 from pydantic_ai.toolsets import FunctionToolset
 
-from corio import Path, dm, strings
+from corio import Path, dm
 from corio.function import ccp, cp
 from corio.iterator import enlist, ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration
-from xah.constants import HARNESS_FEEDBACK
 from xah.options.path import PathCwd
 
 
@@ -150,11 +149,9 @@ class Tool(dm.Base):
 
     def feedback(self, message: str | SystemPromptPart) -> str | None:
         """Enqueue harness feedback for the next model request."""
-        if isinstance(message, str):
-            message=strings.trim(HARNESS_FEEDBACK, message)
-            message = SystemPromptPart(content=message)
+        from xah.toolsets.base.toolset import Toolset
 
-        return self.ctx.enqueue(message)
+        return Toolset.feedback(self.ctx, message)
 
     async def validate(self, result: ValidationResult):
         for validator_class in self.validator_classes:

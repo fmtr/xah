@@ -199,13 +199,14 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
         from xah.toolsets.context.toolset import Context
         from xah.toolsets.fs.toolset import Files
         from xah.toolsets.python.toolset import Python
-        from xah.toolsets.shell.toolset import Shell
+        from xah.toolsets.terminal.toolset import Terminals
+
         from xah.toolsets.skills.toolset import Skills
         from xah.toolsets.subagent.toolset import Subagent
         from xah.toolsets.todo.toolset import Todo
         from xah.toolsets.utils.toolset import Utils
 
-        return [Context, Files, Shell, Python, Skills, Todo, Utils]
+        return [Context, Files, Terminals, Python, Skills, Todo, Utils]
 
     @cached_classproperty
     def MODELS(cls) -> list[type[AdapterModel]]:

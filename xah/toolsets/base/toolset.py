@@ -7,6 +7,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 from cached_classproperty import cached_classproperty
 from pydantic import ValidationError, ConfigDict
 from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool, ToolFailed
+from pydantic_ai.messages import SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
@@ -15,6 +16,7 @@ from corio.function import ccm, cp
 from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import ClassDeclaration
+from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
@@ -100,6 +102,14 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     @ccm
     def local_tool_name(cls, name: str) -> str:
         return name.removeprefix(f"{cls.name}-")
+
+    @staticmethod
+    def feedback(ctx: RunContext, message: str | SystemPromptPart) -> str | None:
+        if isinstance(message, str):
+            message = strings.trim(HARNESS_FEEDBACK, message)
+            message = SystemPromptPart(content=message)
+
+        return ctx.enqueue(message)
 
     async def raise_errors(self, method, *args):
         try:

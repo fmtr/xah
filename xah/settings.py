@@ -1,7 +1,6 @@
 import asyncio
+import shutil
 from functools import cached_property
-from pathlib import Path
-
 from pydantic_acp import host
 from typing import ClassVar, Self
 
@@ -9,8 +8,7 @@ from acpremote import TransportOptions
 from cached_classproperty import cached_classproperty
 from pydantic_settings import CliSubCommand
 
-from corio import dm, PackagePaths
-from corio import sets
+from corio import Path, PackagePaths, dm, env, sets
 from corio.logs import logger
 
 from xah.paths import paths
@@ -62,6 +60,7 @@ class Settings(sets.Base, cli_parse_args=True):
     path: PathAgent = PathAgent()
     port: int|None = None
     host: str='localhost'
+    shell: Path = Path(shutil.which("bash") or env.get("SHELL", "/bin/sh"))
     harness_type: ClassVar
 
     def model_post_init(self, __context):
