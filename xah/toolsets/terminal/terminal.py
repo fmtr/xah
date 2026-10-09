@@ -31,7 +31,7 @@ class Terminal(dm.Base):
     READ_CHUNK_SIZE: ClassVar[int] = 4096
     OUTPUT_CALLBACK_CHUNK_SIZE: ClassVar[int] = 2 * 1024
     SUMMARY_MASK: ClassVar[str] = """
-        Terminal `{id}` ran `{command}` from `{cwd}` for {runtime}.
+        Terminal `{id}` running `{command}` for {runtime}.
         Status: `{status}`; exit code: `{exit_code}`.
     """
 
@@ -71,7 +71,7 @@ class Terminal(dm.Base):
             id=self.id,
             command=command,
             cwd=self.cwd,
-            runtime=humanize.naturaldelta(self.runtime),
+            runtime=humanize.precisedelta(self.runtime, format="%0.1f"),
             status=self.status,
             exit_code=self.exit_code,
         )

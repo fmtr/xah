@@ -46,6 +46,7 @@ dependencies = [
     "pydantic-deep[all]",
     "pydantic-ai-slim[logfire,openai]",
     "fastmcp==3.4.4",
+    "humanize",
 ]
 
 [project.optional-dependencies]

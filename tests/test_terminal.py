@@ -33,7 +33,7 @@ def test_terminal_summary_includes_runtime_status_and_command():
     assert terminal.runtime == 2.5
     assert terminal.tail(20) == ""
     assert terminal.summary == (
-        "Terminal `test` ran `echo 0123…567890123` from `/tmp` for 2 seconds.\n"
+        "Terminal `test` ran `echo 0123…567890123` from `/tmp`, running for 2.5 seconds.\n"
         "Status: `completed`; exit code: `0`."
     )
 
@@ -58,7 +58,7 @@ def test_output_notification_left_aligns_multiline_output(monkeypatch):
     message = messages[0]
     assert message == (
         "Terminal `test` produced output.\n\n"
-        "Terminal `test` ran `echo test` from `/tmp` for a moment.\n"
+        "Terminal `test` ran `echo test` from `/tmp`, running for 0 seconds.\n"
         "Status: `completed`; exit code: `0`.\n\n"
         "```\n"
         "first\n"
@@ -110,7 +110,7 @@ def test_status_notification_uses_shared_terminal_notification(monkeypatch):
     message = messages[0]
     assert message == (
         "Terminal `test` finished with status `completed`.\n\n"
-        "Terminal `test` ran `echo test` from `/tmp` for a moment.\n"
+        "Terminal `test` ran `echo test` from `/tmp`, running for 0 seconds.\n"
         "Status: `completed`; exit code: `0`.\n\n"
         "```\n"
         "first\n"
