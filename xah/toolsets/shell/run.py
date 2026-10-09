@@ -6,7 +6,7 @@ from pydantic import Field
 from pydantic_deep.features.periodic_reminder.capability import build_compact_transcript
 
 from corio import Constants, dm, strings
-from corio.shell.dsl import Expression, arg, shell as shell_dsl
+from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import ClassDeclaration
 from xah.harness.base import HarnessAgent
 from xah.options.base import FULL
@@ -15,6 +15,7 @@ from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files as FilesBase
 from xah.toolsets.terminal.base import TerminalTool
+from xah.toolsets.terminal.toolset import Terminals
 
 
 class AdversaryDecision(dm.Base):
@@ -69,7 +70,7 @@ class HarnessTerminalAdversary(HarnessAgent):
 class Run(TerminalTool):
     """Run a shell command in the working directory."""
 
-    shell: str = Field(description="Shell source to execute in the working directory.")
+    source: str = Field(description="Shell source to execute in the working directory.")
 
     @cached_classproperty
     def VALIDATORS(cls):
@@ -77,8 +78,8 @@ class Run(TerminalTool):
 
     @cached_property
     def expression(self) -> Expression:
-        expression = Expression(name=str(self.toolset.shell), shell=shell_dsl)
-        return expression(-arg.c + self.shell)
+        expression = shell(str(self.ctx.deps.toolsets.cls[Terminals].shell))
+        return expression(-arg.c + self.source)
 
 
 class AdversarialApproval(Run):
@@ -118,7 +119,7 @@ class AdversarialApproval(Run):
     def prompt(self):
         return self.PROMPT.format(
             transcript=self.transcript,
-            command=self.shell,
+            command=self.source,
             vetoes=self.vetoes,
         )
 

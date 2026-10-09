@@ -26,7 +26,7 @@ class TerminalTool(Tool):
     def terminals(self):
         from xah.toolsets.terminal.toolset import Terminals
 
-        return self.ctx.deps.toolsets.cls[Terminals]
+        return self.ctx.deps.toolsets.cls[Terminals].terminals
 
     async def run(self) -> str:
         from xah.toolsets.terminal.output import Output
@@ -87,7 +87,7 @@ class TerminalManagementTool(Tool):
     def terminals(self):
         from xah.toolsets.terminal.toolset import Terminals
 
-        return self.ctx.deps.toolsets.cls[Terminals]
+        return self.ctx.deps.toolsets.cls[Terminals].terminals
 
     @cached_property
     def terminal(self) -> Terminal:

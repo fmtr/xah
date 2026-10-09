@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from functools import cached_property
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from cached_classproperty import cached_classproperty
 from corio import Path
@@ -27,10 +29,13 @@ from pydantic_ai.usage import RunUsage
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.fs.write import Write
 from xah.toolsets.python.toolset import Python
+from xah.toolsets.shell.run import Run
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.skills.toolset import Skills
 from xah.toolsets.subagent.toolset import Subagent
 from xah.toolsets.todo.toolset import Todo
+from xah.toolsets.terminal.status import Status
+from xah.toolsets.terminal.toolset import Terminals
 from xah.toolsets.utils.toolset import Utils
 
 
@@ -76,14 +81,17 @@ def harness(cwd=None):
         cwd=cwd or Path.cwd(),
         session_id="test-session",
     )
-    return Harness(
+    runtime = Harness(
         session=session,
         usage_reporters=UsageReporterRegistry(),
     )
+    with patch.object(sys, "argv", [sys.argv[0]]):
+        runtime.settings
+    return runtime
 
 
-def test_harness_ignores_the_full_edit_tool_name_in_stuck_loop_detection():
-    assert harness().stuck_loop_detection.ignore_tools == {"Files-Edit"}
+def test_harness_ignores_non_progress_tools_in_stuck_loop_detection():
+    assert harness().stuck_loop_detection.ignore_tools == {"Files-Edit", "Utils-Sleep"}
 
 
 def test_similarity_validator_has_shared_thresholds():
@@ -158,10 +166,29 @@ def test_shell_validation_uses_agent_output():
     assert toolset.options.cls[options.Policy].value == options.DISABLED
     toolset.options.cls[options.Policy].current_value = options.APPROVAL
 
-    result = asyncio.run(toolset.validate(ctx, tool_def, {"shell": "echo hello"}))
+    result = asyncio.run(toolset.validate(ctx, tool_def, {"source": "echo hello"}))
 
     assert result.approval
     assert result.messages == ["The command is appropriate."]
+
+
+def test_terminal_run_appends_to_terminal_collection():
+    deps = harness().deps
+    toolset = deps.toolsets.cls[Terminals]
+    terminals = toolset.terminals
+    ctx = RunContext(deps=deps, model=TestModel(), usage=RunUsage())
+    tool = Run(ctx=ctx, toolset=toolset, source="printf hello")
+
+    result = asyncio.run(tool.run())
+
+    assert result == "hello"
+    assert tool.terminals is terminals
+    assert terminals[0].output == "hello"
+
+    management_tool = Status(ctx=ctx, toolset=toolset, terminal_id=terminals[0].id)
+
+    assert management_tool.terminals is terminals
+    assert management_tool.terminal is terminals[0]
 
 
 def test_policy_value_controls_toolset_visibility():

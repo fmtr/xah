@@ -16,15 +16,7 @@ class Terminals(Toolset):
         self.shell = settings.shell
         super().__init__(settings=settings, cwd=cwd)
 
-    async def get_instructions(self, ctx: RunContext) -> list[InstructionPart]:
-        instructions = await super().get_instructions(ctx) or []
-        instructions.append(
-            InstructionPart(
-                content=f"Terminal commands are executed using `{self.shell.name}`.",
-                dynamic=True,
-            )
-        )
-        return instructions
+
 
     @cp
     def terminals(self) -> ilist[Terminal]:
