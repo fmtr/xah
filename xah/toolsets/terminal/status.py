@@ -4,7 +4,7 @@ from xah.toolsets.terminal.base import TerminalTool
 class Status(TerminalTool):
     """Return the current status of a background terminal."""
 
-    EVENT = "finished with status `{status}`"
+    EVENT = "finished"
 
     async def run(self) -> str:
         terminal = self.terminal

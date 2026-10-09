@@ -15,15 +15,14 @@ class TerminalTool(Tool):
     EVENT: ClassVar[str]
     TAIL_SIZE: ClassVar[int] = 512
     MASK: ClassVar[str] = """
-        Terminal `{id}` {event}.
-
+        Terminal {event}.
         {summary}
 
         ```
         {tail}
         ```
-
-        Use the {tool} tool to inspect its full output.
+        
+        Note: The above is the output tail only. Use the {tool} tool to inspect its full output.
     """
     terminal_id: str = Field(description="Identifier of the background terminal.")
 
