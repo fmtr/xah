@@ -25,7 +25,7 @@ from xah.options.provider import ConfigOptionsProvider
 from xah.server.acp.thinking import AgentAcp
 from xah.server.acp.usage import UsageReporterRegistry
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
-
+from xah.toolsets.utils.toolset import Utils
 
 AgentDepsT = TypeVar("AgentDepsT", bound=HarnessAgentDeps)
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
@@ -202,7 +202,6 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
         from xah.toolsets.terminal.toolset import Terminals
 
         from xah.toolsets.skills.toolset import Skills
-        from xah.toolsets.subagent.toolset import Subagent
         from xah.toolsets.todo.toolset import Todo
         from xah.toolsets.utils.toolset import Utils
 
@@ -254,10 +253,15 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
     def stuck_loop_detection(self):
         from xah.toolsets.fs.edit import Edit
         from xah.toolsets.fs.toolset import Files
+        from xah.toolsets.utils.toolset import Utils
+        from xah.toolsets.utils.sleep import Sleep
 
         return StuckLoopDetection(
             max_repeated=self.stuck_loop_max_repeated,
-            ignore_tools={f"{Files.name}-{Edit.local_name}"},
+            ignore_tools={
+                Files.tool_name(Edit),
+                Utils.tool_name(Sleep),
+            },
         )
 
     @cached_property

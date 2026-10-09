@@ -1,26 +1,28 @@
 import asyncio
 import os
 import signal
+import time
 from collections.abc import Callable
-from enum import StrEnum
+from enum import StrEnum, auto
 from typing import ClassVar
 from uuid import uuid4
 
+import humanize
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
-from corio import Path, dm
+from corio import Path, dm, strings
 from corio.function import cp
 from corio.hash import get_hash_readable
 
 
 class TerminalStatus(StrEnum):
-    CREATED = "created"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    TIMED_OUT = "timed_out"
-    KILLED = "killed"
-    FAILED = "failed"
+    CREATED = auto()
+    RUNNING = auto()
+    COMPLETED = auto()
+    TIMED_OUT = auto()
+    KILLED = auto()
+    FAILED = auto()
 
 
 class Terminal(dm.Base):
@@ -28,6 +30,10 @@ class Terminal(dm.Base):
 
     READ_CHUNK_SIZE: ClassVar[int] = 4096
     OUTPUT_CALLBACK_CHUNK_SIZE: ClassVar[int] = 2 * 1024
+    SUMMARY_MASK: ClassVar[str] = """
+        Terminal `{id}` ran `{command}` from `{cwd}` for {runtime}.
+        Status: `{status}`; exit code: `{exit_code}`.
+    """
 
     id: str | None = Field(default=None, description="Identifier used by the terminal management tools.")
     command: str = Field(description="Shell command being run.")
@@ -42,6 +48,8 @@ class Terminal(dm.Base):
 
     _read_offset: int = 0
     _output_callback_pending: bool = False
+    _started_at: float = 0
+    _finished_at: float = 0
     _process_handle: asyncio.subprocess.Process | None = None
 
     def model_post_init(self, __context) -> None:
@@ -49,7 +57,28 @@ class Terminal(dm.Base):
             self.id = get_hash_readable(str(uuid4()), length=4)
 
     @cp
+    def runtime(self) -> float:
+        finished_at = self._finished_at or time.monotonic()
+        return finished_at - self._started_at
+
+    def tail(self, size: int) -> str:
+        return self.output[-size:].strip()
+
+    @cp
+    def summary(self) -> str:
+        command = strings.truncate_mid(self.command, length=20)
+        return strings.Mask(self.SUMMARY_MASK).format(
+            id=self.id,
+            command=command,
+            cwd=self.cwd,
+            runtime=humanize.naturaldelta(self.runtime),
+            status=self.status,
+            exit_code=self.exit_code,
+        )
+
+    @cp
     def process(self) -> asyncio.Task:
+        self._started_at = time.monotonic()
         return asyncio.create_task(self._run())
 
     async def start(self) -> TerminalStatus:
@@ -107,6 +136,7 @@ class Terminal(dm.Base):
             self.status = TerminalStatus.FAILED
             self.output += str(error)
         finally:
+            self._finished_at = time.monotonic()
             self._process_handle = None
             if self.on_complete:
                 self.on_complete(self)

@@ -3,8 +3,10 @@ import os
 
 import pytest
 
+from xah.toolsets.base.toolset import Toolset
+from xah.toolsets.terminal.output import Output
+from xah.toolsets.terminal.status import Status
 from xah.toolsets.terminal.terminal import Terminal, TerminalStatus
-
 
 
 async def wait_for_process_exit(pid: int) -> None:
@@ -14,6 +16,109 @@ async def wait_for_process_exit(pid: int) -> None:
         await asyncio.sleep(0.02)
 
     pytest.fail(f"Process {pid} is still running")
+
+
+def test_terminal_summary_includes_runtime_status_and_command():
+    terminal = Terminal.model_construct(
+        id="test",
+        command="echo 012345678901234567890123",
+        shell="/bin/sh",
+        cwd="/tmp",
+        status="completed",
+        exit_code=0,
+        _started_at=10.0,
+        _finished_at=12.5,
+    )
+
+    assert terminal.runtime == 2.5
+    assert terminal.tail(20) == ""
+    assert terminal.summary == (
+        "Terminal `test` ran `echo 0123…567890123` from `/tmp` for 2 seconds.\n"
+        "Status: `completed`; exit code: `0`."
+    )
+
+
+def test_output_notification_left_aligns_multiline_output(monkeypatch):
+    messages = []
+    terminal = Terminal.model_construct(
+        id="test",
+        command="echo test",
+        shell="/bin/sh",
+        cwd="/tmp",
+        status="completed",
+        exit_code=0,
+        output="first\nsecond\nthird",
+        _started_at=10.0,
+        _finished_at=10.0,
+    )
+    monkeypatch.setattr(Toolset, "feedback", lambda ctx, message: messages.append(message))
+
+    Output.notify(None, terminal)
+
+    message = messages[0]
+    assert message == (
+        "Terminal `test` produced output.\n\n"
+        "Terminal `test` ran `echo test` from `/tmp` for a moment.\n"
+        "Status: `completed`; exit code: `0`.\n\n"
+        "```\n"
+        "first\n"
+        "second\n"
+        "third\n"
+        "```\n\n"
+        "Use the Output tool to inspect its full output."
+    )
+    assert all(not line.startswith(" ") for line in message.splitlines())
+
+
+def test_output_notification_reports_no_new_output(monkeypatch):
+    messages = []
+    terminal = Terminal.model_construct(
+        id="test",
+        command="echo test",
+        shell="/bin/sh",
+        cwd="/tmp",
+        status="completed",
+        exit_code=0,
+        output="",
+        _started_at=10.0,
+        _finished_at=10.0,
+    )
+    monkeypatch.setattr(Toolset, "feedback", lambda ctx, message: messages.append(message))
+
+    Output.notify(None, terminal)
+
+    assert "[No New Output]" in messages[0]
+
+
+def test_status_notification_uses_shared_terminal_notification(monkeypatch):
+    messages = []
+    terminal = Terminal.model_construct(
+        id="test",
+        command="echo test",
+        shell="/bin/sh",
+        cwd="/tmp",
+        status="completed",
+        output="first\nsecond",
+        exit_code=0,
+        _started_at=10.0,
+        _finished_at=10.0,
+    )
+    monkeypatch.setattr(Toolset, "feedback", lambda ctx, message: messages.append(message))
+
+    Status.notify(None, terminal)
+
+    message = messages[0]
+    assert message == (
+        "Terminal `test` finished with status `completed`.\n\n"
+        "Terminal `test` ran `echo test` from `/tmp` for a moment.\n"
+        "Status: `completed`; exit code: `0`.\n\n"
+        "```\n"
+        "first\n"
+        "second\n"
+        "```\n\n"
+        "Use the Output tool to inspect its full output."
+    )
+    assert all(not line.startswith(" ") for line in message.splitlines())
 
 
 @pytest.mark.asyncio

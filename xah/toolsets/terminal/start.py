@@ -15,7 +15,7 @@ from xah.toolsets.base.tool import Tool, ToolState, ValidationResult
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files as FilesBase
-from xah.toolsets.terminal.check import Check
+from xah.toolsets.terminal.status import Status
 from xah.toolsets.terminal.output import Output
 from xah.toolsets.terminal.terminal import Terminal
 
@@ -47,7 +47,7 @@ class Start(Tool):
                 timeout=self.QUICK_COMPLETION_TIMEOUT,
             )
         except TimeoutError:
-            terminal.on_complete = partial(Check.notify, self.ctx)
+            terminal.on_complete = partial(Status.notify, self.ctx)
             terminal.on_output = partial(Output.notify, self.ctx)
             return f"Started terminal `{terminal.id}` with status `{status}`. Use terminal_id `{terminal.id}` with the other Terminal tools."
 
