@@ -1,7 +1,7 @@
-from xah.toolsets.terminal.base import TerminalTool
+from xah.toolsets.terminal.base import TerminalManagementTool
 
 
-class Status(TerminalTool):
+class Status(TerminalManagementTool):
     """Return the current status of a background terminal."""
 
     EVENT = "finished"

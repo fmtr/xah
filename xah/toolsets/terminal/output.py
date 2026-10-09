@@ -1,10 +1,10 @@
 from pydantic_ai import ToolFailed
 from pydantic_ai import ToolFailed
 
-from xah.toolsets.terminal.base import TerminalTool
+from xah.toolsets.terminal.base import TerminalManagementTool
 
 
-class Output(TerminalTool):
+class Output(TerminalManagementTool):
     """Return output produced since the previous call."""
 
     EVENT = "produced output"

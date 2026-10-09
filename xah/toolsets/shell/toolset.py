@@ -11,6 +11,6 @@ class Shell(Toolset):
 
     @cached_classproperty
     def TOOLS(cls):
-        from xah.toolsets.shell.bash import Bash
+        from xah.toolsets.shell.run import Run
 
-        return [Bash]
+        return [Run]

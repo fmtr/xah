@@ -4,10 +4,10 @@ from typing import Literal
 from pydantic import Field
 
 from corio.shell.dsl import Expression, arg, shell
-from xah.toolsets.base.subprocess import SubprocessRunner
+from xah.toolsets.terminal.base import TerminalTool
 
 
-class Test(SubprocessRunner):
+class Test(TerminalTool):
     """Run the current repository's test suite."""
 
     tests: list[str] = Field(

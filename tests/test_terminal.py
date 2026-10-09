@@ -1,5 +1,8 @@
 import asyncio
+import asyncio
 import os
+
+from corio.shell.dsl import shell
 
 import pytest
 
@@ -21,8 +24,7 @@ async def wait_for_process_exit(pid: int) -> None:
 def test_terminal_summary_includes_runtime_status_and_command():
     terminal = Terminal.model_construct(
         id="test",
-        command="echo 012345678901234567890123",
-        shell="/bin/sh",
+        expression=shell.echo("012345678901234567890123"),
         cwd="/tmp",
         status="completed",
         exit_code=0,
@@ -33,7 +35,7 @@ def test_terminal_summary_includes_runtime_status_and_command():
     assert terminal.runtime == 2.5
     assert terminal.tail(20) == ""
     assert terminal.summary == (
-        "Terminal `test` ran `echo 0123…567890123` from `/tmp`, running for 2.5 seconds.\n"
+        "Terminal `test` running `echo 0123…567890123` for 2.5 seconds.\n"
         "Status: `completed`; exit code: `0`."
     )
 
@@ -42,8 +44,7 @@ def test_output_notification_left_aligns_multiline_output(monkeypatch):
     messages = []
     terminal = Terminal.model_construct(
         id="test",
-        command="echo test",
-        shell="/bin/sh",
+        expression=shell.echo("test"),
         cwd="/tmp",
         status="completed",
         exit_code=0,
@@ -57,15 +58,15 @@ def test_output_notification_left_aligns_multiline_output(monkeypatch):
 
     message = messages[0]
     assert message == (
-        "Terminal `test` produced output.\n\n"
-        "Terminal `test` ran `echo test` from `/tmp`, running for 0 seconds.\n"
+        "Terminal produced output.\n"
+        "Terminal `test` running `echo test` for 0 seconds.\n"
         "Status: `completed`; exit code: `0`.\n\n"
         "```\n"
         "first\n"
         "second\n"
         "third\n"
         "```\n\n"
-        "Use the Output tool to inspect its full output."
+        "Note: The above is the output tail only. Use the Output tool to inspect its full output."
     )
     assert all(not line.startswith(" ") for line in message.splitlines())
 
@@ -74,8 +75,7 @@ def test_output_notification_reports_no_new_output(monkeypatch):
     messages = []
     terminal = Terminal.model_construct(
         id="test",
-        command="echo test",
-        shell="/bin/sh",
+        expression=shell.echo("test"),
         cwd="/tmp",
         status="completed",
         exit_code=0,
@@ -94,8 +94,7 @@ def test_status_notification_uses_shared_terminal_notification(monkeypatch):
     messages = []
     terminal = Terminal.model_construct(
         id="test",
-        command="echo test",
-        shell="/bin/sh",
+        expression=shell.echo("test"),
         cwd="/tmp",
         status="completed",
         output="first\nsecond",
@@ -109,14 +108,14 @@ def test_status_notification_uses_shared_terminal_notification(monkeypatch):
 
     message = messages[0]
     assert message == (
-        "Terminal `test` finished with status `completed`.\n\n"
-        "Terminal `test` ran `echo test` from `/tmp`, running for 0 seconds.\n"
+        "Terminal finished.\n"
+        "Terminal `test` running `echo test` for 0 seconds.\n"
         "Status: `completed`; exit code: `0`.\n\n"
         "```\n"
         "first\n"
         "second\n"
         "```\n\n"
-        "Use the Output tool to inspect its full output."
+        "Note: The above is the output tail only. Use the Output tool to inspect its full output."
     )
     assert all(not line.startswith(" ") for line in message.splitlines())
 
@@ -127,8 +126,7 @@ async def test_terminal_returns_incremental_output_and_completion_status():
     outputs = []
     terminal = Terminal.model_construct(
         id="test",
-        command="printf first; sleep 0.01; printf second",
-        shell="/bin/sh",
+        expression=shell.sh("-c", "printf first; sleep 0.01; printf second"),
         timeout=2,
         cwd="/tmp",
         status=TerminalStatus.CREATED,
@@ -155,8 +153,7 @@ async def test_terminal_notifies_only_after_a_large_output_chunk():
     outputs = []
     terminal = Terminal.model_construct(
         id="test",
-        command="head -c 8192 /dev/zero",
-        shell="/bin/sh",
+        expression=shell.head("-c", "8192", "/dev/zero"),
         timeout=2,
         cwd="/tmp",
         status=TerminalStatus.CREATED,
@@ -180,8 +177,7 @@ async def test_terminal_kill_stops_the_process():
     completed = []
     terminal = Terminal.model_construct(
         id="test",
-        command="sleep 10",
-        shell="/bin/sh",
+        expression=shell.sleep("10"),
         timeout=2,
         cwd="/tmp",
         status=TerminalStatus.CREATED,
@@ -204,8 +200,7 @@ async def test_terminal_kill_terminates_the_process_group():
     completed = []
     terminal = Terminal.model_construct(
         id="test",
-        command="sh -c 'sleep 30 & echo $!; wait'",
-        shell="/bin/sh",
+        expression=shell.sh("-c", "sleep 30 & echo $!; wait"),
         timeout=2,
         cwd="/tmp",
         status=TerminalStatus.CREATED,
@@ -229,8 +224,7 @@ async def test_terminal_timeout_terminates_the_process_group():
     completed = []
     terminal = Terminal.model_construct(
         id="test",
-        command="sh -c 'sleep 30 & echo $!; wait'",
-        shell="/bin/sh",
+        expression=shell.sh("-c", "sleep 30 & echo $!; wait"),
         timeout=1,
         cwd="/tmp",
         status=TerminalStatus.CREATED,

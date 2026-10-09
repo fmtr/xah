@@ -11,9 +11,10 @@ import humanize
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
-from corio import Path, dm, strings
+from corio import dm, strings
 from corio.function import cp
 from corio.hash import get_hash_readable
+from corio.shell.dsl import Expression
 
 
 class TerminalStatus(StrEnum):
@@ -26,7 +27,7 @@ class TerminalStatus(StrEnum):
 
 
 class Terminal(dm.Base):
-    """A background shell process whose output can be read incrementally."""
+    """A background process whose output can be read incrementally."""
 
     READ_CHUNK_SIZE: ClassVar[int] = 4096
     OUTPUT_CALLBACK_CHUNK_SIZE: ClassVar[int] = 2 * 1024
@@ -36,8 +37,7 @@ class Terminal(dm.Base):
     """
 
     id: str | None = Field(default=None, description="Identifier used by the terminal management tools.")
-    command: str = Field(description="Shell command being run.")
-    shell: Path = Field(description="Shell executable used by the command.")
+    expression: Expression = Field(description="DSL expression being run.", exclude=True)
     timeout: int = Field(default=120, gt=0, description="Maximum execution time in seconds.")
     cwd: str = Field(description="Working directory used by the command.")
     status: TerminalStatus = TerminalStatus.CREATED
@@ -66,7 +66,7 @@ class Terminal(dm.Base):
 
     @cp
     def summary(self) -> str:
-        command = strings.truncate_mid(self.command, length=20)
+        command = strings.truncate_mid(str(self.expression), length=20)
         return strings.Mask(self.SUMMARY_MASK).format(
             id=self.id,
             command=command,
@@ -99,10 +99,10 @@ class Terminal(dm.Base):
 
     async def _run(self) -> None:
         try:
-            process = await asyncio.create_subprocess_shell(
-                self.command,
+            process = await asyncio.create_subprocess_exec(
+                self.expression.name,
+                *self.expression.tokens(args_only=True),
                 cwd=self.cwd,
-                executable=self.shell,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 start_new_session=True,

@@ -5,11 +5,11 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio.shell.dsl import shell
-from xah.toolsets.base.subprocess import SubprocessRunner
+from xah.toolsets.terminal.base import TerminalTool
 from xah.toolsets.base.tool import ValidationResult
 
 
-class Run(SubprocessRunner):
+class Run(TerminalTool):
     """Run Python in the current project, with script paths relative to the working directory."""
 
     args: list[str] = Field(description="Arguments to pass to Python as plain tokens.")

@@ -35,6 +35,4 @@ class Terminals(Toolset):
         from xah.toolsets.terminal.status import Status
         from xah.toolsets.terminal.kill import Kill
         from xah.toolsets.terminal.output import Output
-        from xah.toolsets.terminal.start import Start
-
-        return [Start, Status, Kill, Output]
+        return [Status, Kill, Output]

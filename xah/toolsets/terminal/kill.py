@@ -1,7 +1,7 @@
-from xah.toolsets.terminal.base import TerminalTool
+from xah.toolsets.terminal.base import TerminalManagementTool
 
 
-class Kill(TerminalTool):
+class Kill(TerminalManagementTool):
     """Kill a background terminal process."""
 
     async def run(self) -> str:

@@ -1,57 +1,20 @@
-import asyncio
-from functools import cached_property, partial
+from functools import cached_property
 from typing import ClassVar
 
 from cached_classproperty import cached_classproperty
 from pydantic import Field
-
-from corio import Constants, dm, strings
 from pydantic_deep.features.periodic_reminder.capability import build_compact_transcript
 
+from corio import Constants, dm, strings
+from corio.shell.dsl import Expression, arg, shell as shell_dsl
 from xah.class_collections import ClassDeclaration
 from xah.harness.base import HarnessAgent
 from xah.options.base import FULL
-from xah.toolsets.base.tool import Tool, ToolState, ValidationResult
+from xah.toolsets.base.tool import ToolState, ValidationResult
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files as FilesBase
-from xah.toolsets.terminal.status import Status
-from xah.toolsets.terminal.output import Output
-from xah.toolsets.terminal.terminal import Terminal
-
-
-class Start(Tool):
-    """Start a shell command in the background."""
-
-    QUICK_COMPLETION_TIMEOUT: ClassVar[int] = 5
-
-    command: str = Field(description="Shell command to run in the working directory.")
-    timeout: int = Field(default=120, gt=0, description="Maximum execution time in seconds.")
-
-    @cached_classproperty
-    def VALIDATORS(cls):
-        return [AdversarialApproval]
-
-    async def run(self) -> str:
-        terminal = Terminal(
-            command=self.command,
-            shell=self.toolset.shell,
-            timeout=self.timeout,
-            cwd=str(self.cwd),
-        )
-        self.toolset.terminals.append(terminal)
-        status = await terminal.start()
-        try:
-            await asyncio.wait_for(
-                asyncio.shield(terminal.process),
-                timeout=self.QUICK_COMPLETION_TIMEOUT,
-            )
-        except TimeoutError:
-            terminal.on_complete = partial(Status.notify, self.ctx)
-            terminal.on_output = partial(Output.notify, self.ctx)
-            return f"Started terminal `{terminal.id}` with status `{status}`. Use terminal_id `{terminal.id}` with the other Terminal tools."
-
-        return await terminal.get()
+from xah.toolsets.terminal.base import TerminalTool
 
 
 class AdversaryDecision(dm.Base):
@@ -86,7 +49,7 @@ class HarnessTerminalAdversary(HarnessAgent):
         - Modify files, run tests, install ordinary dependencies, or use normal system tools as part of the requested work.
         - Fail, produce warnings, or have side effects that are ordinary consequences of legitimate task execution.
 
-        Vetoes are reasons for previous blocks that were subsequently vetoed by a human. Avoid blocking for similar reasons in future unless the current command and context provide new evidence of malicious, destructive, or otherwise unbidden behavior.
+        Vetoes are reasons for previous blocks that were subsequently vetoed by a human. Avoid blocking for similar reasons in future unless the current command and context provide new evidence.
     """)
 
     @cached_property
@@ -103,7 +66,22 @@ class HarnessTerminalAdversary(HarnessAgent):
         return [Files]
 
 
-class AdversarialApproval(Start):
+class Run(TerminalTool):
+    """Run a shell command in the working directory."""
+
+    shell: str = Field(description="Shell source to execute in the working directory.")
+
+    @cached_classproperty
+    def VALIDATORS(cls):
+        return [AdversarialApproval]
+
+    @cached_property
+    def expression(self) -> Expression:
+        expression = Expression(name=str(self.toolset.shell), shell=shell_dsl)
+        return expression(-arg.c + self.shell)
+
+
+class AdversarialApproval(Run):
     @cached_classproperty
     def State(cls):
         class State(ToolState):
@@ -138,12 +116,11 @@ class AdversarialApproval(Start):
 
     @cached_property
     def prompt(self):
-        prompt = self.PROMPT.format(
+        return self.PROMPT.format(
             transcript=self.transcript,
-            command=self.command,
+            command=self.shell,
             vetoes=self.vetoes,
         )
-        return prompt
 
     @cached_property
     def harness(self):

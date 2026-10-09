@@ -7,11 +7,11 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio.shell.dsl import arg, shell
-from xah.toolsets.base.subprocess import SubprocessRunner
+from xah.toolsets.terminal.base import TerminalTool
 from xah.toolsets.base.tool import ValidationResult
 
 
-class RunCode(SubprocessRunner):
+class RunCode(TerminalTool):
     """Run a short Python source fragment directly, like `python -c`."""
 
     code: str = Field(description="Short Python source fragment to execute directly.")
