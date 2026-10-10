@@ -66,7 +66,7 @@ class Terminal(dm.Base):
 
     @cp
     def summary(self) -> str:
-        command = strings.truncate_mid(str(self.expression), length=20)
+        command = strings.truncate_mid(str(self.expression), length=60)
         return strings.Mask(self.SUMMARY_MASK).format(
             id=self.id,
             command=command,

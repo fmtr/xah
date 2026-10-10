@@ -7,6 +7,7 @@ from corio.shell.dsl import shell
 import pytest
 
 from xah.toolsets.base.toolset import Toolset
+from xah.toolsets.terminal.base import TerminalTool
 from xah.toolsets.terminal.output import Output
 from xah.toolsets.terminal.status import Status
 from xah.toolsets.terminal.terminal import Terminal, TerminalStatus
@@ -19,6 +20,24 @@ async def wait_for_process_exit(pid: int) -> None:
         await asyncio.sleep(0.02)
 
     pytest.fail(f"Process {pid} is still running")
+
+
+def test_terminal_truncate_output_keeps_the_latest_8k_and_reports_lines():
+    output = "".join(f"line {index}: {'x' * 100}\n" for index in range(250))
+    omitted = output[:-TerminalTool.OUTPUT_MAX_CHARS]
+    expected_lines = len(omitted.splitlines())
+
+    truncated = TerminalTool.truncate_output(output)
+
+    assert truncated.startswith(f"[{expected_lines} lines truncated]\n")
+    assert truncated.endswith(output[-TerminalTool.OUTPUT_MAX_CHARS:])
+    assert len(truncated.split("\n", 1)[1]) == TerminalTool.OUTPUT_MAX_CHARS
+
+
+def test_terminal_truncate_output_preserves_short_output():
+    output = "first\nsecond\n"
+
+    assert TerminalTool.truncate_output(output) == output
 
 
 def test_terminal_summary_includes_runtime_status_and_command():

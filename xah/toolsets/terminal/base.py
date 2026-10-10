@@ -16,11 +16,30 @@ class TerminalTool(Tool):
     """Run a DSL subprocess expression as a managed background terminal."""
 
     QUICK_COMPLETION_TIMEOUT: ClassVar[int] = 5
+    OUTPUT_MAX_CHARS: ClassVar[int] = 8 * 1024
+    TRUNCATION_MASK: ClassVar[str] = """
+        [{lines} lines truncated]
+        {tail}
+    """
+    TRUNCATION_FEEDBACK: ClassVar[str] = """
+        Command output was truncated because it exceeded {chars} characters.
+        Please run commands that produce less output in future, such as by filtering or limiting the results.
+    """
     timeout: int = Field(default=120, gt=0, description="Maximum execution time in seconds.")
 
     @cached_property
     def expression(self) -> Expression:
         raise NotImplementedError
+
+    @classmethod
+    def truncate_output(cls, output: str) -> str:
+        if len(output) <= cls.OUTPUT_MAX_CHARS:
+            return output
+
+        omitted = output[:-cls.OUTPUT_MAX_CHARS]
+        truncated_lines = len(omitted.splitlines())
+        tail = output[-cls.OUTPUT_MAX_CHARS:]
+        return strings.Mask(cls.TRUNCATION_MASK).format(lines=truncated_lines, tail=tail)
 
     @cached_property
     def terminals(self):
@@ -49,7 +68,12 @@ class TerminalTool(Tool):
             terminal.on_output = partial(Output.notify, self.ctx)
             return f"Started terminal `{terminal.id}` with status `{status}`. Use terminal_id `{terminal.id}` with the other Terminal tools."
 
-        return await terminal.get()
+        output = await terminal.get()
+        if len(output) > self.OUTPUT_MAX_CHARS: # todo: this should probably be a validator, but awkward as Terminal.get advances the cursor.
+            feedback = strings.Mask(self.TRUNCATION_FEEDBACK).format(chars=self.OUTPUT_MAX_CHARS)
+            self.feedback(feedback)
+
+        return self.truncate_output(output)
 
 
 class TerminalManagementTool(Tool):

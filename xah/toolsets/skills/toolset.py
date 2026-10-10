@@ -1,6 +1,7 @@
 from functools import cached_property
 
 from cached_classproperty import cached_classproperty
+from pydantic import Field
 from pydantic_deep import SkillsDirectory
 
 from corio import Path
@@ -12,6 +13,12 @@ from xah.toolsets.skills.skill import Skill
 class Skills(Toolset):
     """Skill discovery and loading tools."""
 
+    history: set[str] = Field(default_factory=set)
+
+    def after_compress(self):
+        self.history.clear()
+        super().after_compress()
+
     @cached_classproperty
     def TOOLS(cls):
         from xah.toolsets.skills.list import List
@@ -20,6 +27,7 @@ class Skills(Toolset):
         return [List, Load]
 
     def __init__(self, settings, cwd: Path):
+        self.history = set()
         self.path = settings.path.skills.resolve()
         self.cwd = (cwd / settings.path.agents_dir / settings.path.skills_dir).resolve()
         super().__init__()

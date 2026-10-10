@@ -20,6 +20,7 @@ from pydantic_ai.models.test import TestModel
 
 from corio import yml
 from xah.caps.traffic import InstructionDeserializer, ModelTrafficLogger
+from xah.harness.base import Harness
 
 
 def captured_logger(monkeypatch):
@@ -129,6 +130,63 @@ def test_model_traffic_logger_logs_every_message_once(monkeypatch):
             "messages": [{"kind": "text", "content": "Done."}],
         },
     ]
+
+
+def test_model_traffic_logger_logs_compacted_history(monkeypatch):
+    capability, captured = captured_logger(monkeypatch)
+    harness = Harness.__new__(Harness)
+    harness.__dict__["model_traffic_logger"] = capability
+    harness.__dict__["session_usage_reporter"] = SimpleNamespace(report=lambda *_: None)
+    compressed = []
+    harness.__dict__["deps"] = SimpleNamespace(after_compress=lambda: compressed.append(True))
+    context_manager = harness.context_manager
+    context_manager.max_tokens = 100_000
+    context_manager._resolved_max_tokens = 100_000
+    context_manager._summarization_processor.max_input_tokens = 100_000
+    context_manager._summarization_processor._summarization_agent = Agent(
+        TestModel(custom_output_text="Preserve the original task and its decision."),
+    )
+    context_manager.request_compact(focus="the original task")
+
+    old_request = ModelRequest(parts=[UserPromptPart("The original task was to fix the logger.")])
+    old_response = ModelResponse(parts=[TextPart("I inspected the logger.")], model_name="test-model")
+    current_request = ModelRequest(parts=[UserPromptPart("Continue fixing it.")])
+    request_context = SimpleNamespace(
+        messages=[old_request, old_response, current_request],
+        model=SimpleNamespace(model_name="test-model"),
+    )
+
+    async def run():
+        await context_manager.before_model_request(SimpleNamespace(), request_context)
+
+    asyncio.run(run())
+
+    entries = [yml.from_yaml(item) for item in captured]
+    compactions = [entry for entry in entries if entry["event"] == "context-compaction"]
+    assert len(compactions) == 1
+    assert compactions[0]["summary"] == "Preserve the original task and its decision."
+    assert compressed == [True]
+    messages = compactions[0]["messages"]
+    assert len(messages) == 2
+    assert messages[0]["kind"] == "request"
+    assert messages[0]["parts"][0]["part_kind"] == "user-prompt"
+    assert messages[0]["parts"][0]["content"].endswith(
+        "Preserve the original task and its decision."
+    )
+    assert messages[1]["kind"] == "request"
+    assert messages[1]["parts"][0]["part_kind"] == "user-prompt"
+    assert messages[1]["parts"][0]["content"] == "Continue fixing it."
+
+
+def test_model_traffic_logger_does_not_log_failed_compaction(monkeypatch):
+    capability, captured = captured_logger(monkeypatch)
+    capability.log_compaction(
+        [ModelRequest(parts=[UserPromptPart("unchanged")])],
+        False,
+        None,
+    )
+
+    assert captured == []
 
 
 def test_model_traffic_logger_suppresses_retried_request(monkeypatch):

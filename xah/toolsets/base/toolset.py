@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
 from functools import cached_property
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -56,29 +55,26 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         return ClassDeclaration.classes(cls, "TOOLS", "local_name")
 
     @cp
-    def states(self) -> dict[type[Tool], ToolState]:
+    def states(self) -> dict[tuple[type[Tool], type[Tool]], ToolState]:
         state_classes = []
         for tool_class in self.tool_classes:
-            state_classes.append(tool_class)
-            state_classes.extend(tool_class.validator_classes)
+            state_classes.append(((tool_class, tool_class), tool_class))
+            state_classes.extend(
+                ((tool_class, validator_class), validator_class)
+                for validator_class in tool_class.validator_classes
+            )
 
-        counts = Counter(state_classes)
-        duplicates = []
-        for tool_class, count in counts.items():
-            if count > 1:
-                duplicates.append(tool_class)
+        return {
+            state_key: state_class.State()
+            for state_key, state_class in state_classes
+        }
 
-        if duplicates:
-            names = []
-            for tool_class in duplicates:
-                names.append(tool_class.__name__)
-            names_text = strings.join_natural(names)
-            raise ValueError(f"Duplicate tool state classes: {names_text}")
-
-        states = {}
-        for tool_class in state_classes:
-            states[tool_class] = tool_class.State()
-        return states
+    def state_for(
+        self,
+        owner_class: type[Tool],
+        state_class: type[Tool],
+    ) -> ToolState:
+        return self.states[(owner_class, state_class)]
 
     @cached_classproperty
     def projections(cls) -> list:
@@ -133,7 +129,12 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             **tool_args: Any,
         ) -> Tool:
             try:
-                return tool_class(ctx=ctx, toolset=self, **tool_args)
+                return tool_class(
+                    ctx=ctx,
+                    toolset=self,
+                    state=self.state_for(tool_class, tool_class),
+                    **tool_args,
+                )
             except ValidationError as error:
                 raise ModelRetry(self.validation_error_message(error)) from error
 
@@ -145,6 +146,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             takes_ctx=True,
         )
         self.add_tool(pydantic_tool)
+
+    def after_compress(self):
+        for state in self.states.values():
+            state.after_compress()
 
     @cached_property
     def options(self) -> ilist[options.Select]:
@@ -196,7 +201,12 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         local_name = self.local_tool_name(tool_def.name)
         tool_class = self.tool_classes.local_name[local_name]
         try:
-            return tool_class(ctx=ctx, toolset=self, **tool_args)
+            return tool_class(
+                ctx=ctx,
+                toolset=self,
+                state=self.state_for(tool_class, tool_class),
+                **tool_args,
+            )
         except ValidationError as error:
             raise ModelRetry(self.validation_error_message(error)) from error
 
@@ -239,6 +249,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                         instance,
                         from_attributes=True,
                     )
+                    validator.state = self.state_for(type(instance), validator_class)
                     await self.raise_errors(validator.post_approval, validation)
 
             result = await self.raise_errors(instance.run)

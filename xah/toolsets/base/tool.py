@@ -22,6 +22,9 @@ from xah.options.path import PathCwd
 class ToolState(dm.Base):
     """Serializable state shared by instances of one tool class."""
 
+    def after_compress(self):
+        pass
+
 
 class ValidationResult(dm.Base):
     messages: list[str] = Field(default_factory=list)
@@ -50,9 +53,14 @@ class Tool(dm.Base):
     def State(cls) -> type[ToolState]:
         return ToolState
 
-    @cp
-    def state(self) -> ToolState:
-        return self.toolset.states[type(self)]
+    state: SkipJsonSchema[InstanceOf[ToolState]] | None = Field(
+        default=None,
+        exclude=True,
+    )
+
+    def model_post_init(self, __context):
+        if self.state is None:
+            self.state = self.State()
 
     @property
     def validation_result(self) -> ValidationResult:
@@ -156,6 +164,7 @@ class Tool(dm.Base):
     async def validate(self, result: ValidationResult):
         for validator_class in self.validator_classes:
             validator = validator_class.model_validate(self, from_attributes=True)
+            validator.state = self.toolset.state_for(type(self), validator_class)
             await validator.validate(result)
 
     async def post_approval(self, result: ValidationResult):

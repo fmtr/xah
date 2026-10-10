@@ -28,6 +28,10 @@ class HarnessAgentDeps(DeepAgentDeps):
             for toolset_type in self.toolsets_classes
         )
 
+    def after_compress(self):
+        for toolset in self.toolsets:
+            toolset.after_compress()
+
     @cached_property
     def options(self):
         from xah.options.path import PathCwd, PathRead, PathWrite

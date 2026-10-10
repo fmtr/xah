@@ -352,6 +352,23 @@ class ModelTrafficLogger(AbstractCapability[DeepAgentDeps]):
             }
         )
 
+    def log_compaction(
+        self,
+        messages: list[ModelMessage],
+        summarized: bool,
+        summary: str | None,
+    ) -> None:
+        if not summarized:
+            return
+
+        self.log_payload(
+            {
+                "event": "context-compaction",
+                "summary": summary,
+                "messages": MessageDeserializer(messages).serialized_messages,
+            }
+        )
+
     async def wrap_model_request(
         self,
         ctx: RunContext[DeepAgentDeps],

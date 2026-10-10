@@ -224,11 +224,19 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
     def cwd_default(self):
         return Path(self.session.cwd)
 
+    def after_compress(self, messages, summarized, summary):
+        if not summarized:
+            return
+
+        self.model_traffic_logger.log_compaction(messages, summarized, summary)
+        self.deps.after_compress()
+
     @cached_property
     def context_manager(self):
         return ContextManagerCapability(
             include_compact_tool=False,
             on_usage_update=self.session_usage_reporter.report,
+            on_after_compress=self.after_compress,
         )
 
     @cached_property
