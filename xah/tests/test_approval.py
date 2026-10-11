@@ -3,13 +3,12 @@ from functools import cached_property
 from types import SimpleNamespace
 
 import pytest
-from cached_classproperty import cached_classproperty
 from pydantic import Field
 from pydantic_ai import ApprovalRequired, ModelRetry, RunContext
 from pydantic_ai.usage import RunUsage
 
 from corio.iterator import ilist
-from xah.class_collections import ClassDeclaration
+from xah.class_collections import classes
 from xah.constants import HARNESS_FEEDBACK
 from xah.options import base as options
 from xah.toolsets.base.tool import Tool, ValidationResult
@@ -19,8 +18,8 @@ from xah.toolsets.base.toolset import Toolset
 class ApprovalTool(Tool):
     value: str = Field(description="Value returned by the tool.")
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [ApprovalWarning]
 
     async def run(self) -> str:
@@ -33,8 +32,8 @@ class ApprovalWarning(ApprovalTool):
 
 
 class ApprovalToolset(Toolset):
-    @cached_classproperty
-    def TOOLS(cls):
+    @classes
+    def Tools(cls):
         return [ApprovalTool]
 
     @cached_property
@@ -49,15 +48,15 @@ class ReplacementWarning(ApprovalWarning):
 class ReplacementApprovalTool(ApprovalTool):
     NAME = ApprovalTool.local_name
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [ReplacementWarning]
 
 
 class ReplacementApprovalToolset(ApprovalToolset):
-    @cached_classproperty
-    def TOOLS(cls):
-        return ClassDeclaration(add=[ReplacementApprovalTool])
+    @classes
+    def Tools(cls):
+        return [ReplacementApprovalTool]
 
 
 class SecondaryTool(ApprovalTool):
@@ -65,15 +64,15 @@ class SecondaryTool(ApprovalTool):
 
 
 class SecondaryToolset(Toolset):
-    @cached_classproperty
-    def TOOLS(cls):
+    @classes
+    def Tools(cls):
         return [SecondaryTool]
 
 
 class CombinedToolset(ApprovalToolset, SecondaryToolset):
-    @cached_classproperty
-    def TOOLS(cls):
-        return ClassDeclaration(remove=[ApprovalTool])
+    @classes
+    def Tools(cls):
+        return [SecondaryTool]
 
 
 def context(toolset, approved=False):
@@ -108,9 +107,9 @@ def test_declarative_collections_merge_replace_and_remove_by_name():
         value="result",
     )
 
-    assert replacement.tool_classes == [ReplacementApprovalTool]
-    assert instance.validator_classes == [ReplacementWarning]
-    assert combined.tool_classes == [SecondaryTool]
+    assert replacement.Tools == [ReplacementApprovalTool]
+    assert type(instance).Validators == [ReplacementWarning]
+    assert combined.Tools == [SecondaryTool]
 
 
 def test_local_approval_wrapper_serializes_validator_messages():
@@ -145,7 +144,7 @@ def test_approved_call_constructs_a_fresh_model_and_runs_it():
     assert len(ctx.pending_messages) == 1
     content = ctx.pending_messages[0].messages[0].parts[0].content
     assert content.startswith(HARNESS_FEEDBACK)
-    assert "The tool completed, but issued the following warnings." in content
+    assert "tool completed, but issued the following warnings." in content
     assert "Approval required" in content
 
 def test_toolset_converts_model_validation_errors_to_model_retry():

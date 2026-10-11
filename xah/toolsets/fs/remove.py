@@ -1,6 +1,7 @@
 from typing import ClassVar
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
 from xah.toolsets.fs.path import PathPermissions, PathTool
@@ -11,8 +12,8 @@ class Remove(PathTool):
 
     PROJECTIONS: ClassVar[str] = PROJECTION_WRITE_TOOL_NAMES
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [PathPermissions]
 
     async def run(self) -> str:

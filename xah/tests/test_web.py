@@ -6,7 +6,7 @@ from pydantic_ai import RunContext, ToolFailed
 from pydantic_ai.usage import RunUsage
 from tavily import AsyncTavilyClient
 
-from xah.toolsets.web.research import Research
+from xah.toolsets.web.research import HarnessResearch, Research
 from xah.toolsets.web.search import Search
 from xah.toolsets.web.toolset import Web
 
@@ -23,8 +23,14 @@ def test_web_provides_tavily_client():
     assert isinstance(Web().client, AsyncTavilyClient)
 
 
-def test_web_exposes_search_and_research():
-    assert Web.TOOLS == [Search, Research]
+def test_web_exposes_research():
+    assert Web.Tools == [Research]
+
+
+def test_research_harness_exposes_only_web_toolset():
+    web = HarnessResearch.Toolsets[0]
+
+    assert HarnessResearch.Toolsets == [web]
 
 
 @pytest.mark.asyncio

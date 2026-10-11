@@ -1,4 +1,5 @@
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 
 from xah.options import base as options
 from xah.toolsets.base.toolset import Toolset
@@ -9,8 +10,8 @@ class Files(Toolset):
 
     POLICY = options.APPROVAL
 
-    @cached_classproperty
-    def TOOLS(cls):
+    @classes
+    def Tools(cls):
         from xah.toolsets.fs.edit import Edit
         from xah.toolsets.fs.mkdir import Mkdir
         from xah.toolsets.fs.move import Move

@@ -16,7 +16,7 @@ from pydantic_acp.projection import DefaultToolClassifier, ProjectionAwareToolCl
 from pydantic_deep import ContextManagerCapability, StuckLoopDetection
 
 from xah.caps.traffic import ModelTrafficLogger
-from xah.class_collections import ClassDeclaration
+from xah.class_collections import classes
 from xah.harness.deps import HarnessAgentDeps, HarnessDeps
 from xah.models import AdapterModel, Luna
 from xah.obs import logger
@@ -24,6 +24,7 @@ from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.options.provider import ConfigOptionsProvider
 from xah.server.acp.thinking import AgentAcp
 from xah.server.acp.usage import UsageReporterRegistry
+
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
 from xah.toolsets.utils.toolset import Utils
 
@@ -31,8 +32,8 @@ AgentDepsT = TypeVar("AgentDepsT", bound=HarnessAgentDeps)
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
 
 
-class HarnessAgent(Generic[AgentDepsT]):
-    """A directly usable agent without ACP session or launch machinery."""
+class HarnessBase(Generic[AgentDepsT]):
+    """A directly usable agent without Xah or ACP-specific defaults."""
 
     title = "Xah"
     description = "Root/orchestrator agent"
@@ -51,19 +52,15 @@ class HarnessAgent(Generic[AgentDepsT]):
     def name(self):
         return type(self).__name__
 
-    @cached_classproperty
-    def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[AgentDepsT]]:
+    @classes
+    def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
         return []
-
-    @cached_property
-    def toolset_classes(self) -> ilist[type[ToolsetBase[AgentDepsT]]]:
-        return ClassDeclaration.classes(type(self), "TOOLSETS", "name")
 
     @cached_property
     def toolsets(self) -> ilist[ToolsetBase[AgentDepsT]]:
         return ilist(
             toolset_type(settings=self.settings, cwd=self.cwd_default)
-            for toolset_type in self.toolset_classes
+            for toolset_type in self.Toolsets
         )
 
     @cached_property
@@ -75,7 +72,7 @@ class HarnessAgent(Generic[AgentDepsT]):
         return self.deps_type(
             settings=self.settings,
             cwd_default=self.cwd_default,
-            toolsets_classes=self.toolset_classes,
+            toolsets_classes=self.Toolsets,
             model=self.model,
             **self.deps_kwargs,
         )
@@ -103,6 +100,16 @@ class HarnessAgent(Generic[AgentDepsT]):
     @cached_property
     def output(self):
         return str
+
+    @ccp
+    def paths(self):
+        return None
+
+    @ccp
+    def Settings(cls):
+        from xah.settings import Settings
+
+        return Settings
 
     @cached_property
     def agent(self) -> Agent[AgentDepsT, str]:
@@ -173,11 +180,116 @@ class HarnessAgent(Generic[AgentDepsT]):
         return self
 
 
+class HarnessAgent(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
+    """A directly usable agent with Xah's default configuration."""
+
+    thinking_effort = "low"
+
+    @ccp
+    def TOOLSETS(cls):
+        from xah.toolsets.context.toolset import Context as ContextToolset
+        from xah.toolsets.fs.toolset import Files as FilesToolset
+        from xah.toolsets.python.toolset import Python as PythonToolset
+        from xah.toolsets.terminal.toolset import Terminals as TerminalsToolset
+        from xah.toolsets.shell.toolset import Shell as ShellToolset
+        from xah.toolsets.skills.toolset import Skills as SkillsToolset
+        from xah.toolsets.todo.toolset import Todo as TodoToolset
+        from xah.toolsets.utils.toolset import Utils as UtilsToolset
+
+        class Catalogue:
+            Context = ContextToolset
+            Files = FilesToolset
+            Python = PythonToolset
+            Terminals = TerminalsToolset
+            Shell = ShellToolset
+            Skills = SkillsToolset
+            Todo = TodoToolset
+            Utils = UtilsToolset
+
+        return Catalogue
+
+    @classes
+    def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
+        return [
+            cls.TOOLSETS.Context,
+            cls.TOOLSETS.Files,
+            cls.TOOLSETS.Terminals,
+            cls.TOOLSETS.Shell,
+            cls.TOOLSETS.Python,
+            cls.TOOLSETS.Skills,
+            cls.TOOLSETS.Todo,
+            cls.TOOLSETS.Utils,
+        ]
+
+    @classes
+    def Models(cls) -> list[type[AdapterModel]]:
+        return [Luna]
+
+    @cached_property
+    def models(self) -> ilist[AdapterModel]:
+        return ilist(model_type() for model_type in self.Models)
+
+    @cached_property
+    def thinking(self):
+        return Thinking(effort=self.thinking_effort)
+
+    @cached_property
+    def stuck_loop_detection(self):
+        from xah.toolsets.fs.edit import Edit
+        from xah.toolsets.fs.toolset import Files
+        from xah.toolsets.utils.sleep import Sleep
+        from xah.toolsets.utils.toolset import Utils
+
+        return StuckLoopDetection(
+            max_repeated=self.stuck_loop_max_repeated,
+            ignore_tools={
+                Files.tool_name(Edit),
+                Utils.tool_name(Sleep),
+            },
+        )
+
+    @cached_property
+    def agent_capabilities(self):
+        return strip_none(
+            self.thinking,
+            *self.capabilities,
+            self.stuck_loop_detection,
+            self.model_traffic_logger,
+        )
+
+    @classmethod
+    async def get_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
+        from xah.toolsets.todo.toolset import Todo
+
+        instructions = [
+            cls.instructions,
+            *cls.get_instructions_agent_md(ctx),
+            cls.get_paths_instructions(ctx),
+            ctx.deps.toolsets.name[Todo.name].system_prompt,
+        ]
+        return "\n\n".join(instructions)
+
+    @ccp
+    def paths(self) -> PackagePaths:
+        from xah.paths import paths
+
+        return paths
+
+    @ccp
+    def Settings(cls):
+        from xah.settings import Settings as SettingsBase
+        parent = next(base for base in cls.__mro__[1:] if hasattr(base, SettingsBase.__name__))
+        Settings = parent.Settings
+        if cls.paths is parent.paths:
+            return Settings
+
+        return Settings.subclass(paths=cls.paths)
+
+
 class Harness(HarnessAgent[DepsT], Generic[DepsT]):
     """The ACP-backed harness and launchable application entry point."""
 
     deps_type = HarnessDeps
-    thinking_effort = "low"
 
     def __init__(
         self,
@@ -193,32 +305,6 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
     @cached_property
     def session_id(self):
         return self.session.session_id
-
-    @cached_classproperty
-    def TOOLSETS(cls) -> ClassDeclaration[ToolsetBase[HarnessDeps]]:
-        from xah.toolsets.context.toolset import Context
-        from xah.toolsets.fs.toolset import Files
-        from xah.toolsets.python.toolset import Python
-        from xah.toolsets.terminal.toolset import Terminals
-        from xah.toolsets.shell.toolset import Shell
-
-        from xah.toolsets.skills.toolset import Skills
-        from xah.toolsets.todo.toolset import Todo
-        from xah.toolsets.utils.toolset import Utils
-
-        return [Context, Files, Terminals, Shell,Python, Skills, Todo, Utils]
-
-    @cached_classproperty
-    def MODELS(cls) -> list[type[AdapterModel]]:
-        return [Luna]
-
-    @cached_property
-    def model_classes(self) -> ilist[type[AdapterModel]]:
-        return ClassDeclaration.classes(type(self), "MODELS", "name")
-
-    @cached_property
-    def models(self) -> ilist[AdapterModel]:
-        return ilist(model_type() for model_type in self.model_classes)
 
     @cached_property
     def cwd_default(self):
@@ -248,29 +334,10 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
         return self.deps_type(
             settings=self.settings,
             cwd_default=self.cwd_default,
-            toolsets_classes=self.toolset_classes,
+            toolsets_classes=self.Toolsets,
             models=self.models,
             model=self.models.current.override,
             context_manager=self.context_manager,
-        )
-
-    @cached_property
-    def thinking(self):
-        return Thinking(effort=self.thinking_effort)
-
-    @cached_property
-    def stuck_loop_detection(self):
-        from xah.toolsets.fs.edit import Edit
-        from xah.toolsets.fs.toolset import Files
-        from xah.toolsets.utils.toolset import Utils
-        from xah.toolsets.utils.sleep import Sleep
-
-        return StuckLoopDetection(
-            max_repeated=self.stuck_loop_max_repeated,
-            ignore_tools={
-                Files.tool_name(Edit),
-                Utils.tool_name(Sleep),
-            },
         )
 
     @cached_property
@@ -283,11 +350,8 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
     @cached_property
     def agent_capabilities(self):
         return strip_none(
-            self.thinking,
+            *super().agent_capabilities,
             self.context_manager,
-            *self.capabilities,
-            self.stuck_loop_detection,
-            self.model_traffic_logger,
             *self.bridge_capabilities,
         )
 
@@ -336,7 +400,7 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
     def projections(self):
 
         projections = []
-        for toolset_type in self.toolset_classes:
+        for toolset_type in self.Toolsets:
             projections.extend(toolset_type.projections)
         return ilist(projections)
 
@@ -395,17 +459,6 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
         del connection
         harness = type(self)(bridges=self.bridges, usage_reporters=self.usage_reporters)
         return harness.acp_agent
-
-    @ccp
-    def paths(self) -> PackagePaths:
-        from xah.paths import paths
-        return paths
-
-    @ccp
-    def Settings(cls):
-        from xah.settings import Settings
-        Settings=Settings.subclass(paths=cls.paths)
-        return Settings
 
     @cached_property
     def settings(self):

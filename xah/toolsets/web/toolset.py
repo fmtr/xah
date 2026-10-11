@@ -1,6 +1,7 @@
 from functools import cached_property
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from tavily import AsyncTavilyClient
 
 from xah.toolsets.base.toolset import Toolset
@@ -17,6 +18,6 @@ class Web(Toolset):
 
 
 
-    @cached_classproperty
-    def TOOLS(cls):
+    @classes
+    def Tools(cls):
         return [Research]

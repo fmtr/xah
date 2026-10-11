@@ -3,6 +3,7 @@ from math import inf
 from typing import ClassVar
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
@@ -16,8 +17,8 @@ class RunCode(TerminalTool):
 
     code: str = Field(description="Short Python source fragment to execute directly.")
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [CodeLength]
 
     @cached_property

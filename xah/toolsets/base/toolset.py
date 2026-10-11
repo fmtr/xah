@@ -14,7 +14,7 @@ from corio import strings
 from corio.function import ccm, cp
 from corio.iterator import ilist
 from corio.strings import get_docstring
-from xah.class_collections import ClassDeclaration
+from xah.class_collections import classes
 from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
@@ -46,22 +46,18 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                 return description
         return None
 
-    @cached_classproperty
-    def TOOLS(cls) -> ClassDeclaration[Tool]:
+    @classes
+    def Tools(cls) -> list[type[Tool]]:
         return []
-
-    @cached_classproperty
-    def tool_classes(cls) -> ilist[type[Tool]]:
-        return ClassDeclaration.classes(cls, "TOOLS", "local_name")
 
     @cp
     def states(self) -> dict[tuple[type[Tool], type[Tool]], ToolState]:
         state_classes = []
-        for tool_class in self.tool_classes:
+        for tool_class in self.Tools:
             state_classes.append(((tool_class, tool_class), tool_class))
             state_classes.extend(
                 ((tool_class, validator_class), validator_class)
-                for validator_class in tool_class.validator_classes
+                for validator_class in tool_class.Validators
             )
 
         return {
@@ -79,7 +75,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     @cached_classproperty
     def projections(cls) -> list:
         projections = []
-        for tool_class in cls.tool_classes:
+        for tool_class in cls.Tools:
             tool_name = cls.tool_name(tool_class)
             projection=tool_class.build_projections(tool_name)
             projections.extend(projection)
@@ -88,7 +84,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     def __init__(self, **kwargs):
         del kwargs
         super().__init__(id=self.name)
-        for tool_class in self.tool_classes:
+        for tool_class in self.Tools:
             self.register(tool_class)
 
     @ccm
@@ -199,7 +195,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         framework dispatches the tool.
         """
         local_name = self.local_tool_name(tool_def.name)
-        tool_class = self.tool_classes.local_name[local_name]
+        tool_class = self.Tools.local_name[local_name]
         try:
             return tool_class(
                 ctx=ctx,
@@ -244,7 +240,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         validation = self.validation_results[ctx.tool_call_id]
         try:
             if ctx.tool_call_approved:
-                for validator_class in instance.validator_classes:
+                for validator_class in instance.Validators:
                     validator = validator_class.model_validate(
                         instance,
                         from_attributes=True,

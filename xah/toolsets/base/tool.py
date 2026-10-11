@@ -15,7 +15,7 @@ from corio import Path, dm
 from corio.function import ccp, cp
 from corio.iterator import enlist, ilist
 from corio.strings import get_docstring
-from xah.class_collections import ClassDeclaration
+from xah.class_collections import classes
 from xah.options.path import PathCwd
 
 
@@ -117,13 +117,9 @@ class Tool(dm.Base):
                 return description
         return None
 
-    @cached_classproperty
-    def VALIDATORS(cls) -> ClassDeclaration[Tool]:
+    @classes
+    def Validators(cls) -> list[type[Tool]]:
         return []
-
-    @ccp
-    def validator_classes(cls) -> ilist[type[Tool]]:
-        return ClassDeclaration.classes(cls, "VALIDATORS", "local_name")
 
     @cached_property
     def cwd(self) -> Path:
@@ -162,7 +158,7 @@ class Tool(dm.Base):
         return Toolset.feedback(self.ctx, message)
 
     async def validate(self, result: ValidationResult):
-        for validator_class in self.validator_classes:
+        for validator_class in self.Validators:
             validator = validator_class.model_validate(self, from_attributes=True)
             validator.state = self.toolset.state_for(type(self), validator_class)
             await validator.validate(result)

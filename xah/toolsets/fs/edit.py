@@ -2,6 +2,7 @@ from functools import cached_property
 from typing import Annotated, ClassVar
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
@@ -24,8 +25,8 @@ class Edit(FileTool):
 
     PROJECTIONS: ClassVar[str] = PROJECTION_EDIT_TOOL_NAMES
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [EditPermissions, ValidEdit, EditWarnings]
 
     @cached_property

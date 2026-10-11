@@ -1,6 +1,7 @@
 from collections import Counter
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 
 from corio import strings
 from corio.iterator import ilist
@@ -29,8 +30,8 @@ class Todo(Toolset):
         if self.all_completed:
             tool.feedback(self.COMPLETED_FEEDBACK)
 
-    @cached_classproperty
-    def TOOLS(cls):
+    @classes
+    def Tools(cls):
         from xah.toolsets.todo.read import Read
         from xah.toolsets.todo.update_status import UpdateStatus
         from xah.toolsets.todo.write import Write

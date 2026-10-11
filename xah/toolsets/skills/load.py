@@ -1,4 +1,5 @@
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
@@ -12,8 +13,8 @@ class Load(Tool):
 
     skill_ids: list[str] = Field(description="Full list of relevant skill IDs to load in one call.")
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [CheckDupes]
 
     async def run(self) -> str:
@@ -49,12 +50,12 @@ class Load(Tool):
 class CheckDupes(Load):
     async def validate(self, result: ValidationResult):
         diff = IterDiffer(before=self.toolset.history, after=self.skill_ids)
-        duplicates = diff.same
-        if not duplicates:
+        if not diff.same:
             return
 
-        duplicate_names = strings.join_natural(sorted(duplicates))
+        dupes = strings.join_natural(sorted(diff.same),mask=strings.MASK_QUOTE)
+        skills=strings.suffix_plural(count=len(dupes),name='skill')
         message = strings.Mask("""
-            The skill(s) {skills} have already been loaded.
-        """).format(skills=duplicate_names)
+            The {skills} {dupes} have already been loaded.
+        """).format(skills=skills,dupes=dupes)
         raise ModelRetry(str(message))

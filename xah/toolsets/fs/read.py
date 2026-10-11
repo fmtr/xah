@@ -1,6 +1,7 @@
 from typing import Annotated, ClassVar
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
@@ -20,8 +21,8 @@ class Read(FileTool):
 
     PROJECTIONS: ClassVar[str] = PROJECTION_READ_TOOL_NAMES
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [ReadPermissions]
 
     async def run(self) -> str:

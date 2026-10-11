@@ -10,7 +10,7 @@ from cached_classproperty import cached_classproperty
 from corio import Path
 from corio.iterator import ilist
 
-from xah.class_collections import ClassDeclaration
+from xah.class_collections import classes
 from xah.server.acp.server import SessionAgentSource
 from xah.server.acp.usage import UsageReporterRegistry
 from xah.settings import PathAgent
@@ -127,7 +127,7 @@ def test_toolset_projections_are_owned_by_toolsets():
     assert len(write_projections) == 1
 
 
-def test_harness_builds_projections_from_toolset_classes_without_deps():
+def test_harness_builds_projections_without_deps():
     harness_instance = harness()
 
     projections = harness_instance.projections
@@ -346,9 +346,9 @@ def test_harness_subclass_defines_its_toolset_catalogue():
     class Planner(Harness):
         title = "Planner"
 
-        @cached_classproperty
-        def TOOLSETS(cls):
-            return ClassDeclaration(remove=[Files, Shell, Python, Skills, Subagent])
+        @classes
+        def Toolsets(cls):
+            return [Todo, Utils]
 
     session = SimpleNamespace(cwd=Path.cwd(), session_id="test-session")
     planner = Planner(
@@ -358,8 +358,8 @@ def test_harness_subclass_defines_its_toolset_catalogue():
 
     assert planner.name == "Planner"
     assert planner.title == "Planner"
-    assert planner.TOOLSETS == ClassDeclaration(remove=[Files, Shell, Python, Skills, Subagent])
-    assert planner.toolset_classes == [Todo, Utils]
+    assert planner.Toolsets == [Todo, Utils]
+    assert planner.Toolsets == [Todo, Utils]
     assert planner.toolsets.cls[Todo].name == "Todo"
     assert planner.deps.toolsets is planner.toolsets
 
@@ -385,12 +385,9 @@ def test_harness_flattens_toolset_option_lists():
             ])
 
     class MultiOptionHarness(Harness):
-        @cached_classproperty
-        def TOOLSETS(cls):
-            return ClassDeclaration(
-                remove=[Files, Shell, Python, Skills, Subagent, Todo],
-                add=[MultiOptionToolset],
-            )
+        @classes
+        def Toolsets(cls):
+            return [Utils, MultiOptionToolset]
 
     selected = MultiOptionHarness(
         session=SimpleNamespace(cwd=Path.cwd(), session_id="test-session"),

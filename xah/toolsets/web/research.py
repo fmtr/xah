@@ -13,7 +13,7 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, DefaultMa
 from pydantic import BaseModel, Field, field_validator
 
 from corio.hash import get_hash_readable
-from xah.class_collections import ClassDeclaration
+from xah.class_collections import classes
 from xah.harness.base import HarnessAgent
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.kb.db import WebPage
@@ -116,14 +116,14 @@ class HarnessResearch(HarnessAgent):
     def output(self):
         return ResearchOutput
 
-    @cached_classproperty
-    def TOOLSETS(cls):
+    @classes
+    def Toolsets(cls):
         from xah.toolsets.web.toolset import Web as WebBase
 
         class Web(WebBase):
-            @cached_classproperty
-            def TOOLS(cls):
-                return ClassDeclaration(remove=ClassDeclaration.all, add=[Search])
+            @classes
+            def Tools(cls):
+                return [Search]
 
         return [Web]
 

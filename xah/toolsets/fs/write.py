@@ -1,6 +1,7 @@
 from typing import Annotated, ClassVar
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 
 from corio import Path
@@ -20,8 +21,8 @@ class Write(FileTool):
 
     PROJECTIONS: ClassVar[str] = PROJECTION_WRITE_TOOL_NAMES
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [WritePermissions, WriteWarnings]
 
     async def run(self) -> str:

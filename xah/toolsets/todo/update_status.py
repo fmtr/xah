@@ -1,4 +1,5 @@
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
@@ -12,8 +13,8 @@ class UpdateStatus(Tool):
     todo_id: str = Field(description="ID of the todo to update.")
     status: TodoStatus = Field(description="New todo status.")
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [ExistingTodo]
 
     async def run(self) -> str:

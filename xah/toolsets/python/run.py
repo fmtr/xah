@@ -1,6 +1,7 @@
 from functools import cached_property
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
@@ -14,8 +15,8 @@ class Run(TerminalTool):
 
     args: list[str] = Field(description="Arguments to pass to Python as plain tokens.")
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [ValidArguments]
 
     @cached_property

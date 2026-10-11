@@ -7,7 +7,7 @@ from pydantic_deep.features.periodic_reminder.capability import build_compact_tr
 
 from corio import Constants, dm, strings
 from corio.shell.dsl import Expression, arg, shell
-from xah.class_collections import ClassDeclaration
+from xah.class_collections import classes
 from xah.harness.base import HarnessAgent
 from xah.options.base import FULL
 from xah.toolsets.base.tool import ToolState, ValidationResult
@@ -57,12 +57,12 @@ class HarnessTerminalAdversary(HarnessAgent):
     def output(self):
         return AdversaryDecision
 
-    @cached_classproperty
-    def TOOLSETS(cls):
+    @classes
+    def Toolsets(cls):
         class Files(FilesBase):
-            @cached_classproperty
-            def TOOLS(cls):
-                return ClassDeclaration(remove=ClassDeclaration.all, add=[Read, Search])
+            @classes
+            def Tools(cls):
+                return [Read, Search]
 
         return [Files]
 
@@ -72,8 +72,8 @@ class Run(TerminalTool):
 
     source: str = Field(description="Shell source to execute in the working directory.")
 
-    @cached_classproperty
-    def VALIDATORS(cls):
+    @classes
+    def Validators(cls):
         return [AdversarialApproval]
 
     @cached_property

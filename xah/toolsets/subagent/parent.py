@@ -1,4 +1,5 @@
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 
 from xah.toolsets.base.tool import Tool
@@ -19,6 +20,6 @@ class Ask(Tool):
 class Parent(Toolset):
     """Parent-agent question tools."""
 
-    @cached_classproperty
-    def TOOLS(cls):
+    @classes
+    def Tools(cls):
         return [Ask]

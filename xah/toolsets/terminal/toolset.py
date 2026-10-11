@@ -1,4 +1,5 @@
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic_ai import RunContext
 from pydantic_ai.messages import InstructionPart
 
@@ -22,8 +23,8 @@ class Terminals(Toolset):
     def terminals(self) -> ilist[Terminal]:
         return ilist()
 
-    @cached_classproperty
-    def TOOLS(cls):
+    @classes
+    def Tools(cls):
         from xah.toolsets.terminal.status import Status
         from xah.toolsets.terminal.kill import Kill
         from xah.toolsets.terminal.output import Output

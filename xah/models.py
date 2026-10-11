@@ -74,6 +74,10 @@ class AdapterModel(AcpAdapterModel):
 class AdapterModelOpenAI(AdapterModel):
     """Configure models served by OpenAI's provider."""
 
+    # @property
+    # def model(self):
+    #     return self.override
+
 
 class AdapterModelOllama(AdapterModel):
     """Configure models served by an Ollama endpoint."""

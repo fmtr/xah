@@ -1,6 +1,7 @@
 from functools import cached_property
 
 from cached_classproperty import cached_classproperty
+from xah.class_collections import classes
 from pydantic import Field
 from pydantic_deep import SkillsDirectory
 
@@ -19,8 +20,8 @@ class Skills(Toolset):
         self.history.clear()
         super().after_compress()
 
-    @cached_classproperty
-    def TOOLS(cls):
+    @classes
+    def Tools(cls):
         from xah.toolsets.skills.list import List
         from xah.toolsets.skills.load import Load
 
