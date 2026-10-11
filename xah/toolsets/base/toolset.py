@@ -19,7 +19,7 @@ from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.tool import Tool, ToolState, ValidationResult
+from xah.toolsets.base.tool import Tool, ToolState, Validation
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
@@ -133,6 +133,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                     ctx=ctx,
                     toolset=self,
                     state=self.state_for(tool_class, tool_class),
+                    validation=self.validations[ctx.tool_call_id],
                     **tool_args,
                 )
             except ValidationError as error:
@@ -166,7 +167,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         return ApprovalRequiredToolsetMetadata(self, self.validate)
 
     @cached_property
-    def validation_results(self) -> dict[str | None, ValidationResult]:
+    def validations(self) -> dict[str | None, Validation]:
         return {}
 
     @staticmethod
@@ -190,6 +191,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         ctx: RunContext[AgentDepsT],
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
+        validation: Validation,
     ) -> Tool:
         """
         Initialize a temporary tool for preflight inspection.
@@ -205,6 +207,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                 ctx=ctx,
                 toolset=self,
                 state=self.state_for(tool_class, tool_class),
+                validation=validation,
                 **tool_args,
             )
         except ValidationError as error:
@@ -215,15 +218,14 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         ctx: RunContext[AgentDepsT],
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
-    ) -> ValidationResult:
-        instance = self.init_tool(ctx, tool_def, tool_args)
-        result = ValidationResult(
-            approval=instance.approval,
-            raise_for_messages=instance.raise_on_warn,
-        )
-        await self.raise_errors(instance.validate, result)
-        self.validation_results[ctx.tool_call_id] = result
-        return result
+    ) -> Validation:
+        validation = Validation()
+        instance = self.init_tool(ctx, tool_def, tool_args, validation)
+        validation.approval = instance.approval
+        validation.raise_for_messages = instance.raise_on_warn
+        await self.raise_errors(instance.validate)
+        self.validations[ctx.tool_call_id] = validation
+        return validation
 
     async def call_tool(
         self,
@@ -238,10 +240,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         The validation result is keyed by the framework tool-call ID so the
         approved retry can reuse the exact preflight result.
         """
-        instance = await super().call_tool(name, tool_args, ctx, tool)
-        if ctx.tool_call_id not in self.validation_results:
+        if ctx.tool_call_id not in self.validations:
             await self.validate(ctx, tool.tool_def, tool_args) # Validation didn't already run during approval prompt check (i.e. we're a non-ACP/subagent).
-        validation = self.validation_results[ctx.tool_call_id]
+        validation = self.validations[ctx.tool_call_id]
+        instance = await super().call_tool(name, tool_args, ctx, tool)
         try:
             if ctx.tool_call_approved:
                 for validator_class in instance.Validators:
@@ -249,12 +251,13 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                         instance,
                         from_attributes=True,
                     )
+                    validator.validation = validation
                     validator.state = self.state_for(type(instance), validator_class)
-                    await self.raise_errors(validator.post_approval, validation)
+                    await self.raise_errors(validator.post_approval)
 
-            result = await self.raise_errors(instance.run)
+            run_result = await self.raise_errors(instance.run)
         finally:
-            validation = self.validation_results.pop(ctx.tool_call_id)
+            self.validations.pop(ctx.tool_call_id)
 
         if validation.messages:
             instance.feedback(
@@ -264,4 +267,4 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                 )
             )
 
-        return result
+        return run_result

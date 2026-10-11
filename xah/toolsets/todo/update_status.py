@@ -3,7 +3,7 @@ from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
-from xah.toolsets.base.tool import Tool, ValidationResult
+from xah.toolsets.base.tool import Tool
 from xah.toolsets.todo.constants import TodoStatus
 
 
@@ -25,6 +25,6 @@ class UpdateStatus(Tool):
 
 
 class ExistingTodo(UpdateStatus):
-    async def validate(self, result: ValidationResult):
+    async def validate(self):
         if self.todo_id not in self.toolset.items.id:
             raise ModelRetry(f"Todo with ID '{self.todo_id}' not found")

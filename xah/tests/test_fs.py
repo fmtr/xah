@@ -8,7 +8,7 @@ from pydantic_ai.usage import RunUsage
 from corio import Path
 from corio.iterator import ilist
 from xah.options.path import PathCwd, PathRead, PathWrite
-from xah.toolsets.base.tool import ValidationResult
+from xah.toolsets.base.tool import Validation
 from xah.toolsets.fs.edit import Edit
 from xah.toolsets.fs.mkdir import Mkdir
 from xah.toolsets.fs.move import Move
@@ -52,7 +52,9 @@ def test_ctx_is_validated_but_absent_from_schema_and_dump(tmp_path):
     tool = make(Write, ctx, path="note.txt", content="hello")
 
     assert "ctx" not in Write.model_json_schema()["properties"]
+    assert "validation" not in Write.model_json_schema()["properties"]
     assert "ctx" not in tool.model_dump()
+    assert "validation" not in tool.model_dump()
     assert Write.model_json_schema()["properties"]["path"]["type"] == "string"
 
 
@@ -60,9 +62,9 @@ def test_write_validate_and_run(tmp_path):
     ctx = context(tmp_path)
     tool = make(Write, ctx, path="nested/note.txt", content="hello\n")
 
-    result = ValidationResult()
-    asyncio.run(tool.validate(result))
-    assert result.messages == []
+    tool.validation = Validation()
+    asyncio.run(tool.validate())
+    assert tool.validation.messages == []
     assert asyncio.run(tool.run()).startswith("Wrote")
     assert Path(tmp_path / "nested/note.txt").read_text() == "hello\n"
 
@@ -72,7 +74,8 @@ def test_permission_failure_occurs_during_validation(tmp_path):
     tool = make(Write, ctx, path="../escape.txt", content="no")
 
     with pytest.raises(ModelRetry, match="Permission Denied"):
-        asyncio.run(tool.validate(ValidationResult()))
+        tool.validation = Validation()
+        asyncio.run(tool.validate())
 
 
 def test_read_edit_move_search_and_remove(tmp_path):
@@ -82,9 +85,9 @@ def test_read_edit_move_search_and_remove(tmp_path):
 
     assert "needle" in asyncio.run(make(Read, ctx, path="source.txt").run())
     edit = make(Edit, ctx, path="source.txt", old_text="needle", new_text="changed")
-    result = ValidationResult()
-    asyncio.run(edit.validate(result))
-    assert result.messages == []
+    edit.validation = Validation()
+    asyncio.run(edit.validate())
+    assert edit.validation.messages == []
     asyncio.run(edit.run())
     assert "changed" in source.read_text()
     assert "source.txt" in asyncio.run(make(Search, ctx, pattern="changed").run())

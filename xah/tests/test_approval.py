@@ -11,7 +11,7 @@ from corio.iterator import ilist
 from xah.class_collections import classes
 from xah.constants import HARNESS_FEEDBACK
 from xah.options import base as options
-from xah.toolsets.base.tool import Tool, ValidationResult
+from xah.toolsets.base.tool import Tool, Validation
 from xah.toolsets.base.toolset import Toolset
 
 
@@ -27,8 +27,8 @@ class ApprovalTool(Tool):
 
 
 class ApprovalWarning(ApprovalTool):
-    async def validate(self, result: ValidationResult):
-        result.messages.append("Approval required")
+    async def validate(self):
+        self.validation.messages.append("Approval required")
 
 
 class ApprovalToolset(Toolset):
@@ -151,16 +151,16 @@ def test_toolset_converts_model_validation_errors_to_model_retry():
     toolset = ApprovalToolset()
     tool_def = next(iter(toolset.tools.values())).tool_def
     with pytest.raises(ModelRetry):
-        toolset.init_tool(context(toolset), tool_def, {})
+        toolset.init_tool(context(toolset), tool_def, {}, Validation())
 
 
 def test_full_policy_keeps_warning_messages():
     toolset = ApprovalToolset()
     toolset.options.cls[options.Policy].current_value = options.FULL
     tool_def = next(iter(toolset.tools.values())).tool_def
-    instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"})
-    result = ValidationResult()
-    asyncio.run(instance.validate(result))
+    result = Validation()
+    instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"}, result)
+    asyncio.run(instance.validate())
     assert result.messages == ["Approval required"]
 
 

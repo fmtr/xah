@@ -26,7 +26,7 @@ class ToolState(dm.Base):
         pass
 
 
-class ValidationResult(dm.Base):
+class Validation(dm.Base):
     messages: list[str] = Field(default_factory=list)
     approval: bool = False
     raise_for_messages: bool = False
@@ -48,6 +48,10 @@ class ValidationResult(dm.Base):
 class Tool(dm.Base):
     ctx: SkipJsonSchema[InstanceOf[RunContext]] = Field(exclude=True)
     toolset: SkipJsonSchema[InstanceOf[FunctionToolset]] = Field(exclude=True)
+    validation: SkipJsonSchema[InstanceOf[Validation]] | None = Field(
+        default=None,
+        exclude=True,
+    )
 
     @ccp
     def State(cls) -> type[ToolState]:
@@ -61,10 +65,6 @@ class Tool(dm.Base):
     def model_post_init(self, __context):
         if self.state is None:
             self.state = self.State()
-
-    @property
-    def validation_result(self) -> ValidationResult:
-        return self.toolset.validation_results[self.ctx.tool_call_id]
 
     NAME: ClassVar[str | None] = None
     DESCRIPTION: ClassVar[str | None] = None
@@ -157,11 +157,12 @@ class Tool(dm.Base):
 
         return Toolset.feedback(self.ctx, message)
 
-    async def validate(self, result: ValidationResult):
+    async def validate(self):
         for validator_class in self.Validators:
             validator = validator_class.model_validate(self, from_attributes=True)
+            validator.validation = self.validation
             validator.state = self.toolset.state_for(type(self), validator_class)
-            await validator.validate(result)
+            await validator.validate()
 
-    async def post_approval(self, result: ValidationResult):
+    async def post_approval(self):
         pass

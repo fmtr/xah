@@ -10,7 +10,7 @@ from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import classes
 from xah.harness.base import HarnessAgent
 from xah.options.base import FULL
-from xah.toolsets.base.tool import ToolState, ValidationResult
+from xah.toolsets.base.tool import ToolState, Validation
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files as FilesBase
@@ -135,16 +135,16 @@ class AdversarialApproval(Run):
         decision = (await self.agent.run(self.prompt, deps=self.harness.deps)).output
         return decision
 
-    async def validate(self, result: ValidationResult):
+    async def validate(self):
         if self.policy.value == FULL:
             return
 
         decision = await self.get_decision()
-        result.approval |= decision.block
+        self.validation.approval |= decision.block
         if decision.block:
-            result.messages += decision.reasons
+            self.validation.messages += decision.reasons
 
-    async def post_approval(self, result: ValidationResult):
-        for message in result.messages:
+    async def post_approval(self):
+        for message in self.validation.messages:
             if message not in self.state.vetoes:
                 self.state.vetoes.append(message)

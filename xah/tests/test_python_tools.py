@@ -8,7 +8,7 @@ from pydantic_ai.usage import RunUsage
 from corio import Path
 from corio.iterator import ilist
 from xah.options.path import PathCwd
-from xah.toolsets.base.tool import ValidationResult
+from xah.toolsets.base.tool import Validation
 from xah.toolsets.python.pip import Pip
 from xah.toolsets.python.run import Run
 from xah.toolsets.python.run_code import RunCode
@@ -56,7 +56,7 @@ def test_tool_argument_errors_hide_context_and_external_urls(tmp_path):
     tool_definition = toolset.tools[toolset.tool_name(Run)].tool_def
 
     with pytest.raises(ModelRetry) as error:
-        toolset.init_tool(ctx, tool_definition, {})
+        toolset.init_tool(ctx, tool_definition, {}, Validation())
 
     message = str(error.value)
     assert "ctx" not in message
@@ -87,12 +87,13 @@ def test_correctness_validator_runs_under_every_policy(tmp_path):
     ctx = context(tmp_path)
     tool = make(Run, ctx, args=[])
     with pytest.raises(ModelRetry, match="No arguments"):
-        asyncio.run(tool.validate(ValidationResult()))
+        tool.validation = Validation()
+        asyncio.run(tool.validate())
 
 
 def test_run_code_has_no_length_limit(tmp_path):
     ctx = context(tmp_path)
     tool = make(RunCode, ctx, code="x" * 1001)
-    result = ValidationResult()
-    asyncio.run(tool.validate(result))
-    assert result.messages == []
+    tool.validation = Validation()
+    asyncio.run(tool.validate())
+    assert tool.validation.messages == []

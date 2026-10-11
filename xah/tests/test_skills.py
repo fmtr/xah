@@ -9,7 +9,7 @@ from corio import Path
 from corio.iterator import ilist
 from xah.constants import HARNESS_FEEDBACK
 from xah.toolsets.skills.list import List
-from xah.toolsets.base.tool import ValidationResult
+from xah.toolsets.base.tool import Validation
 from xah.toolsets.skills.list import List
 from xah.toolsets.skills.load import CheckDupes, Load
 from xah.toolsets.skills.toolset import Skills
@@ -64,7 +64,8 @@ def test_loading_a_skill_twice_requires_compaction(tmp_path):
     validator = CheckDupes(ctx=ctx, toolset=toolset, skill_ids=["python/style"])
 
     with pytest.raises(ModelRetry, match="python/style"):
-        asyncio.run(validator.validate(ValidationResult()))
+        validator.validation = Validation()
+        asyncio.run(validator.validate())
 
     toolset.after_compress()
     assert toolset.history == set()

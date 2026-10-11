@@ -5,7 +5,7 @@ from pydantic_ai import ModelRetry
 
 from corio import strings
 from corio.iterator import IterDiffer
-from xah.toolsets.base.tool import Tool, ValidationResult
+from xah.toolsets.base.tool import Tool
 
 
 class Load(Tool):
@@ -48,13 +48,14 @@ class Load(Tool):
 
 
 class CheckDupes(Load):
-    async def validate(self, result: ValidationResult):
+    async def validate(self):
         diff = IterDiffer(before=self.toolset.history, after=self.skill_ids)
         if not diff.same:
             return
 
-        dupes = strings.join_natural(sorted(diff.same),mask=strings.MASK_QUOTE)
-        skills=strings.suffix_plural(count=len(dupes),name='skill')
+
+        skills=strings.suffix_plural(count=len(diff.same),name='skill',full=False)
+        dupes = strings.join_natural(sorted(diff.same), mask=strings.MASK_QUOTE)
         message = strings.Mask("""
             The {skills} {dupes} have already been loaded.
         """).format(skills=skills,dupes=dupes)

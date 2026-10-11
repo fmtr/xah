@@ -7,7 +7,6 @@ from pydantic_ai import ModelRetry
 
 from corio.shell.dsl import shell
 from xah.toolsets.terminal.base import TerminalTool
-from xah.toolsets.base.tool import ValidationResult
 
 
 class Run(TerminalTool):
@@ -25,7 +24,7 @@ class Run(TerminalTool):
 
 
 class ValidArguments(Run):
-    async def validate(self, result: ValidationResult):
+    async def validate(self):
         if not self.args:
             raise ModelRetry("No arguments provided.")
 

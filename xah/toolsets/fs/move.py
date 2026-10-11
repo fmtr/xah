@@ -8,7 +8,6 @@ from pydantic_ai import ModelRetry
 from corio import Path
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
 from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
-from xah.toolsets.base.tool import ValidationResult
 
 
 class Move(FileTool):
@@ -43,7 +42,7 @@ class Move(FileTool):
 
 
 class MovePermissions(PermissionsValidator, Move):
-    async def validate(self, result: ValidationResult):
-        await super().validate(result)
+    async def validate(self):
+        await super().validate()
         if not self.is_copy:
             self.validate_path(self.source, Permissions.Write)

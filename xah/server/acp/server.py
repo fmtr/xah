@@ -18,7 +18,7 @@ from pydantic_acp import (
 from pydantic_acp.approvals import ApprovalResolution
 from xah.harness.base import Harness
 from xah.harness.deps import HarnessDeps
-from xah.toolsets.base.tool import ValidationResult
+from xah.toolsets.base.tool import Validation
 
 
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
@@ -26,7 +26,7 @@ DepsT = TypeVar("DepsT", bound=HarnessDeps)
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PermissionRequestContextMetadata(PermissionRequestContext):
-    metadata: ValidationResult
+    metadata: Validation
 
 
 class PermissionToolCallBuilderMetadata(DefaultPermissionToolCallBuilder):
@@ -72,7 +72,7 @@ class ApprovalBridgeMetadata(NativeApprovalBridge):
                 )
                 continue
 
-            metadata = ValidationResult(
+            metadata = Validation(
                 **requests.metadata.get(tool_call.tool_call_id, {})
             )
 
