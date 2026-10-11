@@ -1,10 +1,13 @@
 from collections import Counter
+from typing import Any
 
 from cached_classproperty import cached_classproperty
 from xah.class_collections import classes
 
 from corio import strings
 from corio.iterator import ilist
+from pydantic_ai import RunContext
+from pydantic_ai.messages import InstructionPart
 from xah.constants import TODO_STATE_END, TODO_STATE_START
 from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.todo.constants import COMPLETED, TODO_STATUSES
@@ -62,10 +65,23 @@ class Todo(Toolset):
         body = strings.join((f"{index}. {todo.text}" for index, todo in enumerate(self.items, 1)), sep="\n")
         return f"Current todos:\n\n{body}\n\n{self.summary}"
 
-    @property
-    def system_prompt(self) -> str:
+    async def get_instructions(self, ctx: RunContext[Any]) -> list[InstructionPart]:
+        del ctx
         if not self.items:
-            return TODO_SYSTEM_PROMPT
+            return [InstructionPart(content=TODO_SYSTEM_PROMPT, dynamic=True)]
 
         body = strings.join((f"- {todo.text}" for todo in self.items), sep="\n")
-        return f"{TODO_SYSTEM_PROMPT}\n\n{TODO_STATE_START}\n{body}\n{TODO_STATE_END}"
+        text = strings.Mask("""
+            {system_prompt}
+
+            {state_start}
+            {body}
+            {state_end}
+        """).format(
+            system_prompt=TODO_SYSTEM_PROMPT,
+            state_start=TODO_STATE_START,
+            body=body,
+            state_end=TODO_STATE_END,
+        )
+
+        return [InstructionPart(content=text, dynamic=True)]

@@ -189,22 +189,28 @@ class HarnessAgent(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
     def TOOLSETS(cls):
         from xah.toolsets.context.toolset import Context as ContextToolset
         from xah.toolsets.fs.toolset import Files as FilesToolset
+        from xah.toolsets.kb.toolset import Knowledgebase as KnowledgebaseToolset
         from xah.toolsets.python.toolset import Python as PythonToolset
+        from xah.toolsets.subagent.toolset import Subagent as SubagentToolset
         from xah.toolsets.terminal.toolset import Terminals as TerminalsToolset
         from xah.toolsets.shell.toolset import Shell as ShellToolset
         from xah.toolsets.skills.toolset import Skills as SkillsToolset
         from xah.toolsets.todo.toolset import Todo as TodoToolset
         from xah.toolsets.utils.toolset import Utils as UtilsToolset
+        from xah.toolsets.web.toolset import Web as WebToolset
 
         class Catalogue:
             Context = ContextToolset
             Files = FilesToolset
+            Knowledgebase = KnowledgebaseToolset
             Python = PythonToolset
+            Subagent = SubagentToolset
             Terminals = TerminalsToolset
             Shell = ShellToolset
             Skills = SkillsToolset
             Todo = TodoToolset
             Utils = UtilsToolset
+            Web = WebToolset
 
         return Catalogue
 
@@ -259,13 +265,10 @@ class HarnessAgent(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
 
     @classmethod
     async def get_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
-        from xah.toolsets.todo.toolset import Todo
-
         instructions = [
             cls.instructions,
             *cls.get_instructions_agent_md(ctx),
             cls.get_paths_instructions(ctx),
-            ctx.deps.toolsets.name[Todo.name].system_prompt,
         ]
         return "\n\n".join(instructions)
 
@@ -371,13 +374,10 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
 
     @classmethod
     async def get_instructions(cls, ctx: RunContext[HarnessDeps]) -> str:
-        from xah.toolsets.todo.toolset import Todo
-
         instructions = [
             cls.instructions,
             *cls.get_instructions_agent_md(ctx),
             cls.get_paths_instructions(ctx),
-            ctx.deps.toolsets.name[Todo.name].system_prompt # todo silly. should be in Toolset.get_instructions
         ]
         return "\n\n".join(instructions)
 

@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 from cached_classproperty import cached_classproperty
 from pydantic import ValidationError, ConfigDict
 from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool, ToolFailed
-from pydantic_ai.messages import SystemPromptPart
+from pydantic_ai.messages import InstructionPart, SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
@@ -44,6 +44,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         for base in cls.__mro__:
             if description := get_docstring(base):
                 return description
+        return None
+
+    async def get_instructions(self, ctx: RunContext[AgentDepsT]) -> list[InstructionPart] | None:
+        del ctx
         return None
 
     @classes

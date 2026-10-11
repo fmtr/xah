@@ -12,7 +12,9 @@ from acp.schema import (
 )
 from pydantic_acp.runtime.adapter import PydanticAcpAgent
 from pydantic_acp.runtime._prompt_execution import _PromptExecution
-from pydantic_ai import AgentRunResultEvent, UsageLimits
+from pydantic_acp.runtime.prompts import PromptBlock, PromptRunOutcome
+from pydantic_acp.session.state import AcpSessionContext
+from pydantic_ai import Agent, AgentRunResultEvent, UsageLimits
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
@@ -35,6 +37,25 @@ from pydantic_acp.projection import (
 
 class ThinkingPromptExecution(_PromptExecution):
     """Forward Pydantic AI thinking events as native ACP thought chunks."""
+
+    async def run_prompt(
+        self,
+        *,
+        agent: Agent[Any, Any],
+        prompt: list[PromptBlock],
+        session: AcpSessionContext,
+        output_type_override: object | None = None,
+    ) -> PromptRunOutcome:
+        try:
+            return await super().run_prompt(
+                agent=agent,
+                prompt=prompt,
+                session=session,
+                output_type_override=output_type_override,
+            )
+        except Exception:
+            logger.error("ACP prompt execution failed", _exc_info=True)
+            raise
 
     async def _record_execution_updates(self, **kwargs):
         logger.info(
