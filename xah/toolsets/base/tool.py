@@ -48,8 +48,8 @@ class Validation(dm.Base):
 class Tool(dm.Base):
     ctx: SkipJsonSchema[InstanceOf[RunContext]] = Field(exclude=True)
     toolset: SkipJsonSchema[InstanceOf[FunctionToolset]] = Field(exclude=True)
-    validation: SkipJsonSchema[InstanceOf[Validation]] | None = Field(
-        default=None,
+    validation: SkipJsonSchema[InstanceOf[Validation]] = Field(
+        default_factory=Validation,
         exclude=True,
     )
 
