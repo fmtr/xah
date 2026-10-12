@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from corio.hash import get_hash_readable
 from xah.class_collections import classes
-from xah.harness.base import HarnessAgent
+from xah.harness.base import Harness
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.query import Query
@@ -43,7 +43,7 @@ class ResearchOutput(BaseModel):
         return urls
 
 
-class HarnessResearch(HarnessAgent):
+class HarnessResearch(Harness):
     """Select relevant web pages for a research request."""
 
     instructions = strings.trim("""

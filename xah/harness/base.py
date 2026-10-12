@@ -35,6 +35,7 @@ DepsT = TypeVar("DepsT", bound=HarnessDeps)
 class HarnessBase(Generic[AgentDepsT]):
     """A directly usable agent without Xah or ACP-specific defaults."""
 
+    NAME=None
     title = "Xah"
     description = "Root/orchestrator agent"
     instructions = "Use the prompt and the skills to complete the task."
@@ -48,9 +49,9 @@ class HarnessBase(Generic[AgentDepsT]):
         self.cwd_default = cwd_default
         self.settings = settings
 
-    @cached_property
-    def name(self):
-        return type(self).__name__
+    @ccp
+    def name(cls):
+        return cls.NAME or cls.__name__
 
     @classes
     def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
@@ -180,7 +181,7 @@ class HarnessBase(Generic[AgentDepsT]):
         return self
 
 
-class HarnessAgent(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
+class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
     """A directly usable agent with Xah's default configuration."""
 
     thinking_effort = "low"
@@ -288,8 +289,17 @@ class HarnessAgent(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
 
         return Settings.subclass(paths=cls.paths)
 
+    @classmethod
+    def launch(cls):
+        from xah.harness.base import HarnessAcp
 
-class Harness(HarnessAgent[DepsT], Generic[DepsT]):
+        class HarnessRuntime(cls, HarnessAcp):
+            NAME = cls.name
+
+        return HarnessRuntime.launch_sync()
+
+
+class HarnessAcp(Harness[DepsT], Generic[DepsT]):
     """The ACP-backed harness and launchable application entry point."""
 
     deps_type = HarnessDeps
@@ -481,5 +491,5 @@ class Harness(HarnessAgent[DepsT], Generic[DepsT]):
         await self.serve()
 
     @classmethod
-    def launch(cls):
+    def launch_sync(cls):
         return asyncio.run(cls.launch_async())

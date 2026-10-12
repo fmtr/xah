@@ -8,7 +8,7 @@ from pydantic_deep.features.periodic_reminder.capability import build_compact_tr
 from corio import Constants, dm, strings
 from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import classes
-from xah.harness.base import HarnessAgent
+from xah.harness.base import Harness
 from xah.options.base import FULL
 from xah.toolsets.base.tool import ToolState, Validation
 from xah.toolsets.fs.read import Read
@@ -25,7 +25,7 @@ class AdversaryDecision(dm.Base):
     )
 
 
-class HarnessTerminalAdversary(HarnessAgent):
+class HarnessTerminalAdversary(Harness):
     instructions = strings.trim("""
         You will receive a shell command and context from the user.
 

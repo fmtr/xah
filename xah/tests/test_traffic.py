@@ -20,7 +20,7 @@ from pydantic_ai.models.test import TestModel
 
 from corio import yml
 from xah.caps.traffic import InstructionDeserializer, ModelTrafficLogger
-from xah.harness.base import Harness
+from xah.harness.base import HarnessAcp
 
 
 def captured_logger(monkeypatch):
@@ -134,7 +134,7 @@ def test_model_traffic_logger_logs_every_message_once(monkeypatch):
 
 def test_model_traffic_logger_logs_compacted_history(monkeypatch):
     capability, captured = captured_logger(monkeypatch)
-    harness = Harness.__new__(Harness)
+    harness = HarnessAcp.__new__(HarnessAcp)
     harness.__dict__["model_traffic_logger"] = capability
     harness.__dict__["session_usage_reporter"] = SimpleNamespace(report=lambda *_: None)
     compressed = []

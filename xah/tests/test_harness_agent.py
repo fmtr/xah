@@ -3,12 +3,12 @@ from types import SimpleNamespace
 from corio import Path
 from pydantic_ai.models.test import TestModel
 
-from xah.harness.base import Harness, HarnessAgent
+from xah.harness.base import Harness, HarnessAcp
 from xah.harness.deps import HarnessAgentDeps, HarnessDeps
 
 
 def test_harness_agent_is_directly_usable():
-    agent = HarnessAgent(
+    agent = Harness(
         model=TestModel(),
         cwd_default=Path.cwd(),
         settings=SimpleNamespace(),
@@ -24,4 +24,4 @@ def test_harness_agent_is_directly_usable():
 
 def test_harness_deps_adds_approval_behavior_to_agent_deps():
     assert issubclass(HarnessDeps, HarnessAgentDeps)
-    assert Harness is not HarnessAgent
+    assert Harness is not HarnessAcp

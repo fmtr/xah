@@ -16,7 +16,7 @@ from pydantic_acp import (
     DefaultPermissionToolCallBuilder,
 )
 from pydantic_acp.approvals import ApprovalResolution
-from xah.harness.base import Harness
+from xah.harness.base import HarnessAcp
 from xah.harness.deps import HarnessDeps
 from xah.toolsets.base.tool import Validation
 
@@ -122,7 +122,7 @@ class ApprovalBridgeMetadata(NativeApprovalBridge):
         return ApprovalResolution(deferred_tool_results=deferred_results)
 
 
-class SessionAgentSource(ilist[Harness[DepsT]], Generic[DepsT]):
+class SessionAgentSource(ilist[HarnessAcp[DepsT]], Generic[DepsT]):
     """
 
     Provide harness agents and dependencies for ACP sessions.
@@ -131,7 +131,7 @@ class SessionAgentSource(ilist[Harness[DepsT]], Generic[DepsT]):
 
     def __init__(
         self,
-        harness_type: type[Harness[DepsT]],
+        harness_type: type[HarnessAcp[DepsT]],
         settings,
         usage_reporters: UsageReporterRegistry,
         capability_bridges=(),
@@ -144,7 +144,7 @@ class SessionAgentSource(ilist[Harness[DepsT]], Generic[DepsT]):
         self.projection_maps = projection_maps
         self.usage_reporters = usage_reporters
 
-    def get_runtime(self, session: AcpSessionContext) -> Harness[DepsT]:
+    def get_runtime(self, session: AcpSessionContext) -> HarnessAcp[DepsT]:
         runtime = self.session_id.get(session.session_id)
         if runtime is not None:
             return runtime
