@@ -37,11 +37,6 @@ class HarnessAgentDeps(DeepAgentDeps):
         from xah.options.path import PathCwd, PathRead, PathWrite
 
         options = [
-            option
-            for toolset in self.toolsets
-            for option in toolset.options
-        ]
-        options.extend([
             PathCwd.from_cwd(
                 cwd=self.cwd_default,
                 description="Working directory.",
@@ -54,7 +49,16 @@ class HarnessAgentDeps(DeepAgentDeps):
                 cwd=self.cwd_default,
                 description="Directory available for file changes.",
             ),
-        ])
+        ]
+        toolset_options = ilist(
+            option
+            for toolset in self.toolsets
+            for option in toolset.options
+        )
+        options.extend(
+            toolset_options.name[name]
+            for name in sorted(toolset_options.name)
+        )
         return ilist(options)
 
     def set_config_value(self, config_id, value):
@@ -76,11 +80,6 @@ class HarnessDeps(HarnessAgentDeps):
         from xah.options.path import PathCwd, PathRead, PathWrite
 
         options = [
-            option
-            for toolset in self.toolsets
-            for option in toolset.options
-        ]
-        options.extend([
             PathCwd.from_cwd(
                 cwd=self.cwd_default,
                 description="Working directory.",
@@ -93,7 +92,16 @@ class HarnessDeps(HarnessAgentDeps):
                 cwd=self.cwd_default,
                 description="Directory available for file changes.",
             ),
-        ])
+        ]
+        toolset_options = ilist(
+            option
+            for toolset in self.toolsets
+            for option in toolset.options
+        )
+        options.extend(
+            toolset_options.name[name]
+            for name in sorted(toolset_options.name)
+        )
         return ilist(options)
 
     @property
