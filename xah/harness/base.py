@@ -87,7 +87,7 @@ class HarnessBase(Generic[AgentDepsT]):
 
     @classes
     def Instructions(cls):
-        return [cls.get_instructions_agent_md, cls.get_paths_instructions]
+        return [cls.get_instructions_agent_md, cls.get_instructions_paths]
 
     @classes
     def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
@@ -176,7 +176,7 @@ class HarnessBase(Generic[AgentDepsT]):
         return texts
 
     @classmethod
-    def get_paths_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
+    def get_instructions_paths(cls, ctx: RunContext[AgentDepsT]) -> str:
         cwd = ctx.deps.options.cls[PathCwd].value
         read = ctx.deps.options.cls[PathRead].value
         write = ctx.deps.options.cls[PathWrite].value

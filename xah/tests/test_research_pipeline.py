@@ -12,7 +12,7 @@ from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.toolset import Knowledgebase
 from xah.toolsets.web import research as research_module
-from xah.toolsets.web.research import Research, ResearchOutput
+from xah.toolsets.web.research import Depth, Research, ResearchOutput
 from xah.toolsets.web.toolset import Web
 
 
@@ -189,11 +189,17 @@ async def test_research_indexes_with_parent_knowledgebase_client(monkeypatch):
         pending_messages=[],
     )
     web = Web()
-    research = Research(ctx=context, toolset=web, prompt="question")
+    research = Research(
+        ctx=context,
+        toolset=web,
+        prompt="question",
+        depth=Depth.THOROUGH,
+    )
     captured = {}
 
     class Agent:
         async def run(self, prompt, deps):
+            captured["prompt"] = prompt
             return SimpleNamespace(output=ResearchOutput(urls=["https://example.com"]))
 
     class Harness:
@@ -218,6 +224,7 @@ async def test_research_indexes_with_parent_knowledgebase_client(monkeypatch):
     await research.run()
 
     assert captured["client"] is client
+    assert captured["prompt"] == "# Request Depth Depth.THOROUGH\n\n# Request:\n\nquestion"
 
 
 @pytest.mark.asyncio

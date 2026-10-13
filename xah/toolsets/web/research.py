@@ -1,12 +1,14 @@
 import asyncio
 import re
 from collections.abc import AsyncIterator
+from enum import auto
 from functools import cached_property
 from typing import ClassVar
 from uuid import uuid4
 
 from cached_classproperty import cached_classproperty
 from corio import Constants, strings
+from corio.enums import MapEnum
 from corio.db.search.client import Client
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, DefaultMarkdownGenerator, PruningContentFilter, \
     CacheMode
@@ -44,14 +46,20 @@ class ResearchOutput(BaseModel):
         return urls
 
 
-class HarnessResearch(Harness):
+class Depth(MapEnum):
+    QUICK = auto(), "A quick, cursory review using 1 or 2 sets of terms."
+    STANDARD = auto(), "A focused review using several sets of terms and a small set of sources."
+    THOROUGH = auto(), "A detailed review using multiple refined searches and source pages."
+    INTENSIVE = auto(), "A comprehensive review using extensive searches, thorough search term harvesting and refinement and source coverage."
+
+
     """Select relevant web pages for a research request."""
 
-    instructions = strings.trim("""
-        Research the user's request sequentially and systematically. Do not generate or
-        submit a batch of speculative queries, and do not spam random search terms.
-
+    instructions = strings.trim(f"""        
         ## Process
+        
+        Research the user's request sequentially and systematically. Do not generate or
+        submit batches of speculative queries, and do not spam random/similar search terms.
 
         - Translate the request into an initial, focused search query that captures the
           subject, timeframe, geography, perspective, or other constraints that matter.
@@ -69,6 +77,11 @@ class HarnessResearch(Harness):
         - Prefer queries that investigate different meaningful aspects of the request,
           rather than queries that differ only cosmetically.
         - Keep track of promising pages across searches and remove duplicate URLs.
+        
+        ## Requested Depth
+
+        Follow the requested research depth. Do not perform work beyond the requested depth.
+        Use the depth to determine how many search terms and sources to investigate, while still prioritising relevant, high-quality results.
 
         ## Choose Suitable Pages
 
@@ -102,20 +115,27 @@ class HarnessResearch(Harness):
         titles, citations, or search-result objects.
 
         ## Answer
-
+        
         - The results of each search provides an extra field with a ready-made answer to its query.
         - When providing your own answer, synthesize it from the highest-quality information available in:
             - The answer fields from each search.
             - The contents of the search excerpts.        
         - If the aggregated sources do not contain a good-quality answer, you may choose not to provide one.
-        - Similarly, some open-ended requests - e.g. "Tell me about the East Germany" - are not amenable to a single, definitive answer. You should also omit one in such cases.
-
-        
+        - Tailor your answer to the request and its depth: this can be very short for simple requests, much longer for more invovled ones.
+        - Similarly, some open-ended requests - e.g. "Tell me about the East Germany" - are not amenable to a single, definitive answer. You should also omit one in such cases.        
     """)
 
     @cached_property
     def output(self):
         return ResearchOutput
+
+    @classes
+    def Instructions(cls):
+        instructions=super().Instructions.copy()
+        instructions.remove(cls.get_instructions_agent_md)
+        instructions.remove(cls.get_instructions_editables)
+        instructions.remove(cls.get_instructions_paths)
+        return instructions
 
     @classes
     def Toolsets(cls):
@@ -133,6 +153,8 @@ class Research(Tool):
     """Search, fetch, and index web pages for the user's research request."""
 
     FETCH_TIMEOUT: ClassVar[int] = 60
+
+    depth: Depth = Field(description=Depth.descriptions)
 
     prompt: str = Field(
         description="Research request, including detailed instructions for what to investigate."
@@ -186,9 +208,25 @@ class Research(Tool):
 
     async def run(self) -> str:
 
-        result=await self.harness.agent.run(self.prompt, deps=self.harness.deps)
+        request = strings.trim(
+            f"""
+            # Requested Depth {self.depth}
+            
+            {self.depth.description}
+
+            # Request:
+
+            {self.prompt}
+            """
+        )
+        result = await self.harness.agent.run(request, deps=self.harness.deps)
         urls = result.output.urls
-        answer= result.output.answer
+        answer = result.output.answer
+        provisional = strings.trim("# Provisional Answer", answer)
+
+        if self.depth in {Depth.QUICK, Depth.STANDARD}:
+            return provisional
+
         documents = [page async for page in self.fetch(urls)]
 
         await WebPage.build(
@@ -206,10 +244,8 @@ class Research(Tool):
         text = strings.trim(
             f"""
             Research completed. The research is ready under research_id `{self.research_id}`.
-
-            # Provisional Answer
             """,
-            answer,
+            provisional,
         )
 
         return text
