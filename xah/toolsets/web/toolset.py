@@ -6,6 +6,7 @@ from tavily import AsyncTavilyClient
 
 from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.web.research import Research
+from xah.toolsets.web.request import Request
 from xah.toolsets.web.search import Search
 
 
@@ -20,4 +21,4 @@ class Web(Toolset):
 
     @classes
     def Tools(cls):
-        return [Research]
+        return [Research, Request]
