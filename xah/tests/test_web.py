@@ -28,6 +28,18 @@ def test_web_exposes_research_and_request():
     assert Web.Tools == [Research, Request]
 
 
+def test_request_methods_preserve_uppercase_values():
+    assert [method.value for method in Method] == [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH",
+        "POST",
+        "PUT",
+    ]
+
+
 @pytest.mark.asyncio
 async def test_request_uses_http_defaults(web):
     toolset, ctx = web

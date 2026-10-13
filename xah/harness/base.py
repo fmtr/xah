@@ -8,7 +8,7 @@ from acpremote import TransportOptions, serve_acp
 from cached_classproperty import cached_classproperty
 from corio import PackagePaths, Path, strings
 from corio.function import ccp
-from corio.iterator import dedupe, ilist, strip_none
+from corio.iterator import dedupe, enlist, ilist, strip_none
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import Thinking
 from pydantic_acp import (
@@ -84,6 +84,10 @@ class HarnessBase(Generic[AgentDepsT]):
     @ccp
     def name(cls):
         return cls.NAME or cls.__name__
+
+    @classes
+    def Instructions(cls):
+        return [cls.get_instructions_agent_md, cls.get_paths_instructions]
 
     @classes
     def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
@@ -186,11 +190,14 @@ class HarnessBase(Generic[AgentDepsT]):
 
     @classmethod
     async def get_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
-        instructions = [
+        instructions = strip_none(
             cls.instructions,
-            #*cls.get_instructions_agent_md(ctx),
-            cls.get_paths_instructions(ctx),
-        ]
+            *(
+                item
+                for instruction in cls.Instructions
+                for item in enlist(instruction(ctx))
+            ),
+        )
         return "\n\n".join(instructions)
 
     @classmethod
@@ -295,15 +302,6 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
             self.stuck_loop_detection,
             self.model_traffic_logger,
         )
-
-    @classmethod
-    async def get_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
-        instructions = [
-            cls.instructions,
-            *cls.get_instructions_agent_md(ctx),
-            cls.get_paths_instructions(ctx),
-        ]
-        return "\n\n".join(instructions)
 
     @ccp
     def paths(self) -> PackagePaths:
@@ -413,15 +411,6 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
         agent.instructions(self.get_instructions)
         agent.description = self.description
         return agent
-
-    @classmethod
-    async def get_instructions(cls, ctx: RunContext[HarnessDeps]) -> str:
-        instructions = [
-            cls.instructions,
-            *cls.get_instructions_agent_md(ctx),
-            cls.get_paths_instructions(ctx),
-        ]
-        return "\n\n".join(instructions)
 
     def restore_session(self):
         for config_id, value in self.session.config_values.items():
