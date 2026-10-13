@@ -94,8 +94,11 @@ async def test_fetch_indexes_raw_markdown_when_fit_markdown_is_empty(monkeypatch
         async def arun(self, url, config):
             return SimpleNamespace(
                 success=True,
+                html="<html><body><p>" + ("Meteor observations. " * 100) + "</p></body></html>",
+                status_code=200,
+                error_message=None,
                 markdown=SimpleNamespace(fit_markdown="", raw_markdown="# Meteor"),
-                metadata={"title": "Meteor"},
+                metadata={"title": None},
             )
 
     monkeypatch.setattr(research_module, "AsyncWebCrawler", Crawler)
@@ -105,6 +108,40 @@ async def test_fetch_indexes_raw_markdown_when_fit_markdown_is_empty(monkeypatch
 
     assert len(pages) == 1
     assert pages[0].text == "# Meteor"
+    assert pages[0].title == "https://example.com"
+
+
+@pytest.mark.asyncio
+async def test_fetch_skips_anti_bot_pages(monkeypatch):
+    class Crawler:
+        def __init__(self, config):
+            self.config = config
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def arun(self, url, config):
+            return SimpleNamespace(
+                success=True,
+                html="<html><body>Access denied</body></html>",
+                status_code=503,
+                error_message="Blocked by anti-bot protection: HTTP 503 with HTML content",
+                markdown=SimpleNamespace(
+                    fit_markdown="Access denied",
+                    raw_markdown="Access denied",
+                ),
+                metadata={"title": None},
+            )
+
+    monkeypatch.setattr(research_module, "AsyncWebCrawler", Crawler)
+    research = Research.model_construct(research_id="research-1")
+
+    pages = [page async for page in research.fetch(["https://example.com"])]
+
+    assert pages == []
 
 
 @pytest.mark.asyncio

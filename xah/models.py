@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, ClassVar
 
-from cached_classproperty import cached_classproperty
 from pydantic_acp import AdapterModel as AcpAdapterModel
 from pydantic_ai import ModelSettings
 from pydantic_ai.models import Model
@@ -14,7 +13,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 
 class AdapterModel(AcpAdapterModel):
-    """Define an ACP model from a small set of overridable class variables."""
+    """Define an ACP model from shared configuration and an optional per-instance id."""
 
     NAME: ClassVar[str] = ""
     MODEL_CLASS: ClassVar[type[Model]] = OpenAIResponsesModel
@@ -23,27 +22,19 @@ class AdapterModel(AcpAdapterModel):
     MODEL_SETTINGS: ClassVar[ModelSettings] = ModelSettings()
     MODEL_KWARGS: ClassVar[dict[str, Any]] = {}
 
-    @cached_classproperty
-    def name(cls) -> str:
-        return cls.NAME
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        object.__setattr__(self, name, value)
-
-    def __init__(self) -> None:
-        super().__init__(
-            model_id=self.id,
-            name=self.name,
-            override=self.model,
+    def __init__(self, id: str | None = None) -> None:
+        model_name = self.NAME if id is None else id
+        model = self.model_class(
+            model_name,
+            provider=self.provider,
+            settings=self.settings,
+            **self.MODEL_KWARGS,
         )
-
-    @cached_property
-    def provider_name(self) -> str:
-        return self.PROVIDER_NAME
-
-    @cached_property
-    def id(self) -> str:
-        return f"{self.provider_name}:{self.name}"
+        super().__init__(
+            model_id=f"{self.PROVIDER_NAME}:{model_name}",
+            name=model_name,
+            override=model,
+        )
 
     @cached_property
     def provider(self):
@@ -63,20 +54,11 @@ class AdapterModel(AcpAdapterModel):
 
     @cached_property
     def model(self) -> Model:
-        return self.model_class(
-            self.name,
-            provider=self.provider,
-            settings=self.settings,
-            **self.MODEL_KWARGS,
-        )
+        return self.override
 
 
 class AdapterModelOpenAI(AdapterModel):
     """Configure models served by OpenAI's provider."""
-
-    # @property
-    # def model(self):
-    #     return self.override
 
 
 class AdapterModelOllama(AdapterModel):
@@ -85,8 +67,8 @@ class AdapterModelOllama(AdapterModel):
     MODEL_CLASS = OllamaModel
     PROVIDER_CLASS = OllamaProvider
     PROVIDER_NAME = "ollama"
-    BASE_URL: ClassVar[str]
-    HTTP_CLIENT: ClassVar[Any]
+    BASE_URL: ClassVar[str] = "http://localhost:11434"
+    HTTP_CLIENT: ClassVar[Any] = None
 
     @cached_property
     def provider_kwargs(self) -> dict[str, Any]:

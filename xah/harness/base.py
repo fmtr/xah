@@ -11,7 +11,12 @@ from corio.function import ccp
 from corio.iterator import dedupe, ilist, strip_none
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import Thinking
-from pydantic_acp import AdapterConfig, AgentBridgeBuilder, FileSessionStore
+from pydantic_acp import (
+    AdapterConfig,
+    AgentBridgeBuilder,
+    FileSessionStore,
+    ModelSelectionState,
+)
 from pydantic_acp.projection import DefaultToolClassifier, ProjectionAwareToolClassifier
 from pydantic_deep import ContextManagerCapability, StuckLoopDetection
 
@@ -30,6 +35,33 @@ from xah.toolsets.utils.toolset import Utils
 
 AgentDepsT = TypeVar("AgentDepsT", bound=HarnessAgentDeps)
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
+
+
+class HarnessModelsProvider:
+    def __init__(self, source, models: ilist[AdapterModel]):
+        self.source = source
+        self.models = models
+
+    def get_model_state(self, session, agent):
+        del agent
+        runtime = self.source.get_runtime(session)
+        models = runtime.deps.models
+        return ModelSelectionState(
+            available_models=list(models),
+            current_model_id=models.current.model_id,
+        )
+
+    def set_model(self, session, agent, model_id):
+        runtime = self.source.get_runtime(session)
+        models = runtime.deps.models
+        model = models.model_id[model_id]
+        models.current = model
+        runtime.deps.model = model.override
+        agent.model = model.override
+        return ModelSelectionState(
+            available_models=list(models),
+            current_model_id=model.model_id,
+        )
 
 
 class HarnessBase(Generic[AgentDepsT]):
@@ -228,13 +260,13 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
             cls.TOOLSETS.Utils,
         ]
 
-    @classes
-    def Models(cls) -> list[type[AdapterModel]]:
-        return [Luna]
+    @ccp
+    def Models(cls) -> list[AdapterModel]:
+        return [Luna()]
 
     @cached_property
     def models(self) -> ilist[AdapterModel]:
-        return ilist(model_type() for model_type in self.Models)
+        return ilist(self.Models)
 
     @cached_property
     def thinking(self):
@@ -439,6 +471,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             capability_bridges=self.bridges,
             config_options_provider=self.config_options_provider,
             available_models=self.models,
+            models_provider=HarnessModelsProvider(self.agent_source, self.models),
             session_store=self.session_store,
             projection_maps=self.projections,
             tool_classifier=ProjectionAwareToolClassifier(

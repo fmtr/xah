@@ -6,10 +6,11 @@ from typing import ClassVar
 from uuid import uuid4
 
 from cached_classproperty import cached_classproperty
-from corio import strings
+from corio import Constants, strings
 from corio.db.search.client import Client
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, DefaultMarkdownGenerator, PruningContentFilter, \
     CacheMode
+from crawl4ai.antibot_detector import is_blocked
 from pydantic import BaseModel, Field, field_validator
 
 from corio.hash import get_hash_readable
@@ -229,13 +230,20 @@ class Research(Tool):
         for url, result in zip(urls, results):
             if result is None or not result.success:
                 continue
+            blocked, _ = is_blocked(
+                result.status_code,
+                result.html,
+                result.error_message,
+            )
+            if blocked:
+                continue
             md_fit=result.markdown.fit_markdown
             md_raw=result.markdown.raw_markdown
             markdown = md_fit or md_raw
             text = re.sub(r"\n{3,}", "\n\n", markdown).strip()
             if not text:
                 continue
-            title = result.metadata.get("title", url)
+            title = result.metadata.get("title") or url or Constants.PROMPT_NONE_SPECIFIED
             yield WebPage(
                 id=get_hash_readable(url+text,length=8),
                 research_id=self.research_id,
