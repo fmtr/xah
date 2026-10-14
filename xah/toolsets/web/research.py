@@ -1,5 +1,3 @@
-import asyncio
-import re
 from collections.abc import AsyncIterator
 from enum import auto
 from functools import cached_property
@@ -7,22 +5,19 @@ from typing import ClassVar
 from uuid import uuid4
 
 from cached_classproperty import cached_classproperty
-from corio import Constants, strings
+from corio import strings
 from corio.enums import MapEnum
 from corio.db.search.client import Client
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, DefaultMarkdownGenerator, PruningContentFilter, \
-    CacheMode
-from crawl4ai.antibot_detector import is_blocked
 from pydantic import BaseModel, Field, field_validator
 
 from corio.hash import get_hash_readable
 from xah.class_collections import classes
 from xah.harness.base import Harness
-from xah.toolsets.base.tool import Tool
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.toolset import Knowledgebase
 
+from xah.toolsets.web.base import WebTool
 from xah.toolsets.web.search import Search
 
 
@@ -147,7 +142,7 @@ class Depth(MapEnum):
         return [Web]
 
 
-class Research(Tool):
+class Research(WebTool):
     """Search, fetch, and index web pages for the user's research request."""
 
     FETCH_TIMEOUT: ClassVar[int] = 60
@@ -184,27 +179,7 @@ class Research(Tool):
         harness = HarnessResearch.from_parent(self.ctx.deps)
         return harness
 
-    @cached_property
-    def browser(self) -> BrowserConfig:
-        return BrowserConfig(headless=True)
-
-    @cached_property
-    def generator(self) -> DefaultMarkdownGenerator:
-        return DefaultMarkdownGenerator(
-            content_filter=PruningContentFilter(threshold=0.6)
-        )
-
-    @cached_property
-    def config(self) -> CrawlerRunConfig:
-        return CrawlerRunConfig(
-            cache_mode=CacheMode.BYPASS,
-            markdown_generator=self.generator,
-            page_timeout=self.FETCH_TIMEOUT * 1000,
-            wait_for_timeout=self.FETCH_TIMEOUT * 1000,
-            max_retries=0,
-        )
-
-    async def run(self) -> str:
+    async def run(self) -> ResearchOutput:
 
         request = strings.trim(
             f"""
@@ -219,69 +194,46 @@ class Research(Tool):
         )
         result = await self.harness.agent.run(request, deps=self.harness.deps)
         urls = result.output.urls
-        answer = result.output.answer
-        provisional = strings.trim("# Provisional Answer", answer)
-
         if self.depth in {Depth.QUICK, Depth.STANDARD}:
-            return provisional
+            return result.output
 
-        documents = [page async for page in self.fetch(urls)]
+        fetch_results = [result async for result in super().fetch(urls)]
+        documents = [
+            WebPage(
+                id=get_hash_readable(result.url + result.text, length=8),
+                research_id=self.research_id,
+                title=result.title,
+                url=result.url,
+                text=result.text,
+            )
+            for result in fetch_results
+            if result.succeeded
+        ]
+        if not documents:
+            return result.output
 
         await WebPage.build(
             data=documents,
             client=self.client,
         )
 
-        self.feedback(
-            f"""
-            The research knowledgebase has been compiled for this question, so you can perform deeper research yourself.
+        feedback = f"""
+            The research tool has provided a provisional answer, based on summaries only.
+            A research knowledgebase has also been compiled for this question, containing the full sources, so you can perform deeper research yourself.
             Use the {Knowledgebase.name} tools with research_id `{self.research_id}` to query and page through its contents.
             """
-        )
+        self.feedback(feedback)
 
-        text = strings.trim(
-            f"""
-            Research completed. The research is ready under research_id `{self.research_id}`.
-            """,
-            provisional,
-        )
-
-        return text
-
-    async def fetch_url(self, crawler, url):
-        try:
-            async with asyncio.timeout(self.FETCH_TIMEOUT):
-                return await crawler.arun(url, config=self.config)
-        except TimeoutError:
-            return None
+        return result.output
 
     async def fetch(self, urls: list[str]) -> AsyncIterator[WebPage]:
-        async with AsyncWebCrawler(config=self.browser) as crawler:
-            results = await asyncio.gather(
-                *(self.fetch_url(crawler, url) for url in urls)
-            )
-
-        for url, result in zip(urls, results):
-            if result is None or not result.success:
+        async for result in super().fetch(urls):
+            if not result.succeeded:
                 continue
-            blocked, _ = is_blocked(
-                result.status_code,
-                result.html,
-                result.error_message,
-            )
-            if blocked:
-                continue
-            md_fit=result.markdown.fit_markdown
-            md_raw=result.markdown.raw_markdown
-            markdown = md_fit or md_raw
-            text = re.sub(r"\n{3,}", "\n\n", markdown).strip()
-            if not text:
-                continue
-            title = result.metadata.get("title") or url or Constants.PROMPT_NONE_SPECIFIED
             yield WebPage(
-                id=get_hash_readable(url+text,length=8),
+                id=get_hash_readable(result.url + result.text, length=8),
                 research_id=self.research_id,
-                title=title,
-                url=url,
-                text=text,
+                title=result.title,
+                url=result.url,
+                text=result.text,
             )

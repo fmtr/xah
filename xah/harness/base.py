@@ -237,6 +237,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
             cls.TOOLSETS.Terminals,
             cls.TOOLSETS.Shell,
             cls.TOOLSETS.Python,
+            # cls.TOOLSETS.Web,
             cls.TOOLSETS.Skills,
             cls.TOOLSETS.Todo,
             cls.TOOLSETS.Utils,

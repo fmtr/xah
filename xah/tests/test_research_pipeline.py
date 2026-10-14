@@ -12,6 +12,7 @@ from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.toolset import Knowledgebase
 from xah.toolsets.web import research as research_module
+from xah.toolsets.web.base import FetchResult, WebTool
 from xah.toolsets.web.research import Depth, Research, ResearchOutput
 from xah.toolsets.web.toolset import Web
 
@@ -225,6 +226,42 @@ async def test_research_indexes_with_parent_knowledgebase_client(monkeypatch):
 
     assert captured["client"] is client
     assert captured["prompt"] == "# Request Depth Depth.THOROUGH\n\n# Request:\n\nquestion"
+
+
+@pytest.mark.asyncio
+async def test_research_returns_initial_results_when_all_fetches_fail(monkeypatch):
+    context = RunContext(
+        deps=SimpleNamespace(toolsets=SimpleNamespace(name={})),
+        model=None,
+        usage=RunUsage(),
+    )
+    research = Research(
+        ctx=context,
+        toolset=Web(),
+        prompt="question",
+        depth=Depth.THOROUGH,
+    )
+    output = ResearchOutput(urls=["https://example.com"])
+
+    class Agent:
+        async def run(self, prompt, deps):
+            return SimpleNamespace(output=output)
+
+    class Harness:
+        agent = Agent()
+        deps = object()
+
+        @classmethod
+        def from_parent(cls, parent):
+            return cls()
+
+    async def fetch(self, urls):
+        yield FetchResult(url=urls[0], error="The request timed out.")
+
+    monkeypatch.setattr(research_module, "HarnessResearch", Harness)
+    monkeypatch.setattr(WebTool, "fetch", fetch)
+
+    assert await research.run() is output
 
 
 @pytest.mark.asyncio

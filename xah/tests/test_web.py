@@ -6,6 +6,8 @@ from pydantic_ai import RunContext, ToolFailed
 from pydantic_ai.usage import RunUsage
 from tavily import AsyncTavilyClient
 
+from xah.toolsets.web.base import FetchResult
+from xah.toolsets.web.fetch import Fetch
 from xah.toolsets.web.research import HarnessResearch, Research
 from xah.toolsets.web.request import Method, Request, Response
 from xah.toolsets.web.search import Search
@@ -24,8 +26,8 @@ def test_web_provides_tavily_client():
     assert isinstance(Web().client, AsyncTavilyClient)
 
 
-def test_web_exposes_research_and_request():
-    assert Web.Tools == [Research, Request]
+def test_web_exposes_fetch_research_and_request():
+    assert Web.Tools == [Fetch, Research, Request]
 
 
 def test_request_methods_preserve_uppercase_values():
@@ -82,6 +84,53 @@ async def test_request_reports_failures(web):
     with patch("corio.https.AsyncClient", return_value=client):
         with pytest.raises(ToolFailed, match="connection failed"):
             await Request(ctx=ctx, toolset=toolset, url="https://example.test").run()
+
+
+@pytest.mark.asyncio
+async def test_fetch_returns_all_url_failures(web, monkeypatch):
+    toolset, ctx = web
+
+    async def fetch(self, urls):
+        for url in urls:
+            yield FetchResult(url=url, error="The request timed out.")
+
+    monkeypatch.setattr(Fetch, "fetch", fetch)
+
+    results = await Fetch(
+        ctx=ctx,
+        toolset=toolset,
+        urls=["https://example.test"],
+    ).run()
+
+    assert results == [
+        FetchResult(url="https://example.test", error="The request timed out.")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_returns_successes_and_failures_together(web, monkeypatch):
+    toolset, ctx = web
+
+    async def fetch(self, urls):
+        yield FetchResult(url=urls[0], title="Example", text="Readable text")
+        yield FetchResult(url=urls[1], error="The page was blocked.")
+
+    monkeypatch.setattr(Fetch, "fetch", fetch)
+
+    results = await Fetch(
+        ctx=ctx,
+        toolset=toolset,
+        urls=["https://example.test", "https://blocked.test"],
+    ).run()
+
+    assert results == [
+        FetchResult(
+            url="https://example.test",
+            title="Example",
+            text="Readable text",
+        ),
+        FetchResult(url="https://blocked.test", error="The page was blocked."),
+    ]
 
 
 def test_research_harness_exposes_only_web_toolset():
