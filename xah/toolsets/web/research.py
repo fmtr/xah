@@ -131,11 +131,9 @@ class Depth(MapEnum):
 
     @classes
     def Instructions(cls):
-        instructions=super().Instructions.copy()
-        instructions.remove(cls.get_instructions_agent_md)
-        instructions.remove(cls.get_instructions_editables)
-        instructions.remove(cls.get_instructions_paths)
-        return instructions
+        from xah.instructions.static import Static
+
+        return [Static]
 
     @classes
     def Toolsets(cls):

@@ -6,9 +6,9 @@ from typing import Any, Generic, Self, Sequence, TypeVar, cast
 
 from acpremote import TransportOptions, serve_acp
 from cached_classproperty import cached_classproperty
-from corio import PackagePaths, Path, strings
+from corio import PackagePaths, Path
 from corio.function import ccp
-from corio.iterator import dedupe, enlist, ilist, strip_none
+from corio.iterator import enlist, ilist, strip_none
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import Thinking
 from pydantic_acp import (
@@ -25,7 +25,6 @@ from xah.class_collections import classes
 from xah.harness.deps import HarnessAgentDeps, HarnessDeps
 from xah.models import AdapterModel, Luna
 from xah.obs import logger
-from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.options.provider import ConfigOptionsProvider
 from xah.server.acp.thinking import AgentAcp
 from xah.server.acp.usage import UsageReporterRegistry
@@ -87,7 +86,11 @@ class HarnessBase(Generic[AgentDepsT]):
 
     @classes
     def Instructions(cls):
-        return [cls.get_instructions_agent_md, cls.get_instructions_paths]
+        from xah.instructions.agent import Agent
+        from xah.instructions.paths import Paths
+        from xah.instructions.static import Static
+
+        return [Static, Agent, Paths]
 
     @classes
     def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
@@ -163,41 +166,13 @@ class HarnessBase(Generic[AgentDepsT]):
         return agent
 
     @classmethod
-    def get_instructions_agent_md(cls, ctx: RunContext[AgentDepsT]):
-        settings = ctx.deps.settings
-        path = (settings.path.agents / settings.path.agents_name).resolve()
-        cwd = (
-            ctx.deps.options.cls[PathCwd].value
-            / settings.path.agents_dir
-            / settings.path.agents_name
-        ).resolve()
-        paths = dedupe([path, cwd])
-        texts = [path.read_text() for path in paths if path.exists()]
-        return texts
-
-    @classmethod
-    def get_instructions_paths(cls, ctx: RunContext[AgentDepsT]) -> str:
-        cwd = ctx.deps.options.cls[PathCwd].value
-        read = ctx.deps.options.cls[PathRead].value
-        write = ctx.deps.options.cls[PathWrite].value
-        return strings.trim(
-            f"""
-            The current working directory/repo is "{cwd}".
-            You have read access to "{read}".
-            You have write access to "{write}".
-            """
-        )
-
-    @classmethod
     async def get_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
-        instructions = strip_none(
-            cls.instructions,
-            *(
-                item
-                for instruction in cls.Instructions
-                for item in enlist(instruction(ctx))
-            ),
-        )
+        instructions = []
+        for instruction_type in cls.Instructions:
+            instruction = instruction_type(ctx=ctx, harness_type=cls)
+            passages = enlist(await instruction.run())
+            instructions.extend(passages)
+
         return "\n\n".join(instructions)
 
     @classmethod

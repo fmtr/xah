@@ -15,6 +15,7 @@ from xah.server.acp.server import SessionAgentSource
 from xah.server.acp.usage import UsageReporterRegistry
 from xah.settings import PathAgent
 from xah.harness.base import Harness, HarnessAcp
+from xah.instructions.agent import Agent
 from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
@@ -86,7 +87,8 @@ def test_harness_instructions_ignore_missing_files(tmp_path):
         usage_reporters=UsageReporterRegistry(),
     )
 
-    assert harness.get_instructions_agent_md == []
+    context = SimpleNamespace(deps=harness.deps)
+    assert asyncio.run(Agent(ctx=context, harness_type=type(harness)).run()) == []
 
 
 def harness(cwd=None):
