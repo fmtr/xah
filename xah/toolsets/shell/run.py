@@ -58,6 +58,13 @@ class HarnessTerminalAdversary(Harness):
         return AdversaryDecision
 
     @classes
+    def Instructions(cls):
+        from xah.instructions.paths import Paths
+        from xah.instructions.static import Static
+        return [Static,Paths]
+
+
+    @classes
     def Toolsets(cls):
         class Files(FilesBase):
             @classes

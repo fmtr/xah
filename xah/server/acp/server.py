@@ -154,8 +154,7 @@ class SessionAgentSource(ilist[HarnessAcp[DepsT]], Generic[DepsT]):
             bridges=self.bridges,
             usage_reporters=self.usage_reporters,
         )
-        reporter = self.usage_reporters.for_session(session.session_id)
-        logger.info(f"ACP session runtime uses usage reporter {id(reporter)}")
+        logger.info(f"ACP session started: {session.session_id}")
         runtime.restore_session()
         if self.projection_maps is not None and not self.projection_maps:
             # AdapterConfig is created before ACP supplies a session and keeps

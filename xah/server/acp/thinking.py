@@ -58,23 +58,17 @@ class ThinkingPromptExecution(_PromptExecution):
             raise
 
     async def _record_execution_updates(self, **kwargs):
-        logger.info(
-            f"ACP execution updates hook entered for session {kwargs['session'].session_id}"
-        )
         await super()._record_execution_updates(**kwargs)
         reporter = self._runtime._owner.usage_reporters.for_session(
             kwargs["session"].session_id
         )
-        logger.info(f"ACP usage reporter state: used={reporter.used}, size={reporter.size}")
         if reporter.used is None:
-            logger.info("ACP usage update skipped because no context usage was reported")
             return
         update = UsageUpdate(
             session_update="usage_update",
             used=reporter.used,
             size=reporter.size,
         )
-        logger.info(f"Sending ACP usage update: used={update.used}, size={update.size}")
         await self._runtime._owner._client.session_update(
             session_id=kwargs["session"].session_id,
             update=update,
@@ -169,11 +163,9 @@ class AgentAcp(PydanticAcpAgent):
         super().__init__(*args, **kwargs)
         self.usage_reporters = usage_reporters
         self._prompt_runtime._execution = ThinkingPromptExecution(self._prompt_runtime)
-        logger.info(f"Initialized ACP AgentAcp execution: {type(self._prompt_runtime._execution).__name__}")
 
     def __call__(self, conn):
         del conn
-        logger.info("Creating per-connection ACP AgentAcp instance")
         return type(self)(
             self._agent_source,
             config=self._connection_factory_config,
@@ -181,7 +173,6 @@ class AgentAcp(PydanticAcpAgent):
         )
 
     def _build_run_kwargs(self, **kwargs):
-        logger.info(f"Building ACP run kwargs for model {kwargs['model_override']}")
         run_kwargs = super()._build_run_kwargs(**kwargs)
         run_kwargs["usage_limits"] = UsageLimits(request_limit=None)
         reporter = self.usage_reporters.for_session(kwargs["session"].session_id)
