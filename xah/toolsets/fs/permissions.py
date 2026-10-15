@@ -38,5 +38,13 @@ class PermissionsValidator:
                 (metadata for metadata in field.metadata if isinstance(metadata, Permissions)),
                 (),
             )
+            if not permissions:
+                continue
+
+            path = getattr(self, name)
             for permission in permissions:
-                self.validate_path(getattr(self, name), permission)
+                self.validate_path(path, permission)
+
+            if path.stem == ".env":
+                self.validation.approval = True
+                self.validation.messages.append(f'Accessing secrets file: "{path}"')

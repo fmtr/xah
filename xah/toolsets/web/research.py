@@ -10,11 +10,13 @@ from corio.enums import MapEnum
 from corio.db.search.client import Client
 from pydantic import BaseModel, Field, field_validator
 
+from corio.function import cp
 from corio.hash import get_hash_readable
 from xah.class_collections import classes
 from xah.harness.base import Harness
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.query import Query
+from xah.toolsets.kb.history import ResearchHistory
 from xah.toolsets.kb.toolset import Knowledgebase
 
 from xah.toolsets.web.base import WebTool
@@ -22,15 +24,14 @@ from xah.toolsets.web.search import Search
 
 
 class ResearchOutput(BaseModel):
-    MSG_HTTPS: ClassVar[str]="Each URL must start with https://"
+    MSG_HTTPS: ClassVar[str] = "Each URL must start with https://"
 
-    urls: list[str] = Field(
-        description=f"Relevance-ranked URLs. {MSG_HTTPS}"
-    )
+    urls: list[str] = Field(description=f"Relevance-ranked URLs. {MSG_HTTPS}")
     answer: str | None = Field(
         default=None,
         description="A potential definitive answer to the research query based on the search results, if one exists.",
     )
+    desc: str = Field(description="Description in a short sentence of the research so far.")
 
     @field_validator("urls")
     @classmethod
@@ -153,46 +154,86 @@ class Research(WebTool):
         description="Research request, including detailed instructions for what to investigate."
     )
 
-    research_id: str | None = Field(
+    id: str | None = Field(
         default=None,
-        description="Leave empty for entirely new research, or provide an existing ID to extend existing research.",
+        description="Collection ID. Leave empty for entirely new research, or provide an existing ID to extend existing research.",
     )
 
     def model_post_init(self, __context) -> None:
-        if self.research_id is None:
-            self.research_id = get_hash_readable(str(uuid4()), length=4)
+        if self.id is None:
+            self.id = get_hash_readable(str(uuid4()), length=4)
+
+    @cached_property
+    def knowledgebase(self):
+        from xah.toolsets.kb.toolset import Knowledgebase
+
+        return self.ctx.deps.toolsets.name[Knowledgebase.name]
 
     @cached_property
     def client(self) -> Client:
-        """
-
-        Fetch the DB client from the KB toolset
-
-        """
-        from xah.toolsets.kb.toolset import Knowledgebase
-
-        client = self.ctx.deps.toolsets.name[Knowledgebase.name].client
-        return client
+        return self.knowledgebase.client
 
     @cached_property
     def harness(self):
         harness = HarnessResearch.from_parent(self.ctx.deps)
         return harness
 
-    async def run(self) -> ResearchOutput:
+    @cp
+    def history_entry(self):
+        return self.knowledgebase.history.id.get(self.id)
 
-        request = strings.trim(
+    @cp
+    def requested_depth_section(self) -> str:
+        return strings.trim(
             f"""
             # Requested Depth {self.depth}
-            
+
             {self.depth.description}
+            """
+        )
 
-            # Request:
+    @cp
+    def historical_prompt_section(self) -> str:
+        if self.history_entry is None:
+            return ""
 
+        prompts = "\n".join(f"- {prompt}" for prompt in self.history_entry.prompts)
+        return strings.trim(
+            f"""
+            # Historical prompts
+            {prompts}
+            """
+        )
+
+    @cp
+    def current_prompt_section(self) -> str:
+        return strings.trim(
+            f"""
+            # Latest/current prompt
             {self.prompt}
             """
         )
-        result = await self.harness.agent.run(request, deps=self.harness.deps)
+
+    @cp
+    def request(self) -> str:
+        return strings.trim(
+            self.requested_depth_section,
+            self.historical_prompt_section,
+            self.current_prompt_section,
+        )
+
+    async def run(self) -> ResearchOutput:
+        result = await self.harness.agent.run(self.request, deps=self.harness.deps)
+        if self.history_entry is None:
+            history_entry = ResearchHistory.Prompts(
+                id=self.id,
+                desc=result.output.desc,
+                prompts=[self.prompt],
+            )
+            self.knowledgebase.history.append(history_entry)
+        else:
+            self.history_entry.prompts.append(self.prompt)
+            self.history_entry.desc = result.output.desc
         urls = result.output.urls
         if self.depth in {Depth.QUICK, Depth.STANDARD}:
             return result.output
@@ -201,7 +242,7 @@ class Research(WebTool):
         documents = [
             WebPage(
                 id=get_hash_readable(result.url + result.text, length=8),
-                research_id=self.research_id,
+                collection_id=self.id,
                 title=result.title,
                 url=result.url,
                 text=result.text,
@@ -220,7 +261,7 @@ class Research(WebTool):
         feedback = f"""
             The research tool has provided a provisional answer, based on summaries only.
             A research knowledgebase has also been compiled for this question, containing the full sources, so you can perform deeper research yourself.
-            Use the {Knowledgebase.name} tools with research_id `{self.research_id}` to query and page through its contents.
+            Use the {Knowledgebase.name} tools with Collection ID `{self.id}` to query and page through its contents.
             """
         self.feedback(feedback)
 
@@ -232,7 +273,7 @@ class Research(WebTool):
                 continue
             yield WebPage(
                 id=get_hash_readable(result.url + result.text, length=8),
-                research_id=self.research_id,
+                collection_id=self.id,
                 title=result.title,
                 url=result.url,
                 text=result.text,

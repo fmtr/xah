@@ -1,7 +1,7 @@
-from corio.db.search.builder import Builder
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, ClassVar
 
+from corio.db.search.builder import Builder
 from corio.db.search.document import Document, Index, Point
 from corio.hash import get_hash_int
 from corio.function import ccp
@@ -10,9 +10,10 @@ from corio.function import ccp
 class WebPage(Document):
     """A fetched web page stored as searchable Markdown."""
 
-    research_id: Annotated[str, Index()]
+    collection_id: Annotated[str, Index()]
     title: Annotated[str, Index()]
     url: Annotated[str, Index()]
+    APPROVAL: ClassVar[bool] = False
     IS_MULTI = False
 
     @ccp

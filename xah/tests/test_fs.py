@@ -78,6 +78,17 @@ def test_permission_failure_occurs_during_validation(tmp_path):
         asyncio.run(tool.validate())
 
 
+def test_env_file_requires_approval_and_reports_secret_access(tmp_path):
+    ctx = context(tmp_path)
+    tool = make(Read, ctx, path=".env")
+    tool.validation = Validation()
+
+    asyncio.run(tool.validate())
+
+    assert tool.validation.approval
+    assert tool.validation.messages == [f"Reading secrets file: {tmp_path / '.env'}"]
+
+
 def test_read_edit_move_search_and_remove(tmp_path):
     ctx = context(tmp_path)
     source = Path(tmp_path / "source.txt")
