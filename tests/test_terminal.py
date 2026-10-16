@@ -54,7 +54,7 @@ def test_terminal_summary_includes_runtime_status_and_command():
     assert terminal.runtime == 2.5
     assert terminal.tail(20) == ""
     assert terminal.summary == (
-        "Terminal `test` running `echo 0123…567890123` for 2.5 seconds.\n"
+        "Terminal `test` running `echo 012345678901234567890123` for 2.5 seconds.\n"
         "Status: `completed`; exit code: `0`."
     )
 
@@ -236,6 +236,35 @@ async def test_terminal_kill_terminates_the_process_group():
 
     await terminal.kill()
     await wait_for_process_exit(child_pid)
+
+
+@pytest.mark.asyncio
+async def test_terminal_kill_does_not_wait_for_inherited_pipes():
+    terminal = Terminal.model_construct(
+        id="test",
+        expression=shell.sh("-c", "setsid sh -c 'sleep 30' & child=$!; echo $child; wait"),
+        timeout=2,
+        cwd="/tmp",
+        status=TerminalStatus.CREATED,
+        output="",
+        exit_code=None,
+        on_complete=None,
+        _read_offset=0,
+        _process_handle=None,
+    )
+
+    await terminal.start()
+    await asyncio.sleep(0.05)
+    child_pid = int((await terminal.get()).strip())
+    kill_task = asyncio.create_task(terminal.kill())
+
+    try:
+        await asyncio.wait_for(asyncio.shield(kill_task), timeout=0.2)
+    finally:
+        os.kill(child_pid, 9)
+        await kill_task
+
+    assert terminal.status == TerminalStatus.KILLED
 
 
 @pytest.mark.asyncio

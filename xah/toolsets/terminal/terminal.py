@@ -98,6 +98,8 @@ class Terminal(dm.Base):
             self.on_output(self)
 
     async def _run(self) -> None:
+        readers = []
+        terminated = False
         try:
             process = await asyncio.create_subprocess_exec(
                 self.expression.name,
@@ -115,20 +117,23 @@ class Terminal(dm.Base):
             try:
                 await asyncio.wait_for(process.wait(), timeout=self.timeout)
             except TimeoutError:
-                await self._terminate(process)
                 self.status = TerminalStatus.TIMED_OUT
             except asyncio.CancelledError:
-                await self._terminate(process)
                 self.status = TerminalStatus.KILLED
                 raise
             finally:
-                await asyncio.gather(*readers)
+                if self.status in (TerminalStatus.TIMED_OUT, TerminalStatus.KILLED):
+                    for reader in readers:
+                        reader.cancel()
+                    await self._terminate(process)
+                    terminated = True
+                await asyncio.gather(*readers, return_exceptions=True)
 
             self.exit_code = process.returncode
             if self.status == TerminalStatus.RUNNING:
                 self.status = TerminalStatus.COMPLETED if process.returncode == 0 else TerminalStatus.FAILED
         except asyncio.CancelledError:
-            if self._process_handle:
+            if self._process_handle and not terminated:
                 await self._terminate(self._process_handle)
             self.status = TerminalStatus.KILLED
             raise
@@ -146,7 +151,6 @@ class Terminal(dm.Base):
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             return
-        await process.wait()
 
     async def kill(self) -> TerminalStatus:
         if self.process.done():

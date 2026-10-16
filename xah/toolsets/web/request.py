@@ -1,5 +1,7 @@
-from enum import StrEnum,  auto
+import json
+from enum import StrEnum, auto
 from typing import Annotated
+from urllib.parse import urlencode
 
 from pydantic import Field
 
@@ -27,7 +29,7 @@ class Response(dm.Base):
 
     status_code: int = Field(description="The HTTP response status code.")
     headers: dict[str, str] = Field(description="The HTTP response headers.")
-    body: str = Field(description="The response body as text.")
+    body: str | dict = Field(description="The response body as text or structured data.")
 
 
 class RequestBase(WebTool):
@@ -38,9 +40,13 @@ class RequestBase(WebTool):
         Field(description="The HTTP method to use."),
     ] = Method.GET
     body: Annotated[
-        str | None,
-        Field(description="Optional request body, such as JSON or form data."),
+        str | dict | None,
+        Field(description="Optional request body. Structured data is serialized from the Content-Type header."),
     ] = None
+    include_headers: Annotated[
+        bool,
+        Field(description="Whether to include response headers."),
+    ] = True
     params: Annotated[
         dict[str, str],
         Field(description="Optional URL query parameters."),
@@ -62,6 +68,25 @@ class RequestBase(WebTool):
     def request_headers(self) -> dict[str, str]:
         raise NotImplementedError
 
+    @property
+    def serialized_body(self) -> str | None:
+        if self.body is None or isinstance(self.body, str):
+            return self.body
+
+        content_type = self.request_content_type
+        if content_type == "application/x-www-form-urlencoded":
+            return urlencode(self.body)
+
+        return json.dumps(self.body)
+
+    @property
+    def request_content_type(self) -> str:
+        content_type = next(
+            (value for key, value in self.request_headers.items() if key.lower() == "content-type"),
+            "application/json",
+        )
+        return content_type.split(";", maxsplit=1)[0].strip().lower()
+
     async def run(self) -> Response:
         try:
             async with https.AsyncClient() as client:
@@ -69,7 +94,7 @@ class RequestBase(WebTool):
                     method=self.method,
                     url=self.request_url,
                     headers=self.request_headers,
-                    content=self.body,
+                    content=self.serialized_body,
                     params=self.params,
                     timeout=self.timeout,
                     follow_redirects=self.follow_redirects,
@@ -77,10 +102,20 @@ class RequestBase(WebTool):
         except Exception as error:
             self.fail(error)
 
+        response_headers = dict(response.headers)
+        response_content_type = next(
+            (value for key, value in response_headers.items() if key.lower() == "content-type"),
+            "",
+        )
+        response_media_type = response_content_type.split(";", maxsplit=1)[0].strip().lower()
+        body: str | dict = response.text
+        if response_media_type == "application/json" or response_media_type.endswith("+json"):
+            body = json.loads(response.text)
+
         return Response(
             status_code=response.status_code,
-            headers=dict(response.headers),
-            body=response.text,
+            headers=response_headers if self.include_headers else {},
+            body=body,
         )
 
 

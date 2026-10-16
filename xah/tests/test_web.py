@@ -61,13 +61,74 @@ async def test_request_uses_http_defaults(web):
     assert result == Response(
         status_code=200,
         headers={"content-type": "application/json"},
-        body='{"ok": true}',
+        body={"ok": True},
     )
     client.request.assert_awaited_once_with(
         method=Method.GET,
         url="https://example.test/api",
         headers={},
         content=None,
+        params={},
+        timeout=10.0,
+        follow_redirects=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_request_serializes_json_body_and_can_hide_headers(web):
+    toolset, ctx = web
+    response = MagicMock(status_code=201, text='{"created": true}')
+    response.headers = {"Content-Type": "application/json; charset=utf-8", "X-Trace": "hidden"}
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.request.return_value = response
+
+    with patch("corio.https.AsyncClient", return_value=client):
+        result = await Request(
+            ctx=ctx,
+            toolset=toolset,
+            url="https://example.test/api",
+            method=Method.POST,
+            headers={"Content-Type": "application/json"},
+            body={"name": "Ada"},
+            include_headers=False,
+        ).run()
+
+    assert result == Response(status_code=201, headers={}, body={"created": True})
+    client.request.assert_awaited_once_with(
+        method=Method.POST,
+        url="https://example.test/api",
+        headers={"Content-Type": "application/json"},
+        content='{"name": "Ada"}',
+        params={},
+        timeout=10.0,
+        follow_redirects=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_request_serializes_form_body_from_content_type(web):
+    toolset, ctx = web
+    response = MagicMock(status_code=200, text="ok")
+    response.headers = {"content-type": "text/plain"}
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.request.return_value = response
+
+    with patch("corio.https.AsyncClient", return_value=client):
+        await Request(
+            ctx=ctx,
+            toolset=toolset,
+            url="https://example.test/form",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            body={"name": "Ada Lovelace", "active": "true"},
+        ).run()
+
+    client.request.assert_awaited_once_with(
+        method=Method.GET,
+        url="https://example.test/form",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        content="name=Ada+Lovelace&active=true",
         params={},
         timeout=10.0,
         follow_redirects=True,
