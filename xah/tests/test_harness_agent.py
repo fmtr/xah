@@ -15,9 +15,9 @@ from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.todo.toolset import Todo
-from xah.toolsets.toolsets.activate import Activate
+from xah.toolsets.management.activate import Activate
 from xah.harness.manager import ToolsetsManager, ToolsetsManagerAgent
-from xah.toolsets.toolsets.toolset import Toolsets
+from xah.toolsets.management.toolset import Management
 
 
 def test_harness_base_is_directly_usable():
@@ -129,7 +129,7 @@ def test_toolset_instances_are_shared_by_options_and_toolset_lookup():
 
 
 def test_toolsets_management_marker_is_explicit():
-    assert Toolsets.IS_MANAGEMENT
+    assert Management.IS_MANAGEMENT
     assert not Files.IS_MANAGEMENT
 
 
@@ -152,14 +152,14 @@ def test_agent_toolsets_manager_only_activates_management_initially():
     parent = SimpleNamespace(
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
-        toolsets_classes=[Toolsets, Files],
+        toolsets_classes=[Management, Files],
     )
     manager = ToolsetsManagerAgent(parent)
 
     assert manager.is_managed
-    assert manager.all.name[Toolsets.name].activated
+    assert manager.all.name[Management.name].activated
     assert not manager.all.name[Files.name].activated
-    assert manager.agent == ilist([manager.all.name[Toolsets.name]])
+    assert manager.agent == ilist([manager.all.name[Management.name]])
 
 
 def test_acp_toolsets_manager_applies_policy_after_activation():
@@ -183,14 +183,14 @@ def test_acp_toolsets_manager_applies_policy_after_activation():
 
 
 def test_activate_reports_management_toolset_cannot_be_disabled():
-    management = Toolsets(settings=SimpleNamespace(), cwd=Path.cwd())
+    management = Management(settings=SimpleNamespace(), cwd=Path.cwd())
     files = Files(settings=SimpleNamespace(), cwd=Path.cwd())
     deps = SimpleNamespace(toolsets=SimpleNamespace(permitted=ilist([management, files])))
     context = RunContext(deps=deps, model=TestModel(), usage=RunUsage())
     tool = Activate(
         ctx=context,
         toolset=management,
-        ids=[Toolsets.name, Files.name],
+        ids=[Management.name, Files.name],
         activate=False,
     )
 
@@ -199,5 +199,5 @@ def test_activate_reports_management_toolset_cannot_be_disabled():
     assert management.activated
     assert not files.activated
     assert tool.validation.messages == [
-        "The Toolsets toolset cannot be deactivated."
+        "The Management toolset cannot be deactivated."
     ]

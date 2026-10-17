@@ -206,7 +206,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
         from xah.toolsets.todo.toolset import Todo as TodoToolset
         from xah.toolsets.utils.toolset import Utils as UtilsToolset
         from xah.toolsets.web.toolset import Web as WebToolset
-        from xah.toolsets.toolsets.toolset import Toolsets as ToolsetsToolset
+        from xah.toolsets.management.toolset import Management as ManagementToolset
 
         class Catalogue:
             Context = ContextToolset
@@ -220,7 +220,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
             Todo = TodoToolset
             Utils = UtilsToolset
             Web = WebToolset
-            Toolsets = ToolsetsToolset
+            Management = ManagementToolset
 
         return Catalogue
 
@@ -236,7 +236,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
             cls.TOOLSETS.Skills,
             cls.TOOLSETS.Todo,
             cls.TOOLSETS.Utils,
-            cls.TOOLSETS.Toolsets,
+            cls.TOOLSETS.Management,
         ]
 
     @ccp
