@@ -39,7 +39,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
     DESCRIPTION: ClassVar[str | None] = None
     IS_MANAGEMENT: ClassVar[bool] = False
-    POLICY: ClassVar[str] = options.FULL
+    POLICY: ClassVar[str] = options.Policy.Policies.FULL
 
     @cached_classproperty
     def name(cls) -> str:

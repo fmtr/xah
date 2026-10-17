@@ -8,7 +8,7 @@ from xah.toolsets.base.toolset import Toolset
 class Python(Toolset):
     """Python execution, package management, and test tools."""
 
-    POLICY = options.APPROVAL
+    POLICY = options.Policy.Policies.APPROVAL
 
     @classes
     def Tools(cls):

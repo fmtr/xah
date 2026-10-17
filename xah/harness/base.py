@@ -175,11 +175,11 @@ class HarnessBase(Generic[AgentDepsT]):
             settings=parent.settings,
             cwd_default=parent.cwd_default,
         )
-        from xah.options.base import Policy, FULL
+        from xah.options.base import Policy
 
         for option in self.deps.options:
             if isinstance(option, Policy):
-                self.deps.set_config_value(option.name, FULL)
+                self.deps.set_config_value(option.name, Policy.Policies.FULL)
                 continue
             parent_option = parent.options.name.get(option.name)
             if parent_option is None:

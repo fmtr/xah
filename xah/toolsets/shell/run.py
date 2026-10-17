@@ -9,7 +9,7 @@ from corio import Constants, dm, strings
 from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import classes
 from xah.harness.base import Harness
-from xah.options.base import FULL
+from xah.options.base import Policy
 from xah.toolsets.base.tool import ToolState, Validation
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
@@ -143,7 +143,7 @@ class AdversarialApproval(Run):
         return decision
 
     async def validate(self):
-        if self.policy.value == FULL:
+        if self.policy.value == Policy.Policies.FULL:
             return
 
         decision = await self.get_decision()

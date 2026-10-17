@@ -21,7 +21,7 @@ class Task(Tool):
         from xah.toolsets.subagent.toolset import Subagent
 
         deps = self.ctx.deps.clone_for_subagent()
-        deps.toolsets.all.cls[Subagent].options.cls[options.Policy].current_value = options.DISABLED
+        deps.toolsets.all.cls[Subagent].options.cls[options.Policy].current_value = options.Policy.Policies.DISABLED
         return deps
 
     def get_subagent_toolsets(self) -> list[Any]:

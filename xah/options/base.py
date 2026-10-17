@@ -1,12 +1,16 @@
+from enum import auto
 from typing import Any, ClassVar
 
 from acp.schema import SessionConfigOptionSelect, SessionConfigSelectOption
+from corio.enums import MapEnum
 
 
-DISABLED = "disabled"
-APPROVAL = "approval"
-AUTO = "auto"
-FULL = "full"
+class Policies(MapEnum):
+    DISABLED = auto(), "The tool is unavailable."
+    REQUESTABLE = auto(), "The tool is available after an approval request."
+    APPROVAL = auto(), "The tool is available with approval for every call."
+    AUTO = auto(), "The tool is available, but warnings require approval."
+    FULL = auto(), "The tool is available without approval."
 
 
 class Select(SessionConfigOptionSelect):
@@ -18,11 +22,11 @@ class Select(SessionConfigOptionSelect):
 
     @property
     def enabled(self) -> bool:
-        return self.value != DISABLED
+        return self.value != Policies.DISABLED
 
     @property
     def approval(self) -> bool:
-        return self.current_value == APPROVAL
+        return self.current_value == Policies.APPROVAL
 
     @classmethod
     def get_name(cls, name: str | None = None) -> str:
@@ -43,10 +47,18 @@ class Select(SessionConfigOptionSelect):
         **fields: Any,
     ):
         name = cls.get_name(name)
-        choices = [
-            SessionConfigSelectOption(value=item, name=item)
-            for item in values
-        ]
+        choices = []
+        for item in values:
+            description = None
+            if isinstance(item, MapEnum):
+                description = item.description
+            choices.append(
+                SessionConfigSelectOption(
+                    value=item,
+                    name=item,
+                    description=description,
+                )
+            )
         return cls(
             id=name,
             name=name,
@@ -60,13 +72,14 @@ class Select(SessionConfigOptionSelect):
 
 
 class Policy(Select):
-    VALUES: ClassVar[list[str]] = [DISABLED, APPROVAL, AUTO, FULL]
+    Policies: ClassVar[type[Policies]] = Policies
+    VALUES: ClassVar[list[Policies]] = list(Policies)
 
     @classmethod
     def from_value(
         cls,
         name: str,
-        value: str = APPROVAL,
+        value: str = Policies.APPROVAL,
         description: str | None = "Tool access policy.",
     ):
         return cls.from_values(

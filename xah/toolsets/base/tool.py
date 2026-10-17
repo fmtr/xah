@@ -149,7 +149,7 @@ class Tool(dm.Base):
         """
         from xah.options import base as options
 
-        return self.policy.value == options.AUTO
+        return self.policy.value == options.Policy.Policies.AUTO
 
     def feedback(self, message: str | SystemPromptPart) -> str | None:
         """Enqueue harness feedback for the next model request."""
