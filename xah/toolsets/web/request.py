@@ -1,8 +1,10 @@
 import json
+from email.message import Message
 from enum import StrEnum, auto
 from typing import Annotated
 from urllib.parse import urlencode
 
+import httpx
 from pydantic import Field
 
 from corio import dm, https
@@ -24,6 +26,24 @@ class Method(StrEnum):
     PUT = auto()
 
 
+class ContentType(StrEnum):
+    """Content types with special handling in the request tool."""
+
+    HEADER = "Content-Type"
+    HEADER_LOW = HEADER.lower()
+    JSON = "application/json"
+    FORM_URLENCODED = "application/x-www-form-urlencoded"
+
+    @classmethod
+    def parse(cls, header: str | None) -> str:
+        if header is None:
+            return ""
+
+        message = Message()
+        message[cls.HEADER] = header
+        return message.get_content_type()
+
+
 class Response(dm.Base):
     """The useful parts of an HTTP response returned to the model."""
 
@@ -41,7 +61,7 @@ class RequestBase(WebTool):
     ] = Method.GET
     body: Annotated[
         str | dict | None,
-        Field(description="Optional request body. Structured data is serialized from the Content-Type header."),
+        Field(description=f"Optional request body. Structured data is serialized from the {ContentType.HEADER} header."),
     ] = None
     include_headers: Annotated[
         bool,
@@ -73,19 +93,19 @@ class RequestBase(WebTool):
         if self.body is None or isinstance(self.body, str):
             return self.body
 
-        content_type = self.request_content_type
-        if content_type == "application/x-www-form-urlencoded":
+        if self.request_content_type == ContentType.FORM_URLENCODED:
             return urlencode(self.body)
 
         return json.dumps(self.body)
 
     @property
     def request_content_type(self) -> str:
-        content_type = next(
-            (value for key, value in self.request_headers.items() if key.lower() == "content-type"),
-            "application/json",
-        )
-        return content_type.split(";", maxsplit=1)[0].strip().lower()
+        headers = httpx.Headers(self.request_headers)
+        header = headers.get(ContentType.HEADER_LOW)
+        if header is None:
+            return ContentType.JSON
+
+        return ContentType.parse(header)
 
     async def run(self) -> Response:
         try:
@@ -102,19 +122,22 @@ class RequestBase(WebTool):
         except Exception as error:
             self.fail(error)
 
-        response_headers = dict(response.headers)
-        response_content_type = next(
-            (value for key, value in response_headers.items() if key.lower() == "content-type"),
-            "",
-        )
-        response_media_type = response_content_type.split(";", maxsplit=1)[0].strip().lower()
+        response_headers = httpx.Headers(response.headers)
+        response_content_type = response_headers.get(ContentType.HEADER_LOW, "")
+        response_media_type = ContentType.parse(response_content_type)
+
         body: str | dict = response.text
-        if response_media_type == "application/json" or response_media_type.endswith("+json"):
+        is_json = response_media_type == ContentType.JSON or response_media_type.endswith("+json")
+        if is_json:
             body = json.loads(response.text)
+
+        headers = dict(response_headers)
+        if not self.include_headers:
+            headers = {}
 
         return Response(
             status_code=response.status_code,
-            headers=response_headers if self.include_headers else {},
+            headers=headers,
             body=body,
         )
 
