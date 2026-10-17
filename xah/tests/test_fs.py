@@ -121,3 +121,54 @@ def test_toolset_publishes_class_model_schemas(tmp_path):
     assert tools[write_name].tool_def.description == Write.description
     assert tools[write_name].tool_def.parameters_json_schema == schema
     assert schema["properties"]["path"]["type"] == "string"
+
+
+def test_read_warns_via_feedback_when_offset_exceeds_file_length(tmp_path, monkeypatch):
+    path = Path(tmp_path / "short.txt")
+    path.write_text("one\ntwo\n")
+    ctx = context(tmp_path)
+    tool = make(Read, ctx, path="short.txt", offset=2)
+    feedback = []
+    monkeypatch.setattr(Read, "feedback", lambda self, message: feedback.append(message))
+
+    result = asyncio.run(tool.run())
+
+    assert result == ""
+    assert feedback == [
+        "Offset 2 exceeds the file length of 2 lines; no lines were shown."
+    ]
+
+
+def test_read_truncates_an_extremely_long_line_and_provides_feedback(tmp_path, monkeypatch):
+    path = Path(tmp_path / "massive.txt")
+    path.write_text("x" * (1024 * 1024))
+    ctx = context(tmp_path)
+    tool = make(Read, ctx, path="massive.txt")
+    feedback = []
+    monkeypatch.setattr(Read, "feedback", lambda self, message: feedback.append(message))
+
+    result = asyncio.run(tool.run())
+
+    assert result.startswith("1:")
+    assert len(result) < 21_000
+    assert feedback == [
+        "1 line (1) exceeded the per-line display limit; truncation was applied."
+    ]
+
+
+def test_read_stops_after_many_long_lines_and_provides_feedback(tmp_path, monkeypatch):
+    line_count = 100
+    path = Path(tmp_path / "long-lines.txt")
+    path.write_text("\n".join("x" * 20_000 for _ in range(line_count)))
+    ctx = context(tmp_path)
+    tool = make(Read, ctx, path="long-lines.txt")
+    feedback = []
+    monkeypatch.setattr(Read, "feedback", lambda self, message: feedback.append(message))
+
+    result = asyncio.run(tool.run())
+
+    assert result.startswith("001:")
+    assert len(result.encode()) <= 50_000
+    assert feedback == [
+        "Not all lines were shown because the file contains extremely long lines; 98 lines were omitted."
+    ]
