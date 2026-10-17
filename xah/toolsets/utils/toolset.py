@@ -6,6 +6,8 @@ from xah.toolsets.utils.sleep import Sleep
 
 
 class Utils(Toolset):
+    """General-purpose utility tools, including pausing execution for a fixed duration."""
+
     @classes
     def Tools(cls):
         return [Sleep]

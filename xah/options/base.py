@@ -6,6 +6,10 @@ from corio.enums import MapEnum
 
 
 class Policies(MapEnum):
+    @staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        return name.lower()
+
     DISABLED = auto(), "The tool is unavailable."
     REQUESTABLE = auto(), "The tool is available after an approval request."
     APPROVAL = auto(), "The tool is available with approval for every call."
@@ -49,14 +53,14 @@ class Select(SessionConfigOptionSelect):
         name = cls.get_name(name)
         choices = []
         for item in values:
-            description = None
+            option_description = None
             if isinstance(item, MapEnum):
-                description = item.description
+                option_description = item.description
             choices.append(
                 SessionConfigSelectOption(
                     value=item,
                     name=item,
-                    description=description,
+                    description=option_description,
                 )
             )
         return cls(

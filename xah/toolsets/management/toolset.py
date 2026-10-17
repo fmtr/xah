@@ -1,3 +1,5 @@
+from corio.function import cp
+from corio.iterator import ilist
 from xah.class_collections import classes
 from xah.toolsets.base.toolset import Toolset
 
@@ -6,6 +8,10 @@ class Management(Toolset):
     """Toolset management toolset."""
 
     IS_MANAGEMENT = True
+
+    @cp
+    def toolsets(self) -> ilist[type[Toolset]]:
+        return ilist()
 
     @classes
     def Tools(cls):

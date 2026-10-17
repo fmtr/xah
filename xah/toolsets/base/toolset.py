@@ -53,7 +53,8 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         for base in cls.__mro__:
             if description := get_docstring(base):
                 return description
-        return None
+            if base is Toolset:
+                return None
 
     @cp
     def info(self) -> ToolsetInfo:
