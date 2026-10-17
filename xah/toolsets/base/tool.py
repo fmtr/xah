@@ -11,7 +11,7 @@ from pydantic_ai import RunContext
 from pydantic_ai.messages import SystemPromptPart
 from pydantic_ai.toolsets import FunctionToolset
 
-from corio import Path, dm
+from corio import Path, dm, strings
 from corio.function import ccp, cp
 from corio.iterator import enlist, ilist
 from corio.strings import get_docstring
@@ -155,7 +155,12 @@ class Tool(dm.Base):
         """Enqueue harness feedback for the next model request."""
         from xah.toolsets.base.toolset import Toolset
 
-        return Toolset.feedback(self.ctx, message)
+        feedback = message if isinstance(message, str) else message.content
+        feedback = strings.trim(
+            f"Tool {self.name} (call {self.ctx.tool_call_id}) reported:",
+            feedback,
+        )
+        return Toolset.feedback(self.ctx, feedback)
 
     async def validate(self):
         for validator_class in self.Validators:

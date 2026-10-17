@@ -20,12 +20,21 @@ class Line(dm.Base):
         return self.raw.rstrip("\r\n")
 
     @cp
+    def truncation(self) -> strings.Truncation:
+        return strings.truncate_mid(
+            self.stripped,
+            self.max,
+            flatten_text=False,
+            return_type=strings.Truncation,
+        )
+
+    @cp
     def text(self) -> str:
-        return strings.truncate_mid(self.stripped, self.max)
+        return self.truncation.text
 
     @cp
     def is_truncated(self) -> bool:
-        return self.text != self.stripped
+        return self.truncation.was_truncated
 
 
 class Read(FileTool):

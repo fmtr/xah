@@ -75,7 +75,7 @@ class CombinedToolset(ApprovalToolset, SecondaryToolset):
         return [SecondaryTool]
 
 
-def context(toolset, approved=False):
+def context(toolset, approved=False, tool_call_id="call-1"):
     deps = SimpleNamespace(toolsets=ilist([toolset]))
     return RunContext(
         deps=deps,
@@ -83,6 +83,7 @@ def context(toolset, approved=False):
         usage=RunUsage(),
         tool_call_approved=approved,
         pending_messages=[],
+        tool_call_id=tool_call_id,
     )
 
 
@@ -95,6 +96,7 @@ def test_tool_feedback_enqueues_system_prompt():
 
     content = ctx.pending_messages[0].messages[0].parts[0].content
     assert content.startswith(HARNESS_FEEDBACK)
+    assert "Tool ApprovalToolset-ApprovalTool (call call-1) reported:" in content
     assert content.endswith("Keep the next call focused.")
 
 

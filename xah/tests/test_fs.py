@@ -139,6 +139,20 @@ def test_read_warns_via_feedback_when_offset_exceeds_file_length(tmp_path, monke
     ]
 
 
+def test_read_preserves_whitespace_without_truncation_feedback(tmp_path, monkeypatch):
+    path = Path(tmp_path / "normal.txt")
+    path.write_text("    indented\n\t tabbed\ntrailing spaces  \n")
+    ctx = context(tmp_path)
+    tool = make(Read, ctx, path="normal.txt")
+    feedback = []
+    monkeypatch.setattr(Read, "feedback", lambda self, message: feedback.append(message))
+
+    result = asyncio.run(tool.run())
+
+    assert result == "1:    indented\n2:\t tabbed\n3:trailing spaces  "
+    assert feedback == []
+
+
 def test_read_truncates_an_extremely_long_line_and_provides_feedback(tmp_path, monkeypatch):
     path = Path(tmp_path / "massive.txt")
     path.write_text("x" * (1024 * 1024))
