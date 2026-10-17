@@ -167,7 +167,7 @@ class Research(WebTool):
     def knowledgebase(self):
         from xah.toolsets.kb.toolset import Knowledgebase
 
-        return self.ctx.deps.toolsets.name[Knowledgebase.name]
+        return self.ctx.deps.toolsets.all.name[Knowledgebase.name]
 
     @cached_property
     def client(self) -> Client:

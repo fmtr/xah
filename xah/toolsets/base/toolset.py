@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -25,11 +26,19 @@ from xah.toolsets.base.tool import Tool, ToolState, Validation
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
 
 
+@dataclass
+class ToolsetInfo:
+    active: bool
+    name: str
+    desc: str | None
+
+
 class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
     model_config = ConfigDict(ignored_types=(cached_classproperty,))
 
     DESCRIPTION: ClassVar[str | None] = None
+    IS_MANAGEMENT: ClassVar[bool] = False
     POLICY: ClassVar[str] = options.FULL
 
     @cached_classproperty
@@ -45,6 +54,14 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             if description := get_docstring(base):
                 return description
         return None
+
+    @cp
+    def info(self) -> ToolsetInfo:
+        return ToolsetInfo(
+            active=self.activated,
+            name=self.name,
+            desc=self.description,
+        )
 
     async def get_instructions(self, ctx: RunContext[AgentDepsT]) -> list[InstructionPart] | None:
         del ctx
@@ -85,8 +102,9 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             projections.extend(projection)
         return projections
 
-    def __init__(self, **kwargs):
+    def __init__(self, activated: bool = True, **kwargs):
         del kwargs
+        self.activated = activated
         super().__init__(id=self.name)
         for tool_class in self.Tools:
             self.register(tool_class)

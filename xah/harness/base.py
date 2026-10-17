@@ -97,13 +97,6 @@ class HarnessBase(Generic[AgentDepsT]):
         return []
 
     @cached_property
-    def toolsets(self) -> ilist[ToolsetBase[AgentDepsT]]:
-        return ilist(
-            toolset_type(settings=self.settings, cwd=self.cwd_default)
-            for toolset_type in self.Toolsets
-        )
-
-    @cached_property
     def deps_kwargs(self) -> dict[str, Any]:
         return {}
 
@@ -213,6 +206,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
         from xah.toolsets.todo.toolset import Todo as TodoToolset
         from xah.toolsets.utils.toolset import Utils as UtilsToolset
         from xah.toolsets.web.toolset import Web as WebToolset
+        from xah.toolsets.toolsets.toolset import Toolsets as ToolsetsToolset
 
         class Catalogue:
             Context = ContextToolset
@@ -226,6 +220,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
             Todo = TodoToolset
             Utils = UtilsToolset
             Web = WebToolset
+            Toolsets = ToolsetsToolset
 
         return Catalogue
 
@@ -241,6 +236,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
             cls.TOOLSETS.Skills,
             cls.TOOLSETS.Todo,
             cls.TOOLSETS.Utils,
+            cls.TOOLSETS.Toolsets,
         ]
 
     @ccp

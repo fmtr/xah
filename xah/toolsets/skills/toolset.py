@@ -27,11 +27,11 @@ class Skills(Toolset):
 
         return [List, Load]
 
-    def __init__(self, settings, cwd: Path):
+    def __init__(self, settings, cwd: Path, activated: bool = True):
         self.history = set()
         self.path = settings.path.skills.resolve()
         self.cwd = (cwd / settings.path.agents_dir / settings.path.skills_dir).resolve()
-        super().__init__()
+        super().__init__(activated=activated)
 
     @cached_property
     def skills(self) -> ilist[Skill]:

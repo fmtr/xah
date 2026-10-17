@@ -11,6 +11,7 @@ from pydantic_deep import ContextManagerCapability, DeepAgentDeps
 
 from xah.settings import Settings
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
+from xah.harness.manager import ToolsetsManager, ToolsetsManagerAgent
 
 
 @dataclass
@@ -22,14 +23,11 @@ class HarnessAgentDeps(DeepAgentDeps):
     context_manager: ContextManagerCapability | None = field(default=None, kw_only=True)
 
     @cached_property
-    def toolsets(self) -> ilist[ToolsetBase[Self]]:
-        return ilist(
-            toolset_type(settings=self.settings, cwd=self.cwd_default)
-            for toolset_type in self.toolsets_classes
-        )
+    def toolsets(self) -> ToolsetsManagerAgent:
+        return ToolsetsManagerAgent(self)
 
     def after_compress(self):
-        for toolset in self.toolsets:
+        for toolset in self.toolsets.all:
             toolset.after_compress()
 
     @cached_property
@@ -52,7 +50,7 @@ class HarnessAgentDeps(DeepAgentDeps):
         ]
         toolset_options = ilist(
             option
-            for toolset in self.toolsets
+            for toolset in self.toolsets.all
             for option in toolset.options
         )
         options.extend(
@@ -66,9 +64,7 @@ class HarnessAgentDeps(DeepAgentDeps):
 
     @staticmethod
     def get_toolset(ctx):
-        from pydantic_ai.toolsets import CombinedToolset
-
-        return CombinedToolset(ctx.deps.toolsets)
+        return ctx.deps.toolsets.combined
 
 
 @dataclass
@@ -95,7 +91,7 @@ class HarnessDeps(HarnessAgentDeps):
         ]
         toolset_options = ilist(
             option
-            for toolset in self.toolsets
+            for toolset in self.toolsets.all
             for option in toolset.options
         )
         options.extend(
@@ -104,29 +100,16 @@ class HarnessDeps(HarnessAgentDeps):
         )
         return ilist(options)
 
-    @property
-    def active_toolsets(self) -> ilist[ToolsetBase[Self]]:
-        from xah.options.base import Policy
-
-        return ilist(
-            selected for selected in self.toolsets
-            if selected.options.cls[Policy].enabled
-        )
-
-    @property
-    def approval_toolsets(self):
-        from pydantic_ai import ApprovalRequiredToolset
-
-        return [selected.wrapper for selected in self.active_toolsets]
-
     def set_config_value(self, config_id, value):
         self.options.name[config_id].current_value = value
 
+    @cached_property
+    def toolsets(self) -> ToolsetsManager:
+        return ToolsetsManager(self)
+
     @staticmethod
     def get_toolset(ctx):
-        from pydantic_ai.toolsets import CombinedToolset
-
-        return CombinedToolset(ctx.deps.approval_toolsets)
+        return ctx.deps.toolsets.combined
 
     def clone_for_subagent(self, max_depth: int = 0) -> Self:
         return super().clone_for_subagent(max_depth=max_depth)

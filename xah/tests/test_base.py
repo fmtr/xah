@@ -20,7 +20,7 @@ from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
 from xah.options import base as options
-from xah.toolsets.base.toolset import Toolset as ToolsetBase
+from xah.toolsets.base.toolset import Toolset as ToolsetBase, ToolsetInfo
 from pydantic_acp import compose_projection_maps
 from pydantic_acp.projection import FileEditToolCallContent
 from pydantic_ai import RunContext
@@ -44,6 +44,21 @@ from xah.toolsets.utils.toolset import Utils
 
 
 SETTINGS = SimpleNamespace(port=8765, path=PathAgent())
+
+
+def test_toolset_activation_and_info():
+    toolset = ToolsetBase()
+
+    assert toolset.activated
+    assert toolset.info == ToolsetInfo(
+        active=True,
+        name=toolset.name,
+        desc=toolset.description,
+    )
+
+    toolset.activated = False
+
+    assert not toolset.activated
 
 
 def test_files_toolset_after_compress_uses_owner_specific_validator_state():
@@ -118,7 +133,7 @@ def test_similarity_validator_has_shared_thresholds():
 
 def test_toolset_projections_are_owned_by_toolsets():
     harness_instance = harness()
-    toolset = harness_instance.deps.toolsets.name[Files.name]
+    toolset = harness_instance.deps.toolsets.all.name[Files.name]
 
     write_projections = [
         projection
@@ -168,7 +183,7 @@ def test_files_write_projection_is_a_diff_without_default_tool_names():
 
 def test_shell_validation_uses_agent_output():
     deps = harness().deps
-    toolset = deps.toolsets.cls[Shell]
+    toolset = deps.toolsets.all.cls[Shell]
     model = TestModel(
         custom_output_args={
             "approval": True,
@@ -189,7 +204,7 @@ def test_shell_validation_uses_agent_output():
 
 def test_terminal_run_appends_to_terminal_collection():
     deps = harness().deps
-    toolset = deps.toolsets.cls[Terminals]
+    toolset = deps.toolsets.all.cls[Terminals]
     terminals = toolset.terminals
     ctx = RunContext(deps=deps, model=TestModel(), usage=RunUsage())
     tool = Run(ctx=ctx, toolset=toolset, source="printf hello")
@@ -208,31 +223,31 @@ def test_terminal_run_appends_to_terminal_collection():
 
 def test_policy_value_controls_toolset_visibility():
     deps = harness().deps
-    shell = deps.toolsets.cls[Shell]
+    shell = deps.toolsets.all.cls[Shell]
 
     assert shell.options.cls[options.Policy].value == options.DISABLED
-    assert shell not in deps.active_toolsets
+    assert shell not in deps.toolsets.permitted
 
     shell.options.cls[options.Policy].current_value = options.FULL
 
-    assert shell in deps.active_toolsets
-    assert shell.wrapper in deps.approval_toolsets
+    assert shell in deps.toolsets.permitted
+    assert shell.wrapper in deps.toolsets.wrapped
 
 
 def test_todo_policy_controls_visibility():
     deps = harness().deps
-    todo = deps.toolsets.cls[Todo]
+    todo = deps.toolsets.all.cls[Todo]
 
     todo.options.cls[options.Policy].current_value = options.DISABLED
-    assert todo not in deps.active_toolsets
+    assert todo not in deps.toolsets.permitted
 
     todo.options.cls[options.Policy].current_value = options.FULL
-    assert todo in deps.active_toolsets
+    assert todo in deps.toolsets.permitted
 
 
 def test_python_policy_has_one_value_representation():
     deps = harness().deps
-    option = deps.toolsets.cls[Python].options.cls[options.Policy]
+    option = deps.toolsets.all.cls[Python].options.cls[options.Policy]
 
     assert option.value == options.APPROVAL
     assert [item.value for item in option.options] == [options.DISABLED, options.APPROVAL, options.AUTO, options.FULL]
@@ -272,10 +287,10 @@ def test_subagent_clone_has_independent_options(tmp_path):
     deps = harness(Path(tmp_path)).deps
     clone = deps.clone_for_subagent()
 
-    clone.toolsets.cls[Python].options.cls[options.Policy].current_value = options.DISABLED
+    clone.toolsets.all.cls[Python].options.cls[options.Policy].current_value = options.DISABLED
     clone.options.name["PathWrite"].current_value = "/"
 
-    assert deps.toolsets.cls[Python].options.cls[options.Policy].value == options.APPROVAL
+    assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.APPROVAL
     assert deps.options.name["PathWrite"].current_value == "."
 
 
@@ -304,7 +319,7 @@ def test_acp_provider_updates_dependency_option_state(tmp_path):
     assert same_deps is deps
     assert source.session_id[session.session_id].deps is deps
     assert deps.options.name["PathRead"].current_value == "/"
-    assert deps.toolsets.cls[Python].options.cls[options.Policy].value == options.DISABLED
+    assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.DISABLED
 
 
 def test_harness_creates_fresh_agents():
@@ -341,7 +356,7 @@ def test_harness_subclass_adds_capabilities_after_thinking():
 
 
 def test_harness_deps_are_generic():
-    assert HarnessDeps().toolsets == []
+    assert HarnessDeps().toolsets.all == []
 
 
 def test_harness_subclass_defines_its_toolset_catalogue():
@@ -362,8 +377,8 @@ def test_harness_subclass_defines_its_toolset_catalogue():
     assert planner.title == "Planner"
     assert planner.Toolsets == [Todo, Utils]
     assert planner.Toolsets == [Todo, Utils]
-    assert planner.toolsets.cls[Todo].name == "Todo"
-    assert planner.deps.toolsets is planner.toolsets
+    assert planner.deps.toolsets.all.cls[Todo].name == "Todo"
+    assert planner.deps.toolsets.all is planner.deps.toolsets.all
 
 
 def test_harness_flattens_toolset_option_lists():
@@ -401,8 +416,8 @@ def test_harness_flattens_toolset_option_lists():
         "MultiOptionToolset/Policy",
         "MultiOptionToolset/ExtraOption",
     ]
-    assert selected.toolsets[0] in selected.deps.active_toolsets
+    assert selected.deps.toolsets.all[0] in selected.deps.toolsets.permitted
 
-    selected.toolsets[0].options.cls[options.Policy].current_value = options.DISABLED
+    selected.deps.toolsets.all[0].options.cls[options.Policy].current_value = options.DISABLED
 
-    assert selected.toolsets[0] not in selected.deps.active_toolsets
+    assert selected.deps.toolsets.all[0] not in selected.deps.toolsets.permitted

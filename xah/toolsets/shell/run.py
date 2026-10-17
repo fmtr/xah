@@ -85,7 +85,7 @@ class Run(TerminalTool):
 
     @cached_property
     def expression(self) -> Expression:
-        expression = shell(str(self.ctx.deps.toolsets.cls[Terminals].shell))
+        expression = shell(str(self.ctx.deps.toolsets.all.cls[Terminals].shell))
         return expression(-arg.c + self.source)
 
 

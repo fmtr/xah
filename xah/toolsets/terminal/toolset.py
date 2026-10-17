@@ -13,9 +13,9 @@ from xah.toolsets.terminal.terminal import Terminal
 class Terminals(Toolset):
     """Start and manage background shell commands."""
 
-    def __init__(self, settings, cwd):
+    def __init__(self, settings, cwd, activated: bool = True):
         self.shell = settings.shell
-        super().__init__(settings=settings, cwd=cwd)
+        super().__init__(settings=settings, cwd=cwd, activated=activated)
 
 
 
