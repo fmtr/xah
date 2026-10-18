@@ -19,7 +19,8 @@ class Activate(Tool):
     def Validators(cls):
         return [ValidIDs, ApproveRequestables]
 
-    async def run(self):
+    async def run(self)->str:
+        activateds=[]
         for toolset_id in self.ids:
             toolset = self.ctx.deps.toolsets.permitted.name[toolset_id]
             if self.activate and toolset.activated:
@@ -30,8 +31,13 @@ class Activate(Tool):
                 )
                 continue
             toolset.activated = self.activate
+            activateds.append(toolset_id)
             if self.activate:
                 self.toolset.toolsets.append(type(toolset))
+
+        activateds= strings.join_natural(sorted(activateds), mask=strings.MASK_QUOTE)
+        msg=f'The following toolsets have been activated: {activateds}'
+        return msg
 
 
 class ValidIDs(Activate):

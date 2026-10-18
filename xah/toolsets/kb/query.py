@@ -19,21 +19,21 @@ class Query(Tool):
         Stuffing the query with many semantically-similar keywords will not perform well.
         """)
     )
-    id: str = Field(description="Collection ID to search.")
+    collection_id: str = Field(description="Collection ID to search.")
 
     @classes
     def Validators(cls):
         return [CollectionValidator]
 
     async def run(self) -> list:
-        collection = self.toolset.collection_for(self.id)
+        collection = self.toolset.collection_for(self.collection_id)
         runtime_filter = None
         if collection is WebPage:
             runtime_filter = models.Filter(
                 must=[
                     models.FieldCondition(
                         key="collection_id",
-                        match=models.MatchValue(value=self.id),
+                        match=models.MatchValue(value=self.collection_id),
                     )
                 ]
             )

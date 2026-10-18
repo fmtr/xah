@@ -31,9 +31,9 @@ class Knowledgebase(Toolset):
 
     @cached_property
     def client(self) -> Client:
-        return Client()
+        return Client(location=Client.MEMORY)
 
-    def collection_for(self, id: str) -> type[Document]:
-        if id in self.Collections.name:
-            return self.Collections.name[id]
+    def collection_for(self, collection_id: str) -> type[Document]:
+        if collection_id in self.Collections.name:
+            return self.Collections.name[collection_id]
         return WebPage

@@ -9,7 +9,8 @@ from xah.toolsets.kb.validators import CollectionValidator
 class Get(Tool):
     """Used to page through documents of interest found by search."""
 
-    id: str = Field(description="Collection ID for the document to fetch chunks from.")
+    collection_id: str = Field(description="Collection ID for the document to fetch chunks from.")
+    document_id: str = Field(description="Document ID to fetch chunks from.")
     chunks: list[int] = Field(
         min_length=1,
         max_length=5,
@@ -21,9 +22,9 @@ class Get(Tool):
         return [CollectionValidator]
 
     async def run(self) -> list:
-        collection = self.toolset.collection_for(self.id)
+        collection = self.toolset.collection_for(self.collection_id)
         return await collection.get_chunks(
             client=self.toolset.client,
-            id=self.id,
+            id=self.document_id,
             chunks=self.chunks,
         )
