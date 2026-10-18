@@ -2,10 +2,12 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import strings
-from corio.iterator import IterDiffer
+from corio.function import cp
+from corio.iterator import IterDiffer, ilist
 from xah.class_collections import classes
 from xah.options.base import Policy
 from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.toolset import Toolset
 
 
 class Activate(Tool):
@@ -50,18 +52,34 @@ class ValidIDs(Activate):
 
 
 class ApproveRequestables(Activate):
-    async def validate(self):
-        requested_toolsets = [
+
+    @cp
+    def requesteds(self)->ilist[Toolset]:
+        return ilist(
             self.ctx.deps.toolsets.permitted.name[toolset_id]
             for toolset_id in self.ids
-        ]
-        requestable = any(
-            toolset.options.cls[Policy].value == Policy.Policies.REQUESTABLE
-            for toolset in requested_toolsets
         )
-        if requestable:
-            self.validation.approval = True
-            self.validation.messages.append(self.reason)
+
+    @cp
+    def requestables(self)->ilist[Toolset]:
+        return ilist(
+            toolset for toolset in self.requesteds
+            if toolset.options.cls[Policy].value == Policy.Policies.REQUESTABLE
+        )
+
+    async def validate(self):
+
+        if not self.requestables:
+            return
+
+        names= strings.join_natural(self.requestables.name.keys(), mask=strings.MASK_QUOTE)
+        mask= strings.Mask("""
+            The following toolsets require approval: {names}
+            Reason given for request: {reason}
+        """)
+        msg=mask.format(names=names, reason=self.reason)
+        self.validation.approval = True
+        self.validation.messages.append(msg)
 
     async def post_approval(self):
         for toolset_id in self.ids:

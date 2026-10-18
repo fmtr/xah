@@ -1,8 +1,9 @@
 from pydantic import Field
-from pydantic_ai import ToolFailed
+from pydantic_ai import ToolFailed, ModelRetry
 from qdrant_client.http import models
 
 from corio import strings
+from corio.db.search.document import Document
 from xah.class_collections import classes
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.kb.db import WebPage
@@ -25,7 +26,7 @@ class Query(Tool):
     def Validators(cls):
         return [CollectionValidator]
 
-    async def run(self) -> list:
+    async def run(self) -> list[Document]:
         collection = self.toolset.collection_for(self.collection_id)
         runtime_filter = None
         if collection is WebPage:
@@ -38,19 +39,22 @@ class Query(Tool):
                 ]
             )
 
-        try:
-            results = await anext(
-                collection.query(
-                    texts=[self.query],
-                    client=self.toolset.client,
-                    runtime_filter=runtime_filter,
-                )
+        results = await anext(
+            collection.query(
+                texts=[self.query],
+                client=self.toolset.client,
+                runtime_filter=runtime_filter,
             )
-        except ValueError as error:
-            raise ToolFailed(
-                "The knowledgebase is not ready for this collection: "
-                f"the {collection.name} collection does not exist yet. "
-                "Continue without the knowledgebase query, or retry after documents have been indexed."
-            ) from error
+        )
+
+        if not results.hits:
+            raise ModelRetry("The query returned no results.")
+
+        from xah.toolsets.kb.get import Get
+        msg=strings.trim(f"""
+            These are excepts matching your query only.
+            Use the {self.toolset.tool_name(Get)} tool to page through documents of interest.
+        """)
+        self.feedback(msg)
 
         return results.hits

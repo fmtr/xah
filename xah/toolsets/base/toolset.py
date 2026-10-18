@@ -31,6 +31,8 @@ class ToolsetInfo:
     active: bool
     name: str
     desc: str | None
+    protected: bool
+    tools: list[str]
 
 
 class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
@@ -62,6 +64,8 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             active=self.activated,
             name=self.name,
             desc=self.description,
+            protected=self.options.cls[options.Policy].value == options.Policy.Policies.REQUESTABLE,
+            tools=[Tool.local_name for Tool in self.Tools]
         )
 
     async def get_instructions(self, ctx: RunContext[AgentDepsT]) -> list[InstructionPart] | None:
@@ -133,7 +137,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             raise
         except Exception as exception:
             logger.error(str(exception), _exc_info=True)
-            raise ToolFailed("Internal error") from exception
+            raise ToolFailed("Internal error")
 
     def register(self, tool_class: type[Tool]) -> None:
         """
