@@ -11,6 +11,8 @@ class Paths(Instruction):
         write = self.ctx.deps.options.cls[PathWrite].value
         return strings.trim(
             f"""
+            # Filesystem Permissions
+            
             The current working directory/repo is "{cwd}".
             You have read access to "{read}".
             You have write access to "{write}".
