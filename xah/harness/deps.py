@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any, Self, Sequence
@@ -21,6 +22,12 @@ class HarnessAgentDeps(DeepAgentDeps):
     toolsets_classes: Sequence[type[ToolsetBase[Self]]] = field(default_factory=tuple)
     model: AdapterModel | None = None
     context_manager: ContextManagerCapability | None = field(default=None, kw_only=True)
+    _config_update: Callable[[], Awaitable[None]] | None = field(default=None, kw_only=True)
+
+    async def update_config(self):
+        if self._config_update is None:
+            return
+        await self._config_update()
 
     @cached_property
     def toolsets(self) -> ToolsetsManagerAgent:

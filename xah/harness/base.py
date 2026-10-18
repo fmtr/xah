@@ -4,6 +4,7 @@ import asyncio
 from functools import cached_property
 from typing import Any, Generic, Self, Sequence, TypeVar, cast
 
+from acp.schema import ConfigOptionUpdate
 from acpremote import TransportOptions, serve_acp
 from cached_classproperty import cached_classproperty
 from corio import PackagePaths, Path
@@ -353,6 +354,18 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             models=self.models,
             model=self.models.current.override,
             context_manager=self.context_manager,
+            _config_update=self.update_config,
+        )
+
+    async def update_config(self):
+        options = [option for option in self.deps.options if option.VISIBLE]
+        update = ConfigOptionUpdate(
+            session_update="config_option_update",
+            config_options=options,
+        )
+        await self.session.client.session_update(
+            session_id=self.session.session_id,
+            update=update,
         )
 
     @cached_property

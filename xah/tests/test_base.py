@@ -294,6 +294,29 @@ def test_subagent_clone_has_independent_options(tmp_path):
     assert deps.options.name["PathWrite"].current_value == "."
 
 
+def test_deps_update_config_sends_current_visible_options():
+    class Client:
+        def __init__(self):
+            self.updates = []
+
+        async def session_update(self, **kwargs):
+            self.updates.append(kwargs)
+
+    runtime = harness()
+    client = Client()
+    runtime.session.client = client
+
+    asyncio.run(runtime.deps.update_config())
+
+    assert len(client.updates) == 1
+    update = client.updates[0]
+    assert update["session_id"] == runtime.session.session_id
+    assert update["update"].session_update == "config_option_update"
+    assert update["update"].config_options == [
+        option for option in runtime.deps.options if option.VISIBLE
+    ]
+
+
 def test_acp_provider_updates_dependency_option_state(tmp_path):
     source = SessionAgentSource(HarnessAcp, SETTINGS, usage_reporters=UsageReporterRegistry())
     session = SimpleNamespace(

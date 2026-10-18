@@ -13,7 +13,7 @@ class Activate(Tool):
 
     ids: list[str] = Field(description="Toolset IDs.")
     activate: bool = Field(description="Whether to activate or deactivate the selected toolsets.")
-    reason: str = Field(description="A very short reason for why you believe the tool is needed.")
+    reason: str = Field(description="A very short reason to justify why the tool is needed, and why your goal cannot be achieved using existing tools.")
 
     @classes
     def Validators(cls):
@@ -61,3 +61,4 @@ class ApproveRequestables(Activate):
         for toolset_id in self.ids:
             toolset = self.ctx.deps.toolsets.permitted.name[toolset_id]
             toolset.options.cls[Policy].current_value = Policy.Policies.APPROVAL
+        await self.ctx.deps.update_config()

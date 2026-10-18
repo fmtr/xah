@@ -157,7 +157,7 @@ class Tool(dm.Base):
 
         feedback = message if isinstance(message, str) else message.content
         feedback = strings.trim(
-            f"Tool {self.name} (call {self.ctx.tool_call_id}) reported:",
+            f"{self.name} (call {self.ctx.tool_call_id}) reported:",
             feedback,
         )
         return Toolset.feedback(self.ctx, feedback)
