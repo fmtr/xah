@@ -46,7 +46,7 @@ class PermissionToolCallBuilderMetadata(DefaultPermissionToolCallBuilder):
                 type="content",
                 content=TextContentBlock(
                     type="text",
-                    text=context.metadata.text,
+                    text=context.metadata.messages.approval.text,
                 ),
             ),
         )

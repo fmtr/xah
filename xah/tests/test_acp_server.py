@@ -11,9 +11,14 @@ from pydantic_ai.tools import DeferredToolRequests, ToolDenied
 
 from xah.class_collections import classes
 from xah.harness.base import HarnessAcp
-from xah.server.acp.server import ApprovalBridgeMetadata, SessionAgentSource
+from xah.server.acp.server import (
+    ApprovalBridgeMetadata,
+    PermissionRequestContextMetadata,
+    PermissionToolCallBuilderMetadata,
+    SessionAgentSource,
+)
 from xah.server.acp.usage import UsageReporterRegistry
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Messages, Tool, Validation
 from xah.toolsets.base.toolset import Toolset
 
 
@@ -52,6 +57,29 @@ class Classifier:
 
     def approval_policy_key(self, tool_name, raw_input):
         return (tool_name, tuple(sorted(raw_input)))
+
+
+def test_permission_request_displays_approval_messages():
+    approval_message = "This action needs approval because it accesses a protected file."
+    context = PermissionRequestContextMetadata(
+        session=SimpleNamespace(session_id="session", cwd=Path.cwd()),
+        tool_call=ToolCallPart(
+            tool_name="Files-Write",
+            args={"path": "secret.txt"},
+            tool_call_id="call-1",
+        ),
+        raw_input={"path": "secret.txt"},
+        cwd=Path.cwd(),
+        classifier=Classifier(),
+        projection_map=None,
+        metadata=Validation(
+            messages=Messages(approval=[approval_message]),
+        ),
+    )
+
+    update = PermissionToolCallBuilderMetadata().build_tool_call_update(context)
+
+    assert update.content[-1].content.text == approval_message
 
 
 def test_denied_permission_returns_validation_diagnostics_to_model():
