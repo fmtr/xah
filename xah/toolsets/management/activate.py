@@ -1,6 +1,4 @@
 from pydantic import Field
-from pydantic_ai import ModelRetry
-
 from corio import strings
 from corio.function import cp
 from corio.iterator import IterDiffer, ilist
@@ -28,7 +26,7 @@ class Activate(Tool):
             if self.activate and toolset.activated:
                 continue
             if toolset.IS_MANAGEMENT and not self.activate:
-                self.validation.messages.append(
+                self.validation.messages.approval.append(
                     f"The {toolset.name} toolset cannot be deactivated."
                 )
                 continue
@@ -48,7 +46,8 @@ class ValidIDs(Activate):
         diff = IterDiffer(before=permitted.keys(), after=self.ids)
         if diff.added:
             invalid = strings.join_natural(sorted(diff.added), mask=strings.MASK_QUOTE)
-            raise ModelRetry(f"Invalid toolset IDs: {invalid}.")
+            self.validation.messages.errors.append(f"Invalid toolset IDs: {invalid}.")
+            self.validation.abort = True
 
 
 class ApproveRequestables(Activate):
@@ -79,9 +78,9 @@ class ApproveRequestables(Activate):
         """)
         msg=mask.format(names=names, reason=self.reason)
         self.validation.approval = True
-        self.validation.messages.append(msg)
+        self.validation.messages.approval.append(msg)
 
-    async def post_approval(self):
+    async def after_approval(self):
         for toolset_id in self.ids:
             toolset = self.ctx.deps.toolsets.permitted.name[toolset_id]
             toolset.options.cls[Policy].current_value = Policy.Policies.APPROVAL

@@ -8,7 +8,7 @@ from pydantic_ai.usage import RunUsage
 from corio import Path
 from corio.iterator import ilist
 from xah.options.path import PathCwd, PathRead, PathWrite
-from xah.toolsets.base.tool import Validation
+from xah.toolsets.base.tool import Messages, Validation
 from xah.toolsets.fs.edit import Edit
 from xah.toolsets.fs.mkdir import Mkdir
 from xah.toolsets.fs.move import Move
@@ -25,6 +25,7 @@ def context(tmp_path):
     toolset = Files()
     deps = SimpleNamespace(
         toolsets=ilist([toolset]),
+        approval_bridge=None,
         options=ilist([
             PathCwd.from_cwd(cwd=cwd, description="Working directory."),
             PathRead.from_cwd(cwd=cwd, description="Read path."),
@@ -64,7 +65,7 @@ def test_write_validate_and_run(tmp_path):
 
     tool.validation = Validation()
     asyncio.run(tool.validate())
-    assert tool.validation.messages == []
+    assert tool.validation.messages == Messages()
     assert asyncio.run(tool.run()).startswith("Wrote")
     assert Path(tmp_path / "nested/note.txt").read_text() == "hello\n"
 
@@ -73,9 +74,9 @@ def test_permission_failure_occurs_during_validation(tmp_path):
     ctx = context(tmp_path)
     tool = make(Write, ctx, path="../escape.txt", content="no")
 
-    with pytest.raises(ModelRetry, match="Permission Denied"):
-        tool.validation = Validation()
-        asyncio.run(tool.validate())
+    tool.validation = Validation()
+    asyncio.run(tool.validate())
+    assert "Permission Denied" in tool.validation.messages.errors[0]
 
 
 def test_env_file_requires_approval_and_reports_secret_access(tmp_path):
@@ -86,7 +87,7 @@ def test_env_file_requires_approval_and_reports_secret_access(tmp_path):
     asyncio.run(tool.validate())
 
     assert tool.validation.approval
-    assert tool.validation.messages == [f'Accessing secrets file: "{tmp_path / ".env"}"']
+    assert tool.validation.messages.approval == [f'Accessing secrets file: "{tmp_path / ".env"}"']
 
 
 def test_read_edit_move_search_and_remove(tmp_path):
@@ -98,7 +99,7 @@ def test_read_edit_move_search_and_remove(tmp_path):
     edit = make(Edit, ctx, path="source.txt", old_text="needle", new_text="changed")
     edit.validation = Validation()
     asyncio.run(edit.validate())
-    assert edit.validation.messages == []
+    assert edit.validation.messages == Messages()
     asyncio.run(edit.run())
     assert "changed" in source.read_text()
     assert "source.txt" in asyncio.run(make(Search, ctx, pattern="changed").run())

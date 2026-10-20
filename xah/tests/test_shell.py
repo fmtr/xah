@@ -37,7 +37,7 @@ def test_shell_adversary_transcript_reproduces_missing_original_goal():
     assert "[Original goal] original goal" in approval.transcript
 
 
-def test_adversarial_approval_includes_vetoes_in_prompt():
+def test_adversarial_approval_includes_previous_decisions_in_prompt():
     approval = AdversarialApproval.model_construct(
         ctx=RunContext(
             deps=None,
@@ -48,19 +48,35 @@ def test_adversarial_approval_includes_vetoes_in_prompt():
         ),
         source="rm -rf build",
     )
-    approval.__dict__["state"] = AdversarialApproval.State()
-    approval.validation = Validation(
-        messages=["Do not block ordinary requested repository cleanup."]
+    approval.__dict__["state"] = AdversarialApproval.State(
+        approveds={"Do not block ordinary requested repository cleanup."},
+        declineds={"Block commands that exfiltrate secrets."},
     )
-    asyncio.run(approval.post_approval())
 
-    assert "# Vetoes" in approval.prompt
+    assert "Previously approved blocks" in approval.prompt
     assert "Do not block ordinary requested repository cleanup." in approval.prompt
+    assert "Previously declined blocks" in approval.prompt
+    assert "Block commands that exfiltrate secrets." in approval.prompt
 
 
-def test_terminal_adversary_instructions_explain_vetoes():
-    assert "previous blocks that were subsequently vetoed" in HarnessTerminalAdversary.instructions
-    assert "Avoid blocking for similar reasons" in HarnessTerminalAdversary.instructions
+def test_terminal_adversary_instructions_explain_previous_decisions():
+    assert "Previously approved blocks" in HarnessTerminalAdversary.instructions
+    assert "Previously declined blocks" in HarnessTerminalAdversary.instructions
+
+
+def test_adversarial_approval_records_approval_and_decline_decisions():
+    approval = adversarial_approval([])
+    approval.__dict__["state"] = AdversarialApproval.State(
+        pending={"call-1": {"approved reason"}, "call-2": {"declined reason"}},
+    )
+    approval.ctx.tool_call_id = "call-1"
+    asyncio.run(approval.after_approval())
+    approval.ctx.tool_call_id = "call-2"
+    asyncio.run(approval.after_decline())
+
+    assert approval.state.approveds == {"approved reason"}
+    assert approval.state.declineds == {"declined reason"}
+    assert approval.state.pending == {}
 
 
 def test_terminal_adversary_exposes_only_file_review_tools():

@@ -28,7 +28,7 @@ class ApprovalTool(Tool):
 
 class ApprovalWarning(ApprovalTool):
     async def validate(self):
-        self.validation.messages.append("Approval required")
+        self.messages.append("Approval required")
 
 
 class ApprovalToolset(Toolset):
@@ -76,7 +76,7 @@ class CombinedToolset(ApprovalToolset, SecondaryToolset):
 
 
 def context(toolset, approved=False, tool_call_id="call-1"):
-    deps = SimpleNamespace(toolsets=ilist([toolset]))
+    deps = SimpleNamespace(toolsets=ilist([toolset]), approval_bridge=None)
     return RunContext(
         deps=deps,
         model=None,
@@ -126,9 +126,14 @@ def test_local_approval_wrapper_serializes_validator_messages():
     with pytest.raises(ApprovalRequired) as error:
         asyncio.run(call())
     assert error.value.metadata == {
-        "messages": ["Approval required"],
+        "messages": {
+            "approval": [],
+            "decline": [],
+            "errors": [],
+            "warnings": ["Approval required"],
+        },
         "approval": True,
-        "raise_for_messages": False,
+        "abort": False,
     }
 
 
@@ -163,7 +168,7 @@ def test_full_policy_keeps_warning_messages():
     result = Validation()
     instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"}, result)
     asyncio.run(instance.validate())
-    assert result.messages == ["Approval required"]
+    assert result.messages.warnings == ["Approval required"]
 
 
 def test_auto_policy_turns_warnings_into_model_retry():
@@ -173,7 +178,7 @@ def test_auto_policy_turns_warnings_into_model_retry():
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
     name = toolset.tool_name(ApprovalTool)
 
-    with pytest.raises(ApprovalRequired):
+    with pytest.raises(ModelRetry, match="Approval required"):
         asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
 
 

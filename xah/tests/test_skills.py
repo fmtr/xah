@@ -25,7 +25,7 @@ def test_list_and_load_construct_per_call_models(tmp_path):
     settings = SimpleNamespace(path=SimpleNamespace(skills=Path(tmp_path / "skills"), agents_dir=".agents", skills_dir="skills"))
     toolset = Skills(settings, Path(tmp_path))
     ctx = RunContext(
-        deps=SimpleNamespace(toolsets=ilist([toolset])),
+        deps=SimpleNamespace(toolsets=ilist([toolset]), approval_bridge=None),
         model=None,
         usage=RunUsage(),
         pending_messages=[],
@@ -55,7 +55,7 @@ def test_loading_a_skill_twice_requires_compaction(tmp_path):
     settings = SimpleNamespace(path=SimpleNamespace(skills=Path(tmp_path / "skills"), agents_dir=".agents", skills_dir="skills"))
     toolset = Skills(settings, Path(tmp_path))
     ctx = RunContext(
-        deps=SimpleNamespace(toolsets=ilist([toolset])),
+        deps=SimpleNamespace(toolsets=ilist([toolset]), approval_bridge=None),
         model=None,
         usage=RunUsage(),
         pending_messages=[],

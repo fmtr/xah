@@ -16,7 +16,7 @@ async def test_sleep_waits_for_requested_duration(monkeypatch):
     monkeypatch.setattr("xah.toolsets.utils.sleep.asyncio.sleep", sleep)
 
     toolset = Utils()
-    ctx = RunContext(deps=SimpleNamespace(toolsets=ilist([toolset])), model=None, usage=RunUsage())
+    ctx = RunContext(deps=SimpleNamespace(toolsets=ilist([toolset]), approval_bridge=None), model=None, usage=RunUsage())
     result = await Sleep(ctx=ctx, toolset=toolset, seconds=3).run()
 
     assert result == "Slept for 3 seconds."

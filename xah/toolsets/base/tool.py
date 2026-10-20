@@ -26,23 +26,30 @@ class ToolState(dm.Base):
         pass
 
 
+class MessageList(ilist[str]):
+    @property
+    def text(self) -> str:
+        return "\n".join(self)
+
+
+class Messages(dm.Base):
+    approval: MessageList = Field(default_factory=MessageList)
+    decline: MessageList = Field(default_factory=MessageList)
+    errors: MessageList = Field(default_factory=MessageList)
+    warnings: MessageList = Field(default_factory=MessageList)
+
+
 class Validation(dm.Base):
-    messages: list[str] = Field(default_factory=list)
+    messages: Messages = Field(default_factory=Messages)
     approval: bool = False
-    raise_for_messages: bool = False
+    abort: bool = False
+    ctx: SkipJsonSchema[InstanceOf[RunContext]] | None = Field(
+        default=None,
+        exclude=True,
+    )
 
     def __bool__(self) -> bool:
-        if self.approval:
-            return True
-
-        if self.messages and self.raise_for_messages:
-            return True
-
-        return False
-
-    @cached_property
-    def text(self) -> str:
-        return "\n".join(self.messages)
+        return self.approval
 
 
 class Tool(dm.Base):
@@ -140,16 +147,18 @@ class Tool(dm.Base):
         return self.policy.approval
 
     @cached_property
-    def raise_on_warn(self) -> bool:
-        """
-        Return whether validation messages should stop tool execution.
-
-        The auto policy raises on messages; all other policies run the tool
-        and report the messages as warnings.
-        """
+    def is_auto(self) -> bool:
+        """Return whether the toolset uses automatic approval policy."""
         from xah.options import base as options
 
         return self.policy.value == options.Policy.Policies.AUTO
+
+    @property
+    def messages(self) -> MessageList:
+        if self.is_auto:
+            return self.validation.messages.errors
+
+        return self.validation.messages.warnings
 
     def feedback(self, message: str | SystemPromptPart) -> str | None:
         """Enqueue harness feedback for the next model request."""
@@ -168,6 +177,11 @@ class Tool(dm.Base):
             validator.validation = self.validation
             validator.state = self.toolset.state_for(type(self), validator_class)
             await validator.validate()
+            if self.validation.abort:
+                break
 
-    async def post_approval(self):
+    async def after_approval(self):
+        pass
+
+    async def after_decline(self):
         pass

@@ -40,8 +40,9 @@ class WriteWarnings(SimilarityValidator, Write):
             return
 
         current = self.path.read_text(errors="replace")
-        self.validation.messages.extend(self.similarity_warnings(
+        messages = self.similarity_warnings(
             current,
             self.content,
             "You are overwriting a file with {similarity}% similar content. Use partial reads and edits for small changes.",
-        ))
+        )
+        self.messages.extend(messages)

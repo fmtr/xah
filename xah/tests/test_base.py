@@ -20,6 +20,7 @@ from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
 from xah.options import base as options
+from xah.toolsets.base.tool import Messages
 from xah.toolsets.base.toolset import Toolset as ToolsetBase, ToolsetInfo
 from pydantic_acp import compose_projection_maps
 from pydantic_acp.projection import FileEditToolCallContent
@@ -201,7 +202,7 @@ def test_shell_validation_uses_agent_output():
     result = asyncio.run(toolset.validate(ctx, tool_def, {"source": "echo hello"}))
 
     assert result.approval
-    assert result.messages == []
+    assert result.messages == Messages()
 
 
 def test_terminal_run_appends_to_terminal_collection():

@@ -193,6 +193,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     def validations(self) -> dict[str | None, Validation]:
         return {}
 
+
     @staticmethod
     def validation_error_message(error: ValidationError) -> str:
         details = error.errors(
@@ -242,13 +243,40 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
     ) -> Validation:
-        validation = Validation()
+        validation = Validation(ctx=ctx)
         instance = self.init_tool(ctx, tool_def, tool_args, validation)
         validation.approval = instance.approval
-        validation.raise_for_messages = instance.raise_on_warn
         await self.raise_errors(instance.validate)
+        if validation.messages.errors:
+            raise ModelRetry(validation.messages.errors.text)
         self.validations[ctx.tool_call_id] = validation
         return validation
+
+    async def _after(self, instance: Tool, validation: Validation, method):
+        for validator_class in instance.Validators:
+            validator = validator_class.model_validate(
+                instance,
+                from_attributes=True,
+            )
+            validator.validation = validation
+            validator.state = self.state_for(type(instance), validator_class)
+            hook = getattr(validator, method.__name__)
+            await self.raise_errors(hook)
+
+    async def after_approval(self, instance: Tool, validation: Validation):
+        await self._after(instance, validation, instance.after_approval)
+
+    async def after_decline(
+        self,
+        tool_name: str,
+        tool_call_id: str,
+        tool_args: dict[str, Any],
+    ):
+        validation = self.validations[tool_call_id]
+        tool = self.tools[tool_name]
+        instance = self.init_tool(validation.ctx, tool.tool_def, tool_args, validation)
+        await self._after(instance, validation, instance.after_decline)
+        self.validations.pop(tool_call_id)
 
     async def call_tool(
         self,
@@ -269,24 +297,17 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         instance = await super().call_tool(name, tool_args, ctx, tool)
         try:
             if ctx.tool_call_approved:
-                for validator_class in instance.Validators:
-                    validator = validator_class.model_validate(
-                        instance,
-                        from_attributes=True,
-                    )
-                    validator.validation = validation
-                    validator.state = self.state_for(type(instance), validator_class)
-                    await self.raise_errors(validator.post_approval)
+                await self.after_approval(instance, validation)
 
             run_result = await self.raise_errors(instance.run)
         finally:
             self.validations.pop(ctx.tool_call_id)
 
-        if validation.messages:
+        if validation.messages.warnings:
             instance.feedback(
                 strings.trim(
                     f"The {name} tool completed, but issued the following warnings. Avoid these issues in subsequent calls.",
-                    validation.text,
+                    validation.messages.warnings.text,
                 )
             )
 

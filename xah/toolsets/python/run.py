@@ -3,8 +3,6 @@ from functools import cached_property
 from cached_classproperty import cached_classproperty
 from xah.class_collections import classes
 from pydantic import Field
-from pydantic_ai import ModelRetry
-
 from corio.shell.dsl import shell
 from xah.toolsets.terminal.base import TerminalTool
 
@@ -26,15 +24,22 @@ class Run(TerminalTool):
 class ValidArguments(Run):
     async def validate(self):
         if not self.args:
-            raise ModelRetry("No arguments provided.")
+            self.validation.messages.errors.append("No arguments provided.")
+            self.validation.abort = True
+            return
 
         if self.args[0].lower() in {"python", "python3"}:
-            raise ModelRetry("Do not include Python itself. Pass only arguments to Python.")
+            self.validation.messages.errors.append(
+                "Do not include Python itself. Pass only arguments to Python."
+            )
+            self.validation.abort = True
+            return
 
         if "-c" in self.args:
             from xah.toolsets.python.run_code import RunCode
 
             run_code_name = self.toolset.tool_name(RunCode)
             message = f"Use {run_code_name} for a short Python code fragment. Write longer code to a .py file and run that file."
-            raise ModelRetry(message)
+            self.validation.messages.errors.append(message)
+            self.validation.abort = True
 

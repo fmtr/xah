@@ -18,6 +18,17 @@ from xah.harness.base import HarnessAcp
 from xah.server.acp.usage import UsageReporterRegistry
 
 
+class Toolsets:
+    def __init__(self):
+        self.declined = []
+
+    def for_tool(self, tool_name):
+        return self
+
+    async def after_decline(self, tool_name, tool_call_id, tool_args):
+        self.declined.append(tool_call_id)
+
+
 class Classifier:
     def classify(self, tool_name, raw_input):
         return "edit"
@@ -44,7 +55,7 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
     )
 
     async def resolve():
-        return await ApprovalBridgeMetadata().resolve_deferred_approvals(
+        return await ApprovalBridgeMetadata(toolsets=Toolsets()).resolve_deferred_approvals(
             client=Client(),
             session=SimpleNamespace(session_id="session", cwd=Path.cwd()),
             requests=requests,
@@ -55,6 +66,38 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
     result = resolution.deferred_tool_results.approvals["call-1"]
     assert isinstance(result, ToolDenied)
     assert result.message == "The tool call was denied."
+
+
+def test_denied_permission_runs_toolset_decline_hook():
+    toolsets = Toolsets()
+    bridge = ApprovalBridgeMetadata(toolsets=toolsets)
+    requests = DeferredToolRequests(
+        approvals=[
+            ToolCallPart(
+                tool_name="write_file",
+                args={"path": "broken.py", "content": "def broken("},
+                tool_call_id="call-1",
+            )
+        ],
+    )
+
+    class Client:
+        async def request_permission(self, **kwargs):
+            return SimpleNamespace(
+                outcome=SimpleNamespace(outcome="selected", option_id="reject_once")
+            )
+
+    async def resolve():
+        return await bridge.resolve_deferred_approvals(
+            client=Client(),
+            session=SimpleNamespace(session_id="session", cwd=Path.cwd()),
+            requests=requests,
+            classifier=Classifier(),
+        )
+
+    asyncio.run(resolve())
+
+    assert toolsets.declined == ["call-1"]
 
 
 def test_acp_session_starts_without_a_model(tmp_path):

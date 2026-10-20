@@ -199,6 +199,6 @@ def test_activate_reports_management_toolset_cannot_be_disabled():
 
     assert management.activated
     assert not files.activated
-    assert tool.validation.messages == [
+    assert tool.validation.messages.approval == [
         "The Management toolset cannot be deactivated."
     ]

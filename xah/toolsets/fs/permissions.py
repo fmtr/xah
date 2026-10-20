@@ -1,7 +1,6 @@
 from typing import ClassVar
 
 from pydantic import model_validator
-from pydantic_ai import ModelRetry
 
 from corio import Path
 from xah.options.path import PathRead, PathWrite, SelectPath
@@ -30,7 +29,10 @@ class PermissionsValidator:
     def validate_path(self, path: Path, permission: type[SelectPath]) -> None:
         allowed = self.ctx.deps.options.cls[permission].value
         if not path.is_relative_to(allowed):
-            raise ModelRetry(f'Permission Denied: "{path}" is outside "{allowed}".')
+            self.validation.messages.errors.append(
+                f'Permission Denied: "{path}" is outside "{allowed}".'
+            )
+            self.validation.abort = True
 
     async def validate(self):
         for name, field in type(self).model_fields.items():
@@ -44,7 +46,9 @@ class PermissionsValidator:
             path = getattr(self, name)
             for permission in permissions:
                 self.validate_path(path, permission)
+                if self.validation.abort:
+                    return
 
             if path.stem == ".env":
                 self.validation.approval = True
-                self.validation.messages.append(f'Accessing secrets file: "{path}"')
+                self.validation.messages.approval.append(f'Accessing secrets file: "{path}"')

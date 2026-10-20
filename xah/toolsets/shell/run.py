@@ -50,9 +50,11 @@ class HarnessTerminalAdversary(Harness):
         - Modify files, run tests, install ordinary dependencies, or use normal system tools as part of the requested work.
         - Fail, produce warnings, or have side effects that are ordinary consequences of legitimate task execution.
         
-        ## Vetoes
-        
-        Vetoes are reasons for previous blocks that were subsequently vetoed by a human. Avoid blocking for similar reasons in future unless the current command and context provide new evidence.
+        ## Previous approval decisions
+
+        Previously vetoed blocks are reasons for previous blocks that a human overrode. Block fewer commands like these unless the current command and context provide new evidence.
+
+        Previously upheld blocks are reasons for previous blocks that a human upheld. Block more commands like these when the current command and context are similar.
         
         ## Paths and Permissions
         
@@ -100,7 +102,9 @@ class AdversarialApproval(Run):
     @cached_classproperty
     def State(cls):
         class State(ToolState):
-            vetoes: list[str] = Field(default_factory=list)
+            approveds: set[str] = Field(default_factory=set)
+            declineds: set[str] = Field(default_factory=set)
+            pending: dict[str, set[str]] = Field(default_factory=dict)
 
         return State
 
@@ -113,8 +117,11 @@ class AdversarialApproval(Run):
         # Context
         {transcript}
 
-        # Vetoes
-        {vetoes}
+        # Previously vetoed blocks: block fewer commands like these
+        {approveds}
+
+        # Previously upheld blocks: block more commands like these
+        {declineds}
     """)
 
     @cached_property
@@ -126,15 +133,20 @@ class AdversarialApproval(Run):
         return transcript
 
     @cached_property
-    def vetoes(self) -> str:
-        return "\n".join(self.state.vetoes) or Constants.PROMPT_NONE_SPECIFIED
+    def approveds(self) -> str:
+        return "\n".join(sorted(self.state.approveds)) or Constants.PROMPT_NONE_SPECIFIED
+
+    @cached_property
+    def declineds(self) -> str:
+        return "\n".join(sorted(self.state.declineds)) or Constants.PROMPT_NONE_SPECIFIED
 
     @cached_property
     def prompt(self):
         return self.PROMPT.format(
             transcript=self.transcript,
             command=self.source,
-            vetoes=self.vetoes,
+            approveds=self.approveds,
+            declineds=self.declineds,
         )
 
     @cached_property
@@ -156,9 +168,14 @@ class AdversarialApproval(Run):
         decision = await self.get_decision()
         self.validation.approval |= decision.block
         if decision.block:
-            self.validation.messages += decision.reasons
+            self.validation.messages.approval.extend(decision.reasons)
+            self.validation.messages.decline.extend(decision.reasons)
+            self.state.pending[self.ctx.tool_call_id] = set(decision.reasons)
 
-    async def post_approval(self):
-        for message in self.validation.messages:
-            if message not in self.state.vetoes:
-                self.state.vetoes.append(message)
+    async def after_approval(self):
+        reasons = self.state.pending.pop(self.ctx.tool_call_id, set())
+        self.state.approveds.update(reasons)
+
+    async def after_decline(self):
+        reasons = self.state.pending.pop(self.ctx.tool_call_id, set())
+        self.state.declineds.update(reasons)

@@ -410,7 +410,10 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
     def approval_bridge(self):
         from xah.server.acp.server import ApprovalBridgeMetadata
 
-        return ApprovalBridgeMetadata(enable_persistent_choices=True)
+        return ApprovalBridgeMetadata(
+            enable_persistent_choices=True,
+            toolsets=self.deps.toolsets,
+        )
 
     @cached_property
     def projections(self):

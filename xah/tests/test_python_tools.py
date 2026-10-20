@@ -8,7 +8,7 @@ from pydantic_ai.usage import RunUsage
 from corio import Path
 from corio.iterator import ilist
 from xah.options.path import PathCwd
-from xah.toolsets.base.tool import Validation
+from xah.toolsets.base.tool import Messages, Validation
 from xah.toolsets.python.pip import Pip
 from xah.toolsets.python.run import Run
 from xah.toolsets.python.run_code import RunCode
@@ -21,6 +21,7 @@ def context(tmp_path):
     cwd = Path(tmp_path)
     deps = SimpleNamespace(
         toolsets=ilist([toolset]),
+        approval_bridge=None,
         options=ilist([PathCwd.from_cwd(cwd=cwd, description="Working directory.")]),
     )
     return RunContext(deps=deps, model=None, usage=RunUsage())
@@ -86,9 +87,9 @@ def test_basic_python_tool_expressions(tmp_path):
 def test_correctness_validator_runs_under_every_policy(tmp_path):
     ctx = context(tmp_path)
     tool = make(Run, ctx, args=[])
-    with pytest.raises(ModelRetry, match="No arguments"):
-        tool.validation = Validation()
-        asyncio.run(tool.validate())
+    tool.validation = Validation()
+    asyncio.run(tool.validate())
+    assert tool.validation.messages.errors == ["No arguments provided."]
 
 
 def test_run_code_has_no_length_limit(tmp_path):
@@ -96,4 +97,4 @@ def test_run_code_has_no_length_limit(tmp_path):
     tool = make(RunCode, ctx, code="x" * 1001)
     tool.validation = Validation()
     asyncio.run(tool.validate())
-    assert tool.validation.messages == []
+    assert tool.validation.messages == Messages()

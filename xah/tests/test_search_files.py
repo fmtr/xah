@@ -15,6 +15,7 @@ def context(tmp_path):
     toolset = Files()
     deps = SimpleNamespace(
         toolsets=ilist([toolset]),
+        approval_bridge=None,
         options=ilist([
             PathCwd.from_cwd(cwd=cwd, description="Working directory."),
             PathRead.from_cwd(cwd=cwd, description="Read path."),

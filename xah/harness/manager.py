@@ -53,6 +53,12 @@ class ToolsetsManagerAgent:
             toolsets.append(self.activated.cls[toolset_class])
         return toolsets
 
+    def for_tool(self, tool_name: str) -> Toolset:
+        for toolset in self.agent:
+            if tool_name in toolset.tools:
+                return toolset
+        raise KeyError(tool_name)
+
     @property
     def combined(self) -> CombinedToolset:
         return CombinedToolset(self.agent)

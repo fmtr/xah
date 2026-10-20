@@ -8,6 +8,6 @@ class CollectionValidator(Tool):
         collection = self.toolset.collection_for(self.collection_id)
         if collection.APPROVAL:
             self.validation.approval = True
-            self.validation.messages.append(
+            self.validation.messages.approval.append(
                 f"The {collection.name} collection is protected and requires user approval."
             )
