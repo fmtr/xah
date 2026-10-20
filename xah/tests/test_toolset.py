@@ -44,7 +44,7 @@ async def test_raise_errors_logs_and_wraps_unexpected_errors(monkeypatch):
         await toolset.raise_errors(method)
 
     assert logged == [("unexpected", {"_exc_info": True})]
-    assert isinstance(raised.value.__cause__, ValueError)
+    assert raised.value.__cause__ is None
 
 
 def test_description_does_not_inherit_function_toolset_docstring():

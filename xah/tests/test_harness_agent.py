@@ -192,6 +192,7 @@ def test_activate_reports_management_toolset_cannot_be_disabled():
         toolset=management,
         ids=[Management.name, Files.name],
         activate=False,
+        reason="Test deactivation",
     )
 
     asyncio.run(tool.run())

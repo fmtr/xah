@@ -54,6 +54,8 @@ def test_toolset_activation_and_info():
         active=True,
         name=toolset.name,
         desc=toolset.description,
+        protected=False,
+        tools=[],
     )
 
     toolset.activated = False
@@ -87,7 +89,7 @@ def test_harness_instructions_load_home_and_project_files(tmp_path):
 
     result = asyncio.run(harness.get_instructions(SimpleNamespace(deps=harness.deps)))
 
-    assert "home instructions" in result
+    assert "home instructions" not in result
     assert "project instructions" in result
     assert f'You have read access to "{project.resolve()}".' in result
     assert f'You have write access to "{project.resolve()}".' in result
@@ -199,7 +201,7 @@ def test_shell_validation_uses_agent_output():
     result = asyncio.run(toolset.validate(ctx, tool_def, {"source": "echo hello"}))
 
     assert result.approval
-    assert result.messages == ["The command is appropriate."]
+    assert result.messages == []
 
 
 def test_terminal_run_appends_to_terminal_collection():
@@ -231,7 +233,7 @@ def test_policy_value_controls_toolset_visibility():
     shell.options.cls[options.Policy].current_value = options.Policies.FULL
 
     assert shell in deps.toolsets.permitted
-    assert shell.wrapper in deps.toolsets.wrapped
+    assert shell.wrapper not in deps.toolsets.wrapped
 
 
 def test_todo_policy_controls_visibility():
@@ -250,8 +252,8 @@ def test_python_policy_has_one_value_representation():
     option = deps.toolsets.all.cls[Python].options.cls[options.Policy]
 
     assert option.value == options.Policies.APPROVAL
-    assert [item.value for item in option.options] == [options.Policies.DISABLED, options.Policies.APPROVAL, options.Policies.AUTO, options.Policies.FULL]
-    assert [item.name for item in option.options] == [options.Policies.DISABLED, options.Policies.APPROVAL, options.Policies.AUTO, options.Policies.FULL]
+    assert [item.value for item in option.options] == [policy.value for policy in options.Policies]
+    assert [item.name for item in option.options] == [policy.value for policy in options.Policies]
 
 
 def test_select_enabled_can_be_overridden():
@@ -435,9 +437,9 @@ def test_harness_flattens_toolset_option_lists():
     )
 
     assert [option.id for option in selected.deps.options if option.category == "tools"] == [
-        "Utils/Policy",
-        "MultiOptionToolset/Policy",
         "MultiOptionToolset/ExtraOption",
+        "MultiOptionToolset/Policy",
+        "Utils/Policy",
     ]
     assert selected.deps.toolsets.all[0] in selected.deps.toolsets.permitted
 

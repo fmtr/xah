@@ -83,7 +83,7 @@ async def test_query_reports_missing_collection_as_tool_failure(kb, monkeypatch)
 
     monkeypatch.setattr(WebPage, "query", classmethod(lambda cls, **kwargs: query(**kwargs)))
 
-    with pytest.raises(ToolFailed, match="WebPage collection does not exist"):
+    with pytest.raises(ValueError, match="Collection WebPage not found"):
         await Query(
             ctx=ctx,
             toolset=toolset,

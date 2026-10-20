@@ -86,7 +86,7 @@ def test_env_file_requires_approval_and_reports_secret_access(tmp_path):
     asyncio.run(tool.validate())
 
     assert tool.validation.approval
-    assert tool.validation.messages == [f"Reading secrets file: {tmp_path / '.env'}"]
+    assert tool.validation.messages == [f'Accessing secrets file: "{tmp_path / ".env"}"']
 
 
 def test_read_edit_move_search_and_remove(tmp_path):
