@@ -143,6 +143,7 @@ class SessionAgentSource(ilist[HarnessAcp[DepsT]], Generic[DepsT]):
         self.bridges = tuple(capability_bridges)
         self.projection_maps = projection_maps
         self.usage_reporters = usage_reporters
+        self.client_info = None
 
     def get_runtime(self, session: AcpSessionContext) -> HarnessAcp[DepsT]:
         runtime = self.session_id.get(session.session_id)
@@ -154,7 +155,10 @@ class SessionAgentSource(ilist[HarnessAcp[DepsT]], Generic[DepsT]):
             bridges=self.bridges,
             usage_reporters=self.usage_reporters,
         )
-        logger.info(f"ACP session started: {session.session_id}")
+        message = f"ACP session started: {session.session_id}"
+        if self.client_info is not None:
+            message += f" (client: {self.client_info.name} {self.client_info.version})"
+        logger.info(message)
         runtime.restore_session()
         if self.projection_maps is not None and not self.projection_maps:
             # AdapterConfig is created before ACP supplies a session and keeps

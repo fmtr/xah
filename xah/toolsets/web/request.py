@@ -1,3 +1,4 @@
+import asyncio
 import json
 from email.message import Message
 from enum import StrEnum, auto
@@ -110,15 +111,16 @@ class RequestBase(WebTool):
     async def run(self) -> Response:
         try:
             async with https.AsyncClient() as client:
-                response = await client.request(
-                    method=self.method,
-                    url=self.request_url,
-                    headers=self.request_headers,
-                    content=self.serialized_body,
-                    params=self.params,
-                    timeout=self.timeout,
-                    follow_redirects=self.follow_redirects,
-                )
+                async with asyncio.timeout(self.timeout):
+                    response = await client.request(
+                        method=self.method,
+                        url=self.request_url,
+                        headers=self.request_headers,
+                        content=self.serialized_body,
+                        params=self.params,
+                        timeout=self.timeout,
+                        follow_redirects=self.follow_redirects,
+                    )
         except Exception as error:
             self.fail(error)
 

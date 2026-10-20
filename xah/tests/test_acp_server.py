@@ -13,7 +13,7 @@ from pydantic_acp.projection import FileEditToolCallContent
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.tools import DeferredToolRequests, ToolDenied
 
-from xah.server.acp.server import ApprovalBridgeMetadata
+from xah.server.acp.server import ApprovalBridgeMetadata, SessionAgentSource
 from xah.harness.base import HarnessAcp
 from xah.server.acp.usage import UsageReporterRegistry
 
@@ -24,6 +24,7 @@ class Classifier:
 
     def approval_policy_key(self, tool_name, raw_input):
         return (tool_name, tuple(sorted(raw_input)))
+
 
 def test_denied_permission_returns_validation_diagnostics_to_model():
     class Client:
@@ -102,3 +103,28 @@ def test_acp_session_starts_without_a_model(tmp_path):
             new_text="print('ok')\n",
         )
     )
+
+
+def test_acp_session_log_includes_client_info(monkeypatch):
+    class Runtime:
+        projections = []
+
+        def __init__(self, **kwargs):
+            pass
+
+        def restore_session(self):
+            pass
+
+    source = SessionAgentSource(
+        harness_type=Runtime,
+        settings=None,
+        usage_reporters=UsageReporterRegistry(),
+        projection_maps=[],
+    )
+    source.client_info = SimpleNamespace(name="client", version="1.2.3")
+    messages = []
+    monkeypatch.setattr("xah.server.acp.server.logger.info", messages.append)
+
+    source.get_runtime(SimpleNamespace(session_id="session", cwd=Path.cwd()))
+
+    assert messages == ["ACP session started: session (client: client 1.2.3)"]

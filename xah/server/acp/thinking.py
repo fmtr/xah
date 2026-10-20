@@ -172,6 +172,22 @@ class AgentAcp(PydanticAcpAgent):
             usage_reporters=self.usage_reporters,
         )
 
+    async def initialize(
+        self,
+        protocol_version,
+        client_capabilities=None,
+        client_info=None,
+        **kwargs,
+    ):
+        response = await super().initialize(
+            protocol_version,
+            client_capabilities=client_capabilities,
+            client_info=client_info,
+            **kwargs,
+        )
+        self._agent_source.client_info = client_info
+        return response
+
     def _build_run_kwargs(self, **kwargs):
         run_kwargs = super()._build_run_kwargs(**kwargs)
         run_kwargs["usage_limits"] = UsageLimits(request_limit=None)
