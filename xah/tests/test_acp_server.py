@@ -1,21 +1,20 @@
 import asyncio
+import sys
 from functools import cached_property
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
-from pydantic_acp import (
-    DefaultPermissionToolCallBuilder,
-    MemorySessionStore,
-    PermissionRequestContext,
-    compose_projection_maps,
-)
-from pydantic_acp.projection import FileEditToolCallContent
+from pydantic_acp import MemorySessionStore
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.tools import DeferredToolRequests, ToolDenied
 
-from xah.server.acp.server import ApprovalBridgeMetadata, SessionAgentSource
+from xah.class_collections import classes
 from xah.harness.base import HarnessAcp
+from xah.server.acp.server import ApprovalBridgeMetadata, SessionAgentSource
 from xah.server.acp.usage import UsageReporterRegistry
+from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.toolset import Toolset
 
 
 class Toolsets:
@@ -27,6 +26,24 @@ class Toolsets:
 
     async def after_decline(self, tool_name, tool_call_id, tool_args):
         self.declined.append(tool_call_id)
+
+
+class DeclineTool(Tool):
+    async def run(self):
+        return "done"
+
+
+class DeclineToolset(Toolset):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.declined = []
+
+    @classes
+    def Tools(cls):
+        return [DeclineTool]
+
+    async def after_decline(self, tool_name, tool_call_id, tool_args):
+        self.declined.append((tool_name, tool_call_id, tool_args))
 
 
 class Classifier:
@@ -55,7 +72,13 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
     )
 
     async def resolve():
-        return await ApprovalBridgeMetadata(toolsets=Toolsets()).resolve_deferred_approvals(
+        toolsets = Toolsets()
+        source = SimpleNamespace(
+            get_runtime=lambda session: SimpleNamespace(
+                deps=SimpleNamespace(toolsets=toolsets)
+            )
+        )
+        return await ApprovalBridgeMetadata(source=source).resolve_deferred_approvals(
             client=Client(),
             session=SimpleNamespace(session_id="session", cwd=Path.cwd()),
             requests=requests,
@@ -68,14 +91,39 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
     assert result.message == "The tool call was denied."
 
 
-def test_denied_permission_runs_toolset_decline_hook():
-    toolsets = Toolsets()
-    bridge = ApprovalBridgeMetadata(toolsets=toolsets)
+def test_sessionless_acp_agent_routes_declines_to_session_toolsets(tmp_path):
+    session_store = MemorySessionStore()
+
+    class TestXah(HarnessAcp):
+        @classes
+        def Toolsets(cls):
+            return [DeclineToolset]
+
+        @cached_property
+        def session_store(self):
+            return session_store
+
+    with patch.object(sys, "argv", [sys.argv[0]]):
+        harness = TestXah(usage_reporters=UsageReporterRegistry())
+        assert harness.session is None
+        agent = harness.acp_agent
+
+    async def start_session():
+        await agent.initialize(protocol_version=1)
+        return await agent.new_session(cwd=str(tmp_path), mcp_servers=[])
+
+    response = asyncio.run(start_session())
+    session = session_store.get(response.session_id)
+
+    assert response.session_id
+    assert session.cwd == tmp_path.resolve()
+
+    tool_name = DeclineToolset.tool_name(DeclineTool)
     requests = DeferredToolRequests(
         approvals=[
             ToolCallPart(
-                tool_name="write_file",
-                args={"path": "broken.py", "content": "def broken("},
+                tool_name=tool_name,
+                args={},
                 tool_call_id="call-1",
             )
         ],
@@ -87,65 +135,19 @@ def test_denied_permission_runs_toolset_decline_hook():
                 outcome=SimpleNamespace(outcome="selected", option_id="reject_once")
             )
 
-    async def resolve():
-        return await bridge.resolve_deferred_approvals(
+    async def deny_tool_call():
+        return await agent._config.approval_bridge.resolve_deferred_approvals(
             client=Client(),
-            session=SimpleNamespace(session_id="session", cwd=Path.cwd()),
-            requests=requests,
-            classifier=Classifier(),
-        )
-
-    asyncio.run(resolve())
-
-    assert toolsets.declined == ["call-1"]
-
-
-def test_acp_session_starts_without_a_model(tmp_path):
-    session_store = MemorySessionStore()
-    class TestXah(HarnessAcp):
-        @cached_property
-        def session_store(self):
-            return session_store
-
-    agent = TestXah(usage_reporters=UsageReporterRegistry()).acp_agent
-    assert not agent._config.projection_maps
-
-    async def start_session():
-        await agent.initialize(protocol_version=1)
-        return await agent.new_session(cwd=str(tmp_path), mcp_servers=[])
-
-    response = asyncio.run(start_session())
-    session = session_store.get(response.session_id)
-
-    assert response.session_id
-    assert session.cwd == tmp_path.resolve()
-    assert session.session_model_id is None
-    assert agent._tool_classifier.classify("Files-Write") == "edit"
-
-    raw_input = {"path": "example.py", "content": "print('ok')\n"}
-    update = DefaultPermissionToolCallBuilder().build_tool_call_update(
-        PermissionRequestContext(
             session=session,
-            tool_call=ToolCallPart(
-                tool_name="Files-Write",
-                args=raw_input,
-                tool_call_id="call-1",
-            ),
-            raw_input=raw_input,
-            cwd=tmp_path,
+            requests=requests,
             classifier=agent._tool_classifier,
-            projection_map=compose_projection_maps(agent._config.projection_maps),
         )
-    )
-    assert update.kind == "edit"
-    assert update.content[0] == (
-        FileEditToolCallContent(
-            type="diff",
-            path="example.py",
-            old_text="",
-            new_text="print('ok')\n",
-        )
-    )
+
+    resolution = asyncio.run(deny_tool_call())
+    runtime = harness.agent_source.get_runtime(session)
+    toolset = runtime.deps.toolsets.all.cls[DeclineToolset]
+    assert isinstance(resolution.deferred_tool_results.approvals["call-1"], ToolDenied)
+    assert toolset.declined == [(tool_name, "call-1", {})]
 
 
 def test_acp_session_log_includes_client_info(monkeypatch):

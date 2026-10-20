@@ -412,7 +412,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
 
         return ApprovalBridgeMetadata(
             enable_persistent_choices=True,
-            toolsets=self.deps.toolsets,
+            source=self.agent_source,
         )
 
     @cached_property

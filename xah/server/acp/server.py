@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from json import dumps
 from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
@@ -18,7 +20,6 @@ from pydantic_acp import (
 from pydantic_acp.approvals import ApprovalResolution
 from xah.harness.base import HarnessAcp
 from xah.harness.deps import HarnessDeps
-from xah.harness.manager import ToolsetsManager
 from xah.toolsets.base.tool import Validation
 
 
@@ -54,15 +55,17 @@ class PermissionToolCallBuilderMetadata(DefaultPermissionToolCallBuilder):
 
 @dataclass(slots=True, kw_only=True)
 class ApprovalBridgeMetadata(NativeApprovalBridge):
-    toolsets: ToolsetsManager
+    source: SessionAgentSource
 
     async def after_decline(
         self,
+        session: AcpSessionContext,
         tool_call_id: str,
         tool_name: str,
         tool_args: dict[str, Any],
     ) -> None:
-        toolset = self.toolsets.for_tool(tool_name)
+        toolsets = self.source.get_runtime(session).deps.toolsets
+        toolset = toolsets.for_tool(tool_name)
         await toolset.after_decline(tool_name, tool_call_id, tool_args)
 
     async def resolve_deferred_approvals(
@@ -82,7 +85,12 @@ class ApprovalBridgeMetadata(NativeApprovalBridge):
             if remembered_policy is not None:
                 selected_result = self._policy_to_result(remembered_policy)
                 if isinstance(selected_result, ToolDenied):
-                    await self.after_decline(tool_call.tool_call_id, tool_call.tool_name, raw_input)
+                    await self.after_decline(
+                        session,
+                        tool_call.tool_call_id,
+                        tool_call.tool_name,
+                        raw_input,
+                    )
                 deferred_results.approvals[tool_call.tool_call_id] = selected_result
                 continue
 
@@ -107,7 +115,12 @@ class ApprovalBridgeMetadata(NativeApprovalBridge):
             )
             outcome = permission_response.outcome
             if outcome.outcome == "cancelled":
-                await self.after_decline(tool_call.tool_call_id, tool_call.tool_name, raw_input)
+                await self.after_decline(
+                    session,
+                    tool_call.tool_call_id,
+                    tool_call.tool_name,
+                    raw_input,
+                )
                 return ApprovalResolution(
                     deferred_tool_results=deferred_results,
                     cancelled=True,
@@ -127,7 +140,12 @@ class ApprovalBridgeMetadata(NativeApprovalBridge):
 
                     selected_result = ToolDenied(message=msg)
 
-                await self.after_decline(tool_call.tool_call_id, tool_call.tool_name, raw_input)
+                await self.after_decline(
+                    session,
+                    tool_call.tool_call_id,
+                    tool_call.tool_name,
+                    raw_input,
+                )
 
             self._remember_policy(
                 session=session,
