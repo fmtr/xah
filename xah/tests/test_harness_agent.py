@@ -93,12 +93,12 @@ def test_acp_permitted_toolsets_follow_policy_state():
     assert deps.toolsets.permitted == ilist([files])
     assert deps.toolsets.wrapped == [files.wrapper]
 
-    shell.options.cls[options.Policy].current_value = options.FULL
+    shell.options.cls[options.Policy].current_value = options.Policies.FULL
 
     assert deps.toolsets.permitted == ilist([files, shell])
     assert {wrapped.wrapped for wrapped in deps.toolsets.wrapped} == {files, shell}
 
-    files.options.cls[options.Policy].current_value = options.DISABLED
+    files.options.cls[options.Policy].current_value = options.Policies.DISABLED
 
     assert deps.toolsets.permitted == ilist([shell])
     assert deps.toolsets.wrapped == [shell.wrapper]
@@ -108,7 +108,7 @@ def test_acp_toolset_options_include_configured_toolsets_even_when_disabled():
     deps = make_acp_deps([Todo, Shell])
     shell = deps.toolsets.all.cls[Shell]
 
-    shell.options.cls[options.Policy].current_value = options.DISABLED
+    shell.options.cls[options.Policy].current_value = options.Policies.DISABLED
 
     assert "Todo/Policy" in deps.options.name
     assert "Shell/Policy" in deps.options.name
@@ -174,7 +174,7 @@ def test_acp_toolsets_manager_applies_policy_after_activation():
     assert manager.permitted == ilist([manager.all.name[Files.name]])
     assert manager.agent == ilist([manager.all.name[Files.name]])
 
-    shell.options.cls[options.Policy].current_value = options.FULL
+    shell.options.cls[options.Policy].current_value = options.Policies.FULL
     assert manager.permitted == manager.all
     assert {type(toolset) for toolset in manager.agent} == {Files, Shell}
 

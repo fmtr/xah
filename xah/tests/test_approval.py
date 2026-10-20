@@ -38,7 +38,7 @@ class ApprovalToolset(Toolset):
 
     @cached_property
     def options(self):
-        return ilist([options.Policy.from_value(self.name, options.APPROVAL)])
+        return ilist([options.Policy.from_value(self.name, options.Policies.APPROVAL)])
 
 
 class ReplacementWarning(ApprovalWarning):
@@ -96,7 +96,7 @@ def test_tool_feedback_enqueues_system_prompt():
 
     content = ctx.pending_messages[0].messages[0].parts[0].content
     assert content.startswith(HARNESS_FEEDBACK)
-    assert "Tool ApprovalToolset-ApprovalTool (call call-1) reported:" in content
+    assert "ApprovalToolset-ApprovalTool (call-1) reported:" in content
     assert content.endswith("Keep the next call focused.")
 
 
@@ -158,7 +158,7 @@ def test_toolset_converts_model_validation_errors_to_model_retry():
 
 def test_full_policy_keeps_warning_messages():
     toolset = ApprovalToolset()
-    toolset.options.cls[options.Policy].current_value = options.FULL
+    toolset.options.cls[options.Policy].current_value = options.Policies.FULL
     tool_def = next(iter(toolset.tools.values())).tool_def
     result = Validation()
     instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"}, result)
@@ -168,7 +168,7 @@ def test_full_policy_keeps_warning_messages():
 
 def test_auto_policy_turns_warnings_into_model_retry():
     toolset = ApprovalToolset()
-    toolset.options.cls[options.Policy].current_value = options.AUTO
+    toolset.options.cls[options.Policy].current_value = options.Policies.AUTO
     ctx = context(toolset)
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
     name = toolset.tool_name(ApprovalTool)
@@ -179,7 +179,7 @@ def test_auto_policy_turns_warnings_into_model_retry():
 
 def test_full_policy_runs_and_reports_warnings():
     toolset = ApprovalToolset()
-    toolset.options.cls[options.Policy].current_value = options.FULL
+    toolset.options.cls[options.Policy].current_value = options.Policies.FULL
     ctx = context(toolset)
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
     name = toolset.tool_name(ApprovalTool)

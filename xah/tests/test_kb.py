@@ -19,7 +19,12 @@ from xah.toolsets.kb.toolset import Knowledgebase
 @pytest.fixture
 def kb():
     toolset = Knowledgebase()
-    ctx = RunContext(deps=SimpleNamespace(toolsets=[toolset]), model=None, usage=RunUsage())
+    ctx = RunContext(
+        deps=SimpleNamespace(toolsets=[toolset]),
+        model=None,
+        usage=RunUsage(),
+        pending_messages=[],
+    )
     return toolset, ctx
 
 
@@ -49,7 +54,7 @@ async def test_query_returns_document_hits(kb, monkeypatch):
     toolset, ctx = kb
     hit = WebPage(
         id="doc-1",
-        research_id="research-1",
+        collection_id="research-1",
         title="Example",
         url="https://example.com",
         text="text",
@@ -63,7 +68,7 @@ async def test_query_returns_document_hits(kb, monkeypatch):
         ctx=ctx,
         toolset=toolset,
         query="question",
-        research_id="research-1",
+        collection_id="research-1",
     ).run()
 
     assert result == [hit]
@@ -83,7 +88,7 @@ async def test_query_reports_missing_collection_as_tool_failure(kb, monkeypatch)
             ctx=ctx,
             toolset=toolset,
             query="question",
-            research_id="research-1",
+            collection_id="research-1",
         ).run()
 
 
@@ -98,7 +103,7 @@ async def test_get_returns_selected_chunks(kb):
             SimpleNamespace(
                 payload={
                     "id": "doc-1",
-                    "research_id": "research-1",
+                    "collection_id": "research-1",
                     "title": "Example",
                     "url": "https://example.com",
                     "text": "text",
@@ -109,7 +114,13 @@ async def test_get_returns_selected_chunks(kb):
 
     toolset.client = SimpleNamespace(scroll=scroll)
 
-    result = await Get(ctx=ctx, toolset=toolset, id="doc-1", chunks=[0]).run()
+    result = await Get(
+        ctx=ctx,
+        toolset=toolset,
+        collection_id="research-1",
+        document_id="doc-1",
+        chunks=[0],
+    ).run()
 
     assert result[0].id == "doc-1"
     assert calls[0]["collection_name"] == "WebPage"
@@ -128,7 +139,7 @@ async def test_client_supports_in_memory_location():
 async def test_webpage_builder_uses_runtime_documents():
     document = WebPage(
         id="page-1",
-        research_id="research-1",
+        collection_id="research-1",
         title="Example",
         url="https://example.com",
         text="content",
@@ -177,7 +188,7 @@ async def test_kb_get_returns_selected_chunks(knowledgebase):
     for chunk_idx in range(3):
         document = document_type(
             id=doc_id,
-            research_id="research-1",
+            collection_id="research-1",
             title="Example",
             url="https://example.com",
             text=f"chunk {chunk_idx}",
@@ -192,7 +203,7 @@ async def test_kb_get_returns_selected_chunks(knowledgebase):
             )
         )
 
-    await knowledgebase.client.upload_points(
+    knowledgebase.client.upload_points(
         collection_name=document_type.name,
         points=points,
     )
@@ -205,7 +216,8 @@ async def test_kb_get_returns_selected_chunks(knowledgebase):
     result = await Get(
         ctx=ctx,
         toolset=knowledgebase,
-        id=doc_id,
+        collection_id="research-1",
+        document_id=doc_id,
         chunks=[2, 0],
     ).run()
 

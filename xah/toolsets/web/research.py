@@ -49,6 +49,7 @@ class Depth(MapEnum):
     INTENSIVE = auto(), "A comprehensive review using extensive searches, thorough search term harvesting and refinement and source coverage."
 
 
+class HarnessResearch(Harness):
     """Select relevant web pages for a research request."""
 
     instructions = strings.trim(f"""        
@@ -173,9 +174,13 @@ class Research(WebTool):
     def client(self) -> Client:
         return self.knowledgebase.client
 
+    @cp
+    def Harness(self):
+        return HarnessResearch
+
     @cached_property
     def harness(self):
-        harness = HarnessResearch.from_parent(self.ctx.deps)
+        harness = self.Harness.from_parent(self.ctx.deps)
         return harness
 
     @cp

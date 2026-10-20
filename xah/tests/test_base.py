@@ -193,8 +193,8 @@ def test_shell_validation_uses_agent_output():
     ctx = RunContext(deps=deps, model=model, usage=RunUsage())
     tool_def = next(iter(toolset.tools.values())).tool_def
 
-    assert toolset.options.cls[options.Policy].value == options.DISABLED
-    toolset.options.cls[options.Policy].current_value = options.APPROVAL
+    assert toolset.options.cls[options.Policy].value == options.Policies.DISABLED
+    toolset.options.cls[options.Policy].current_value = options.Policies.APPROVAL
 
     result = asyncio.run(toolset.validate(ctx, tool_def, {"source": "echo hello"}))
 
@@ -225,10 +225,10 @@ def test_policy_value_controls_toolset_visibility():
     deps = harness().deps
     shell = deps.toolsets.all.cls[Shell]
 
-    assert shell.options.cls[options.Policy].value == options.DISABLED
+    assert shell.options.cls[options.Policy].value == options.Policies.DISABLED
     assert shell not in deps.toolsets.permitted
 
-    shell.options.cls[options.Policy].current_value = options.FULL
+    shell.options.cls[options.Policy].current_value = options.Policies.FULL
 
     assert shell in deps.toolsets.permitted
     assert shell.wrapper in deps.toolsets.wrapped
@@ -238,10 +238,10 @@ def test_todo_policy_controls_visibility():
     deps = harness().deps
     todo = deps.toolsets.all.cls[Todo]
 
-    todo.options.cls[options.Policy].current_value = options.DISABLED
+    todo.options.cls[options.Policy].current_value = options.Policies.DISABLED
     assert todo not in deps.toolsets.permitted
 
-    todo.options.cls[options.Policy].current_value = options.FULL
+    todo.options.cls[options.Policy].current_value = options.Policies.FULL
     assert todo in deps.toolsets.permitted
 
 
@@ -249,9 +249,9 @@ def test_python_policy_has_one_value_representation():
     deps = harness().deps
     option = deps.toolsets.all.cls[Python].options.cls[options.Policy]
 
-    assert option.value == options.APPROVAL
-    assert [item.value for item in option.options] == [options.DISABLED, options.APPROVAL, options.AUTO, options.FULL]
-    assert [item.name for item in option.options] == [options.DISABLED, options.APPROVAL, options.AUTO, options.FULL]
+    assert option.value == options.Policies.APPROVAL
+    assert [item.value for item in option.options] == [options.Policies.DISABLED, options.Policies.APPROVAL, options.Policies.AUTO, options.Policies.FULL]
+    assert [item.name for item in option.options] == [options.Policies.DISABLED, options.Policies.APPROVAL, options.Policies.AUTO, options.Policies.FULL]
 
 
 def test_select_enabled_can_be_overridden():
@@ -260,10 +260,10 @@ def test_select_enabled_can_be_overridden():
         def enabled(self):
             return True
 
-    policy = options.Policy.from_value("Example", options.DISABLED)
+    policy = options.Policy.from_value("Example", options.Policies.DISABLED)
     custom = AlwaysEnabled.from_values(
-        values=[options.DISABLED],
-        value=options.DISABLED,
+        values=[options.Policies.DISABLED],
+        value=options.Policies.DISABLED,
         description=None,
         category="test",
     )
@@ -287,10 +287,10 @@ def test_subagent_clone_has_independent_options(tmp_path):
     deps = harness(Path(tmp_path)).deps
     clone = deps.clone_for_subagent()
 
-    clone.toolsets.all.cls[Python].options.cls[options.Policy].current_value = options.DISABLED
+    clone.toolsets.all.cls[Python].options.cls[options.Policy].current_value = options.Policies.DISABLED
     clone.options.name["PathWrite"].current_value = "/"
 
-    assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.APPROVAL
+    assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.Policies.APPROVAL
     assert deps.options.name["PathWrite"].current_value == "."
 
 
@@ -329,7 +329,7 @@ def test_acp_provider_updates_dependency_option_state(tmp_path):
     provider = ConfigOptionsProvider(source)
 
     provider.set_config_option(session, None, "PathRead", "/")
-    provider.set_config_option(session, None, "Python/Policy", options.DISABLED)
+    provider.set_config_option(session, None, "Python/Policy", options.Policies.DISABLED)
     same_deps = asyncio.run(source.get_deps(session, None))
 
     assert [option.id for option in provider.get_config_options(session, None)] == [
@@ -342,7 +342,7 @@ def test_acp_provider_updates_dependency_option_state(tmp_path):
     assert same_deps is deps
     assert source.session_id[session.session_id].deps is deps
     assert deps.options.name["PathRead"].current_value == "/"
-    assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.DISABLED
+    assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.Policies.DISABLED
 
 
 def test_harness_creates_fresh_agents():
@@ -441,6 +441,6 @@ def test_harness_flattens_toolset_option_lists():
     ]
     assert selected.deps.toolsets.all[0] in selected.deps.toolsets.permitted
 
-    selected.deps.toolsets.all[0].options.cls[options.Policy].current_value = options.DISABLED
+    selected.deps.toolsets.all[0].options.cls[options.Policy].current_value = options.Policies.DISABLED
 
     assert selected.deps.toolsets.all[0] not in selected.deps.toolsets.permitted
