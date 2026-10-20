@@ -79,7 +79,7 @@ class AdapterModelOllama(AdapterModel):
 
 
 class Luna(AdapterModelOpenAI):
-    NAME = "gpt-5.6-luna"
+    NAME = "gpt-6-luna"
     MODEL_SETTINGS = ModelSettings(
         openai_reasoning_effort="medium",
         openai_reasoning_summary="detailed",

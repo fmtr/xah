@@ -1,6 +1,7 @@
 import asyncio
 from functools import cached_property
 from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
 from pydantic import Field
@@ -11,7 +12,7 @@ from corio.iterator import ilist
 from xah.class_collections import classes
 from xah.constants import HARNESS_FEEDBACK
 from xah.options import base as options
-from xah.toolsets.base.tool import Tool, Validation
+from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.toolset import Toolset
 
 
@@ -137,38 +138,122 @@ def test_local_approval_wrapper_serializes_validator_messages():
     }
 
 
-def test_approved_call_constructs_a_fresh_model_and_runs_it():
-    toolset = ApprovalToolset()
+def test_approved_call_reuses_tool_and_validator_instances():
+    class TrackingValidator(ApprovalWarning):
+        instances: ClassVar[list[Tool]] = []
+
+        @classes
+        def Validators(cls):
+            return []
+        approvals: ClassVar[list[Tool]] = []
+
+        def model_post_init(self, context):
+            super().model_post_init(context)
+            TrackingValidator.instances.append(self)
+
+        async def after_approval(self):
+            TrackingValidator.approvals.append(self)
+
+    class TrackingTool(ApprovalTool):
+        instances: ClassVar[list[Tool]] = []
+
+        @classes
+        def Validators(cls):
+            return [TrackingValidator]
+
+        def model_post_init(self, context):
+            super().model_post_init(context)
+            TrackingTool.instances.append(self)
+
+    class TrackingToolset(ApprovalToolset):
+        @classes
+        def Tools(cls):
+            return [TrackingTool]
+    toolset = TrackingToolset()
     ctx = context(toolset)
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
-    name = toolset.tool_name(ApprovalTool)
+    name = toolset.tool_name(TrackingTool)
+    assert "id" not in TrackingTool.model_json_schema()["properties"]
 
     with pytest.raises(ApprovalRequired):
         asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
 
+    instance = toolset.instances.id[ctx.tool_call_id]
+    validator = instance.validators[0]
+    assert instance.id == ctx.tool_call_id
+    assert validator.id == ctx.tool_call_id
+    assert TrackingTool.instances == [instance]
+    assert TrackingValidator.instances == [validator]
+
     ctx.tool_call_approved = True
     assert asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])) == "result"
+
+    assert TrackingValidator.approvals == [validator]
+    assert toolset.instances == []
     assert len(ctx.pending_messages) == 1
     content = ctx.pending_messages[0].messages[0].parts[0].content
     assert content.startswith(HARNESS_FEEDBACK)
     assert "tool completed, but issued the following warnings." in content
     assert "Approval required" in content
 
+def test_decline_hook_uses_retained_tool_and_validator_then_cleans_up():
+    class DeclineValidator(ApprovalTool):
+        declined_ids: ClassVar[list[str]] = []
+
+        @classes
+        def Validators(cls):
+            return []
+
+        async def validate(self):
+            pass
+
+        async def after_decline(self):
+            self.declined_ids.append(self.id)
+
+    class DeclineLifecycleTool(ApprovalTool):
+        @classes
+        def Validators(cls):
+            return [DeclineValidator]
+
+    class DeclineLifecycleToolset(ApprovalToolset):
+        @classes
+        def Tools(cls):
+            return [DeclineLifecycleTool]
+
+    toolset = DeclineLifecycleToolset()
+    first_ctx = context(toolset, tool_call_id="call-1")
+    second_ctx = context(toolset, tool_call_id="call-2")
+    tool_def = next(iter(toolset.tools.values())).tool_def
+    asyncio.run(toolset.validate(first_ctx, tool_def, {"value": "first"}))
+    asyncio.run(toolset.validate(second_ctx, tool_def, {"value": "second"}))
+
+    first_instance = toolset.instances.id[first_ctx.tool_call_id]
+    second_instance = toolset.instances.id[second_ctx.tool_call_id]
+    first_validator = first_instance.validators[0]
+    second_validator = second_instance.validators[0]
+    asyncio.run(toolset.after_decline(first_ctx.tool_call_id))
+
+    assert first_validator.declined_ids == [first_ctx.tool_call_id]
+    assert toolset.instances == [second_instance]
+    asyncio.run(toolset.after_decline(second_ctx.tool_call_id))
+    assert second_validator.declined_ids == [first_ctx.tool_call_id, second_ctx.tool_call_id]
+    assert toolset.instances == []
+
+
 def test_toolset_converts_model_validation_errors_to_model_retry():
     toolset = ApprovalToolset()
     tool_def = next(iter(toolset.tools.values())).tool_def
     with pytest.raises(ModelRetry):
-        toolset.init_tool(context(toolset), tool_def, {}, Validation())
+        toolset.init_tool(context(toolset), tool_def, {})
 
 
 def test_full_policy_keeps_warning_messages():
     toolset = ApprovalToolset()
     toolset.options.cls[options.Policy].current_value = options.Policies.FULL
     tool_def = next(iter(toolset.tools.values())).tool_def
-    result = Validation()
-    instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"}, result)
+    instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"})
     asyncio.run(instance.validate())
-    assert result.messages.warnings == ["Approval required"]
+    assert instance.validation.messages.warnings == ["Approval required"]
 
 
 def test_auto_policy_turns_warnings_into_model_retry():

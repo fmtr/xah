@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import ClassVar
+from typing import ClassVar, Self
 
 from cached_classproperty import cached_classproperty
 from pydantic import Field, InstanceOf
@@ -43,10 +43,6 @@ class Validation(dm.Base):
     messages: Messages = Field(default_factory=Messages)
     approval: bool = False
     abort: bool = False
-    ctx: SkipJsonSchema[InstanceOf[RunContext]] | None = Field(
-        default=None,
-        exclude=True,
-    )
 
     def __bool__(self) -> bool:
         return self.approval
@@ -68,6 +64,10 @@ class Tool(dm.Base):
         default=None,
         exclude=True,
     )
+
+    @cp
+    def id(self) -> str:
+        return self.ctx.tool_call_id
 
     def model_post_init(self, __context):
         if self.state is None:
@@ -128,6 +128,16 @@ class Tool(dm.Base):
     def Validators(cls) -> list[type[Tool]]:
         return []
 
+    @cp
+    def validators(self) -> ilist[Self]:
+        validators = ilist()
+        for validator_class in self.Validators:
+            validator = validator_class.model_validate(self, from_attributes=True)
+            validator.validation = self.validation
+            validator.state = self.toolset.state_for(type(self), validator_class)
+            validators.append(validator)
+        return validators
+
     @cached_property
     def cwd(self) -> Path:
         return self.ctx.deps.options.cls[PathCwd].value
@@ -172,10 +182,8 @@ class Tool(dm.Base):
         return Toolset.feedback(self.ctx, feedback)
 
     async def validate(self):
-        for validator_class in self.Validators:
-            validator = validator_class.model_validate(self, from_attributes=True)
-            validator.validation = self.validation
-            validator.state = self.toolset.state_for(type(self), validator_class)
+        self.validation.approval = self.approval
+        for validator in self.validators:
             await validator.validate()
             if self.validation.abort:
                 break

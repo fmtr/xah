@@ -57,7 +57,7 @@ def test_tool_argument_errors_hide_context_and_external_urls(tmp_path):
     tool_definition = toolset.tools[toolset.tool_name(Run)].tool_def
 
     with pytest.raises(ModelRetry) as error:
-        toolset.init_tool(ctx, tool_definition, {}, Validation())
+        toolset.init_tool(ctx, tool_definition, {})
 
     message = str(error.value)
     assert "ctx" not in message

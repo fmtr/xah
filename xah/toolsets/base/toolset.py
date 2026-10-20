@@ -140,30 +140,15 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             raise ToolFailed("Internal error")
 
     def register(self, tool_class: type[Tool]) -> None:
-        """
-        Register the framework-facing constructor for a tool class.
-
-        The preflight hooks construct temporary instances directly because
-        they run before Pydantic AI dispatches the registered tool. The
-        registered constructor is the execution path used by ``call_tool``.
-        """
-        async def construct(
+        """Register the framework-facing constructor for a tool class."""
+        async def get_instance(
             ctx: RunContext[AgentDepsT],
             **tool_args: Any,
         ) -> Tool:
-            try:
-                return tool_class(
-                    ctx=ctx,
-                    toolset=self,
-                    state=self.state_for(tool_class, tool_class),
-                    validation=self.validations[ctx.tool_call_id],
-                    **tool_args,
-                )
-            except ValidationError as error:
-                raise ModelRetry(self.validation_error_message(error)) from error
+            return self.instances.id[ctx.tool_call_id]
 
         pydantic_tool = PydanticTool.from_schema(
-            function=construct,
+            function=get_instance,
             name=self.tool_name(tool_class),
             description=tool_class.description,
             json_schema=tool_class.model_json_schema(),
@@ -190,9 +175,8 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         return ApprovalRequiredToolsetMetadata(self, self.validate)
 
     @cached_property
-    def validations(self) -> dict[str | None, Validation]:
-        return {}
-
+    def instances(self) -> ilist[Tool]:
+        return ilist()
 
     @staticmethod
     def validation_error_message(error: ValidationError) -> str:
@@ -215,27 +199,19 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         ctx: RunContext[AgentDepsT],
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
-        validation: Validation,
     ) -> Tool:
-        """
-        Initialize a temporary tool for preflight inspection.
-
-        This direct constructor is separate from the registered constructor
-        used by Pydantic AI during execution because approval runs before the
-        framework dispatches the tool.
-        """
         local_name = self.local_tool_name(tool_def.name)
         tool_class = self.Tools.local_name[local_name]
         try:
-            return tool_class(
+            instance = tool_class(
                 ctx=ctx,
                 toolset=self,
                 state=self.state_for(tool_class, tool_class),
-                validation=validation,
                 **tool_args,
             )
         except ValidationError as error:
             raise ModelRetry(self.validation_error_message(error)) from error
+        return instance
 
     async def validate(
         self,
@@ -243,40 +219,32 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
     ) -> Validation:
-        validation = Validation(ctx=ctx)
-        instance = self.init_tool(ctx, tool_def, tool_args, validation)
-        validation.approval = instance.approval
-        await self.raise_errors(instance.validate)
-        if validation.messages.errors:
-            raise ModelRetry(validation.messages.errors.text)
-        self.validations[ctx.tool_call_id] = validation
-        return validation
+        instance = self.init_tool(ctx, tool_def, tool_args)
+        self.instances.append(instance)
+        keep_instance = False
+        try:
+            await self.raise_errors(instance.validate)
+            if instance.validation.messages.errors:
+                raise ModelRetry(instance.validation.messages.errors.text)
+            keep_instance = True
+            return instance.validation
+        finally:
+            if not keep_instance:
+                self.instances.remove(instance)
 
-    async def _after(self, instance: Tool, validation: Validation, method):
-        for validator_class in instance.Validators:
-            validator = validator_class.model_validate(
-                instance,
-                from_attributes=True,
-            )
-            validator.validation = validation
-            validator.state = self.state_for(type(instance), validator_class)
-            hook = getattr(validator, method.__name__)
-            await self.raise_errors(hook)
+    async def after_approval(self, instance: Tool):
+        await self.raise_errors(instance.after_approval)
+        for validator in instance.validators:
+            await self.raise_errors(validator.after_approval)
 
-    async def after_approval(self, instance: Tool, validation: Validation):
-        await self._after(instance, validation, instance.after_approval)
-
-    async def after_decline(
-        self,
-        tool_name: str,
-        tool_call_id: str,
-        tool_args: dict[str, Any],
-    ):
-        validation = self.validations[tool_call_id]
-        tool = self.tools[tool_name]
-        instance = self.init_tool(validation.ctx, tool.tool_def, tool_args, validation)
-        await self._after(instance, validation, instance.after_decline)
-        self.validations.pop(tool_call_id)
+    async def after_decline(self, tool_call_id: str):
+        instance = self.instances.id[tool_call_id]
+        try:
+            await self.raise_errors(instance.after_decline)
+            for validator in instance.validators:
+                await self.raise_errors(validator.after_decline)
+        finally:
+            self.instances.remove(self.instances.id[tool_call_id])
 
     async def call_tool(
         self,
@@ -285,29 +253,24 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         ctx: RunContext[AgentDepsT],
         tool: ToolsetTool[AgentDepsT],
     ) -> Any:
-        """
-        Execute a tool after its approval-bridge validation.
-
-        The validation result is keyed by the framework tool-call ID so the
-        approved retry can reuse the exact preflight result.
-        """
-        if ctx.tool_call_id not in self.validations:
-            await self.validate(ctx, tool.tool_def, tool_args) # Validation didn't already run during approval prompt check (i.e. we're a non-ACP/subagent).
-        validation = self.validations[ctx.tool_call_id]
-        instance = await super().call_tool(name, tool_args, ctx, tool)
+        """Execute the retained tool instance after validation and approval."""
+        if ctx.tool_call_id not in self.instances.id:
+            await self.validate(ctx, tool.tool_def, tool_args)
+        instance = self.instances.id[ctx.tool_call_id]
         try:
+            instance = await super().call_tool(name, tool_args, ctx, tool)
             if ctx.tool_call_approved:
-                await self.after_approval(instance, validation)
+                await self.after_approval(instance)
 
             run_result = await self.raise_errors(instance.run)
         finally:
-            self.validations.pop(ctx.tool_call_id)
+            self.instances.remove(self.instances.id[ctx.tool_call_id])
 
-        if validation.messages.warnings:
+        if instance.validation.messages.warnings:
             instance.feedback(
                 strings.trim(
                     f"The {name} tool completed, but issued the following warnings. Avoid these issues in subsequent calls.",
-                    validation.messages.warnings.text,
+                    instance.validation.messages.warnings.text,
                 )
             )
 

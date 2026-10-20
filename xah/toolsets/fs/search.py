@@ -14,7 +14,7 @@ from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValida
 
 class SearcherBase:
     MAX_RESULTS = 100
-    SEARCH_TIMEOUT = 120
+    SEARCH_TIMEOUT = 30
 
     def __init__(self, path: Path, pattern: str | None, glob: str | None):
         self.path = path

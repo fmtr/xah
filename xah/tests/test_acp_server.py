@@ -29,7 +29,7 @@ class Toolsets:
     def for_tool(self, tool_name):
         return self
 
-    async def after_decline(self, tool_name, tool_call_id, tool_args):
+    async def after_decline(self, tool_call_id):
         self.declined.append(tool_call_id)
 
 
@@ -47,8 +47,8 @@ class DeclineToolset(Toolset):
     def Tools(cls):
         return [DeclineTool]
 
-    async def after_decline(self, tool_name, tool_call_id, tool_args):
-        self.declined.append((tool_name, tool_call_id, tool_args))
+    async def after_decline(self, tool_call_id):
+        self.declined.append(tool_call_id)
 
 
 class Classifier:
@@ -175,7 +175,7 @@ def test_sessionless_acp_agent_routes_declines_to_session_toolsets(tmp_path):
     runtime = harness.agent_source.get_runtime(session)
     toolset = runtime.deps.toolsets.all.cls[DeclineToolset]
     assert isinstance(resolution.deferred_tool_results.approvals["call-1"], ToolDenied)
-    assert toolset.declined == [(tool_name, "call-1", {})]
+    assert toolset.declined == ["call-1"]
 
 
 def test_acp_session_log_includes_client_info(monkeypatch):

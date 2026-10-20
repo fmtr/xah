@@ -34,4 +34,4 @@ def test_available_models_are_declared_on_harness():
         usage_reporters=UsageReporterRegistry(),
     )
     assert len(harness.models) == 1
-    assert harness.models[0].model_id == "openai:gpt-5.6-luna"
+    assert harness.models[0].model_id == "openai:gpt-6-luna"

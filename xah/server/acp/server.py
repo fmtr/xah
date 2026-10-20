@@ -66,7 +66,7 @@ class ApprovalBridgeMetadata(NativeApprovalBridge):
     ) -> None:
         toolsets = self.source.get_runtime(session).deps.toolsets
         toolset = toolsets.for_tool(tool_name)
-        await toolset.after_decline(tool_name, tool_call_id, tool_args)
+        await toolset.after_decline(tool_call_id)
 
     async def resolve_deferred_approvals(
         self,
