@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from functools import cached_property
 from typing import Any, Generic, Self, Sequence, TypeVar, cast
-
+from xah.paths import paths
 from acp.schema import ConfigOptionUpdate
 from acpremote import TransportOptions, serve_acp
 from cached_classproperty import cached_classproperty
@@ -70,7 +70,7 @@ class HarnessBase(Generic[AgentDepsT]):
     NAME=None
     title = "Xah"
     description = "Root/orchestrator agent"
-    instructions = "Use the prompt and the skills to complete the task."
+    instructions = f"You are {paths.name}: {paths.metadata.description}. Developed by {paths.metadata.org_friendly}."
     deps_type = cast(type[AgentDepsT], HarnessAgentDeps)
     model_settings = {}
     retries = 20
@@ -420,7 +420,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
 
         projections = []
         for toolset_type in self.Toolsets:
-            projections.extend(toolset_type.projections)
+            projections.extend(toolset_type.projections or [])
         return ilist(projections)
 
     @cached_property

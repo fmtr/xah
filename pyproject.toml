@@ -9,7 +9,7 @@ base = "python"
 description = "An extensible AI agent harness"
 org_github = "fmtr"
 org_friendly = "Frontmatter AI"
-is_pypi = false
+is_pypi = true
 is_dockerhub = false
 
 [tool.corio.metadata.setup]
