@@ -66,7 +66,7 @@ class Tool(dm.Base):
     )
 
     @cp
-    def id(self) -> str:
+    def call_id(self) -> str:
         return self.ctx.tool_call_id
 
     def model_post_init(self, __context):

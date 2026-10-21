@@ -145,7 +145,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             ctx: RunContext[AgentDepsT],
             **tool_args: Any,
         ) -> Tool:
-            return self.instances.id[ctx.tool_call_id]
+            return self.instances.call_id[ctx.tool_call_id]
 
         pydantic_tool = PydanticTool.from_schema(
             function=get_instance,
@@ -238,13 +238,13 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             await self.raise_errors(validator.after_approval)
 
     async def after_decline(self, tool_call_id: str):
-        instance = self.instances.id[tool_call_id]
+        instance = self.instances.call_id[tool_call_id]
         try:
             await self.raise_errors(instance.after_decline)
             for validator in instance.validators:
                 await self.raise_errors(validator.after_decline)
         finally:
-            self.instances.remove(self.instances.id[tool_call_id])
+            self.instances.remove(instance)
 
     async def call_tool(
         self,
@@ -254,9 +254,9 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         tool: ToolsetTool[AgentDepsT],
     ) -> Any:
         """Execute the retained tool instance after validation and approval."""
-        if ctx.tool_call_id not in self.instances.id:
+        if ctx.tool_call_id not in self.instances.call_id:
             await self.validate(ctx, tool.tool_def, tool_args)
-        instance = self.instances.id[ctx.tool_call_id]
+        instance = self.instances.call_id[ctx.tool_call_id]
         try:
             instance = await super().call_tool(name, tool_args, ctx, tool)
             if ctx.tool_call_approved:
@@ -264,7 +264,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
             run_result = await self.raise_errors(instance.run)
         finally:
-            self.instances.remove(self.instances.id[ctx.tool_call_id])
+            self.instances.remove(instance)
 
         if instance.validation.messages.warnings:
             instance.feedback(

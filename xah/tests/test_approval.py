@@ -178,10 +178,10 @@ def test_approved_call_reuses_tool_and_validator_instances():
     with pytest.raises(ApprovalRequired):
         asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
 
-    instance = toolset.instances.id[ctx.tool_call_id]
+    instance = toolset.instances.call_id[ctx.tool_call_id]
     validator = instance.validators[0]
-    assert instance.id == ctx.tool_call_id
-    assert validator.id == ctx.tool_call_id
+    assert instance.call_id == ctx.tool_call_id
+    assert validator.call_id == ctx.tool_call_id
     assert TrackingTool.instances == [instance]
     assert TrackingValidator.instances == [validator]
 
@@ -208,7 +208,7 @@ def test_decline_hook_uses_retained_tool_and_validator_then_cleans_up():
             pass
 
         async def after_decline(self):
-            self.declined_ids.append(self.id)
+            self.declined_ids.append(self.call_id)
 
     class DeclineLifecycleTool(ApprovalTool):
         @classes
@@ -227,8 +227,8 @@ def test_decline_hook_uses_retained_tool_and_validator_then_cleans_up():
     asyncio.run(toolset.validate(first_ctx, tool_def, {"value": "first"}))
     asyncio.run(toolset.validate(second_ctx, tool_def, {"value": "second"}))
 
-    first_instance = toolset.instances.id[first_ctx.tool_call_id]
-    second_instance = toolset.instances.id[second_ctx.tool_call_id]
+    first_instance = toolset.instances.call_id[first_ctx.tool_call_id]
+    second_instance = toolset.instances.call_id[second_ctx.tool_call_id]
     first_validator = first_instance.validators[0]
     second_validator = second_instance.validators[0]
     asyncio.run(toolset.after_decline(first_ctx.tool_call_id))
@@ -245,6 +245,32 @@ def test_toolset_converts_model_validation_errors_to_model_retry():
     tool_def = next(iter(toolset.tools.values())).tool_def
     with pytest.raises(ModelRetry):
         toolset.init_tool(context(toolset), tool_def, {})
+
+
+def test_toolset_indexes_instances_by_call_id_when_tool_has_domain_id():
+    class DomainIdTool(ApprovalTool):
+        id: str = "collection-123"
+
+        @classes
+        def Validators(cls):
+            return []
+
+    class DomainIdToolset(ApprovalToolset):
+        @classes
+        def Tools(cls):
+            return [DomainIdTool]
+
+    toolset = DomainIdToolset()
+    ctx = context(toolset, approved=True)
+    tools = asyncio.run(toolset.get_tools(ctx))
+    name = toolset.tool_name(DomainIdTool)
+
+    result = asyncio.run(
+        toolset.call_tool(name, {"value": "result"}, ctx, tools[name])
+    )
+
+    assert result == "result"
+    assert toolset.instances == []
 
 
 def test_full_policy_keeps_warning_messages():
