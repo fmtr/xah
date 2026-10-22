@@ -7,14 +7,15 @@ from pydantic import Field
 
 from corio import Path, strings
 from xah.constants import PROJECTION_EDIT_TOOL_NAMES
-from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.base.tool import Tool
+from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
-class Edit(FileTool):
+class Edit(Tool):
     """Edit a file by exact string replacement."""
 
-    path: Annotated[Path, Permissions(Permissions.Read, Permissions.Write)] = Field(
+    path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="File path relative to the working directory.",
     )
     old_text: str = Field(description="Exact text to replace.")
@@ -25,7 +26,7 @@ class Edit(FileTool):
 
     @classes
     def Validators(cls):
-        return [EditPermissions, ValidEdit, EditWarnings]
+        return [ValidEdit, EditWarnings]
 
     @cached_property
     def current(self) -> str:
@@ -41,10 +42,6 @@ class Edit(FileTool):
         self.path.write_text(self.updated)
         count = occurrences if self.replace_all else 1
         return f"Edited {self.path}: replaced {strings.suffix_plural(count, 'occurrence')}"
-
-
-class EditPermissions(PermissionsValidator, Edit):
-    pass
 
 
 class ValidEdit(Edit):

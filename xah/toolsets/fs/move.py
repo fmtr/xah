@@ -1,16 +1,16 @@
 from typing import Annotated, ClassVar
 
 from cached_classproperty import cached_classproperty
-from xah.class_collections import classes
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_ai import ModelRetry
 
 from corio import Path
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
-from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.base.tool import Tool
+from xah.toolsets.fs.permissions import Permissions
 
 
-class Move(FileTool):
+class Move(Tool):
     """Move or copy a file or directory."""
 
     source: Annotated[Path, Permissions(Permissions.Read)] = Field(
@@ -21,9 +21,11 @@ class Move(FileTool):
 
     PROJECTIONS: ClassVar[str] = PROJECTION_WRITE_TOOL_NAMES
 
-    @classes
-    def Validators(cls):
-        return [MovePermissions]
+    @model_validator(mode="after")
+    def resolve_move_source(self):
+        if not self.is_copy:
+            self.source = self.resolve(self.source, Permissions(Permissions.Write))
+        return self
 
     async def run(self) -> str:
         if self.is_copy:
@@ -39,10 +41,3 @@ class Move(FileTool):
             raise ModelRetry(str(error)) from error
 
         return f"{action} '{self.source}' to '{self.target}'."
-
-
-class MovePermissions(PermissionsValidator, Move):
-    async def validate(self):
-        await super().validate()
-        if not self.is_copy:
-            self.validate_path(self.source, Permissions.Write)

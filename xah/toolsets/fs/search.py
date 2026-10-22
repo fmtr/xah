@@ -3,13 +3,13 @@ from functools import cached_property
 from typing import Annotated, ClassVar
 
 from cached_classproperty import cached_classproperty
-from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path, strings
 from xah.constants import PROJECTION_SEARCH_TOOL_NAMES
-from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.base.tool import Tool
+from xah.toolsets.fs.permissions import Permissions
 
 
 class SearcherBase:
@@ -93,27 +93,19 @@ class SearcherContent(SearcherBase):
         return strings.join(groups, sep="\n-\n")
 
 
-class Search(FileTool):
+class Search(Tool):
     """Search for files or file contents."""
 
     pattern: str | None = Field(default=None, description="Content pattern. Omit to list files.")
-    path: Annotated[Path, Permissions(Permissions.Read)] = Field(
-        default_factory=lambda: Path("."),
+    path: Annotated[Path | None, Permissions(Permissions.Read)] = Field(
+        default=None,
         description="Directory or file to search.",
     )
     glob: str | None = Field(default=None, description="Optional file glob filter.")
 
     PROJECTIONS: ClassVar[str] = PROJECTION_SEARCH_TOOL_NAMES
 
-    @classes
-    def Validators(cls):
-        return [SearchPermissions]
-
     async def run(self) -> str:
         searcher_type = SearcherFiles if self.pattern is None else SearcherContent
         searcher = searcher_type(self.path, self.pattern, self.glob)
         return await searcher.run()
-
-
-class SearchPermissions(PermissionsValidator, Search):
-    pass

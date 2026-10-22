@@ -2,6 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 from pydantic_ai import ModelRetry, RunContext
 from pydantic_ai.usage import RunUsage
 
@@ -45,7 +46,26 @@ def test_path_metadata_drives_resolution_and_permissions(tmp_path):
     metadata = next(metadata for metadata in type(tool).model_fields["path"].metadata if isinstance(metadata, Permissions))
 
     assert tool.path == Path(tmp_path / "note.txt").resolve()
-    assert metadata == {Permissions.Read, Permissions.Write}
+    assert metadata.permission is Permissions.Write
+
+
+def test_permission_validation_message_identifies_required_permission(tmp_path):
+    ctx = context(tmp_path)
+
+    with pytest.raises(ValidationError) as error:
+        make(Write, ctx, path="../outside.txt", content="hello")
+
+    message = Files.validation_error_message(error.value)
+
+    assert "PathWrite permission" in message
+    assert "outside" in message
+
+
+def test_search_defaults_to_the_current_working_directory(tmp_path):
+    ctx = context(tmp_path)
+    tool = make(Search, ctx)
+
+    assert tool.path == Path(tmp_path)
 
 
 def test_ctx_is_validated_but_absent_from_schema_and_dump(tmp_path):
@@ -70,24 +90,21 @@ def test_write_validate_and_run(tmp_path):
     assert Path(tmp_path / "nested/note.txt").read_text() == "hello\n"
 
 
-def test_permission_failure_occurs_during_validation(tmp_path):
+def test_permission_failure_occurs_during_model_validation(tmp_path):
     ctx = context(tmp_path)
-    tool = make(Write, ctx, path="../escape.txt", content="no")
 
-    tool.validation = Validation()
-    asyncio.run(tool.validate())
-    assert "Permission Denied" in tool.validation.messages.errors[0]
+    with pytest.raises(ValidationError, match="PathWrite permission"):
+        make(Write, ctx, path="../escape.txt", content="no")
 
 
-def test_env_file_requires_approval_and_reports_secret_access(tmp_path):
+def test_env_file_does_not_add_permission_validation_messages(tmp_path):
     ctx = context(tmp_path)
     tool = make(Read, ctx, path=".env")
     tool.validation = Validation()
 
     asyncio.run(tool.validate())
 
-    assert tool.validation.approval
-    assert tool.validation.messages.approval == [f'Accessing secrets file: "{tmp_path / ".env"}"']
+    assert tool.validation.messages == Messages()
 
 
 def test_read_edit_move_search_and_remove(tmp_path):

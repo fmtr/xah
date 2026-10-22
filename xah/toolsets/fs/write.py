@@ -6,11 +6,12 @@ from pydantic import Field
 
 from corio import Path
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
-from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.base.tool import Tool
+from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
-class Write(FileTool):
+class Write(Tool):
     """Write complete content to a file."""
 
     path: Annotated[Path, Permissions(Permissions.Write)] = Field(
@@ -22,16 +23,12 @@ class Write(FileTool):
 
     @classes
     def Validators(cls):
-        return [WritePermissions, WriteWarnings]
+        return [WriteWarnings]
 
     async def run(self) -> str:
         self.path.parent.mkdirf()
         self.path.write_text(self.content)
         return f"Wrote {len(self.content.splitlines())} lines to {self.path}"
-
-
-class WritePermissions(PermissionsValidator, Write):
-    pass
 
 
 class WriteWarnings(SimilarityValidator, Write):

@@ -28,9 +28,6 @@ from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
-from xah.toolsets.fs.mkdir import Mkdir
-from xah.toolsets.fs.path import PathPermissions
-from xah.toolsets.fs.remove import Remove
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.fs.write import Write
 from xah.toolsets.python.toolset import Python
@@ -62,16 +59,6 @@ def test_toolset_activation_and_info():
     toolset.activated = False
 
     assert not toolset.activated
-
-
-def test_files_toolset_after_compress_uses_owner_specific_validator_state():
-    files = Files(settings=SimpleNamespace(), cwd=Path.cwd())
-
-    files.after_compress()
-
-    mkdir_state = files.states[(Mkdir, PathPermissions)]
-    remove_state = files.states[(Remove, PathPermissions)]
-    assert mkdir_state is not remove_state
 
 
 def test_harness_instructions_load_home_and_project_files(tmp_path):

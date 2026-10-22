@@ -5,9 +5,9 @@ from pydantic_ai import ModelRetry
 
 from corio import Path, dm, strings
 from corio.function import cp
-from xah.class_collections import classes
 from xah.constants import PROJECTION_READ_TOOL_NAMES
-from xah.toolsets.fs.permissions import FileTool, Permissions, PermissionsValidator
+from xah.toolsets.base.tool import Tool
+from xah.toolsets.fs.permissions import Permissions
 
 
 class Line(dm.Base):
@@ -37,7 +37,7 @@ class Line(dm.Base):
         return self.truncation.was_truncated
 
 
-class Read(FileTool):
+class Read(Tool):
     """Read file content with line numbers."""
 
     path: Annotated[Path, Permissions(Permissions.Read)] = Field(
@@ -49,11 +49,6 @@ class Read(FileTool):
     MAX_LINE_LENGTH: ClassVar[int] = 20_000
     MAX_OUTPUT_LENGTH: ClassVar[int] = 50_000
     PROJECTIONS: ClassVar[str] = PROJECTION_READ_TOOL_NAMES
-
-    @classes
-    def Validators(cls):
-        return [ReadPermissions]
-
     async def run(self) -> str:
         if not self.path.exists():
             raise ModelRetry(f"Error: File '{self.path}' not found")
@@ -128,7 +123,3 @@ class Read(FileTool):
 
         remaining_count = strings.suffix_plural(remaining, "line")
         return strings.trim(output, f"# ... ({remaining_count} remaining)")
-
-
-class ReadPermissions(PermissionsValidator, Read):
-    pass

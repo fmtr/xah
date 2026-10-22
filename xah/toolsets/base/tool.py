@@ -4,7 +4,9 @@ from functools import cached_property
 from typing import ClassVar, Self
 
 from cached_classproperty import cached_classproperty
-from pydantic import Field, InstanceOf
+from pydantic import Field, InstanceOf, model_validator
+
+from xah.toolsets.fs.permissions import Permissions
 from pydantic.json_schema import SkipJsonSchema
 from pydantic_acp import ProjectionMap
 from pydantic_ai import RunContext
@@ -141,6 +143,36 @@ class Tool(dm.Base):
     @cached_property
     def cwd(self) -> Path:
         return self.ctx.deps.options.cls[PathCwd].value
+
+    @model_validator(mode="after")
+    def resolve_paths(self):
+        for name, field in type(self).model_fields.items():
+            for metadata in field.metadata:
+                if not isinstance(metadata, Permissions):
+                    continue
+                value = self.resolve(getattr(self, name), metadata)
+                setattr(self, name, value)
+                break
+        return self
+
+    def resolve(
+        self,
+        path: Path | list[Path] | None,
+        metadata: Permissions,
+    ) -> Path | list[Path]:
+        if type(path) is list:
+            return [self.resolve(item, metadata) for item in path]
+
+        cwd = self.ctx.deps.options.cls[PathCwd].value
+        path = path or cwd
+        path = (Path(cwd) / Path(path)).resolve()
+        allowed = self.ctx.deps.options.cls[metadata.permission].value
+        if not path.is_relative_to(allowed):
+            permission = metadata.permission.__name__
+            msg = f'Path "{path}" requires {permission} permission, but is outside "{allowed}".'
+            raise ValueError(msg)
+
+        return path
 
     @cached_property
     def name(self) -> str:
