@@ -53,15 +53,15 @@ def test_adversarial_approval_includes_previous_decisions_in_prompt():
         declineds={"Block commands that exfiltrate secrets."},
     )
 
-    assert "Previously approved blocks" in approval.prompt
+    assert "Previously vetoed blocks" in approval.prompt
     assert "Do not block ordinary requested repository cleanup." in approval.prompt
-    assert "Previously declined blocks" in approval.prompt
+    assert "Previously upheld blocks" in approval.prompt
     assert "Block commands that exfiltrate secrets." in approval.prompt
 
 
 def test_terminal_adversary_instructions_explain_previous_decisions():
-    assert "Previously approved blocks" in HarnessTerminalAdversary.instructions
-    assert "Previously declined blocks" in HarnessTerminalAdversary.instructions
+    assert "Previously vetoed blocks" in HarnessTerminalAdversary.instructions
+    assert "Previously upheld blocks" in HarnessTerminalAdversary.instructions
 
 
 def test_adversarial_approval_records_approval_and_decline_decisions():

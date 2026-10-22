@@ -14,6 +14,10 @@ is_dockerhub = false
 
 [tool.corio.metadata.setup]
 
+[tool.corio.dependencies]
+dev = ["tool.web"]
+"tool.web" = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+
 [tool.setuptools]
 package-dir = { "" = "." }
 
@@ -62,3 +66,6 @@ Homepage = "https://github.com/fmtr/xah"
 
 [project.scripts]
 "xah" = "xah.entrypoint:main"
+
+[tool.coverage.run]
+omit = ["xah/examples/*"]

@@ -3,6 +3,7 @@ from typing import ClassVar
 from pydantic import model_validator
 
 from corio import Path
+from corio.iterator import enlist
 from xah.options.path import PathRead, PathWrite, SelectPath
 from xah.toolsets.base.tool import Tool
 
@@ -21,7 +22,10 @@ class FileTool(Tool):
         for name, field in type(self).model_fields.items():
             if any(isinstance(metadata, Permissions) for metadata in field.metadata):
                 value = getattr(self, name)
-                setattr(self, name, (self.cwd / value).resolve())
+                values = enlist(value)
+                resolved = [(self.cwd / item).resolve() for item in values]
+                value = resolved[0] if isinstance(value, Path) else resolved
+                setattr(self, name, value)
         return self
 
 
@@ -43,12 +47,13 @@ class PermissionsValidator:
             if not permissions:
                 continue
 
-            path = getattr(self, name)
-            for permission in permissions:
-                self.validate_path(path, permission)
-                if self.validation.abort:
-                    return
+            paths = enlist(getattr(self, name))
+            for path in paths:
+                for permission in permissions:
+                    self.validate_path(path, permission)
+                    if self.validation.abort:
+                        return
 
-            if path.stem == ".env":
-                self.validation.approval = True
-                self.validation.messages.approval.append(f'Accessing secrets file: "{path}"')
+                if path.stem == ".env":
+                    self.validation.approval = True
+                    self.validation.messages.approval.append(f'Accessing secrets file: "{path}"')
