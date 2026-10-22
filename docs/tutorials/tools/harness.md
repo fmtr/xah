@@ -15,25 +15,29 @@ Install `xah` with `pip install xah` in the Python environment you will use, the
 ```yaml
 agent: DemoHarness
 event: setup
+# (1)! Setup shows the custom instruction and tool exposed by the harness.
+# (2)! The harness passes this instruction to the model.
 instructions: Use the tools to tell the user facts about themself.
 tools:
+# (3)! The toolset makes this tool available to the model.
 - UserFactsToolset-AgeTool
 agent: DemoHarness
 event: model-request
 messages:
-# (1)! The user's prompt is sent to the model.
+# (4)! The user's prompt is sent to the model.
 - kind: user-prompt
   content: How old am I? My name is Maya.
 agent: DemoHarness
 event: model-response
 messages:
+# (5)! The model asks the harness to run the age tool.
 - kind: tool-call
   tool_name: UserFactsToolset-AgeTool
   args:
     user: Maya
 agent: DemoHarness
 event: tool-result
-# (2)! The tool's return value is logged so you can see what the model receives.
+# (6)! The tool's return value is logged so the model can use it.
 kind: tool-return
 tool_name: UserFactsToolset-AgeTool
 outcome: success
@@ -44,3 +48,10 @@ messages:
 - kind: text
   content: Maya, you're 34 years old.
 ```
+
+1. Setup shows the custom instruction and tool exposed by the harness.
+2. The harness passes its instruction to the model.
+3. The toolset makes `AgeTool` available.
+4. The request contains the user's question.
+5. The model calls `AgeTool` with Maya's name.
+6. The tool returns the age for the model to use.

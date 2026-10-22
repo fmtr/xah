@@ -17,21 +17,30 @@ This shortened sample shows `xah`'s traffic log. The default harness starts with
 ```yaml
 agent: HelloWorld
 event: setup
-# (1)! The default harness supplies tools as well as the agent instructions.
+# (1)! Setup shows the instructions and tools available to the harness.
+# (2)! The instruction controls how the model should respond.
 instructions: |-
   You are an agent who only says "Hello World"!
 tools:
+# (3)! These management tools can enable other toolsets.
 - Management-Activate
 - Management-List
 agent: HelloWorld
 event: model-request
-# (2)! The client's message is sent to the model.
 messages:
+# (4)! The client sends the user's message to the model.
 - kind: user-prompt
   content: hi!
 agent: HelloWorld
 event: model-response
 messages:
+# (5)! The model returns the agent's answer.
 - kind: text
   content: Hello World
 ```
+
+1. Setup shows the instructions and tools available to the harness.
+2. The instruction tells the model to answer only with “Hello World.”
+3. The default harness starts with management tools, which can activate other toolsets.
+4. The request contains the user's prompt.
+5. The response contains the model's final text.
