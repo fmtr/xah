@@ -2,7 +2,7 @@ from xah import Harness
 
 
 class HelloWorld(Harness):
-    # (1)! The instruction is what makes this a Hello World agent.
+    # (1)!
     instructions = 'You are an agent who only says "Hello World"!'
 
 

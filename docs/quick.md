@@ -27,4 +27,4 @@ The server listens on `localhost:8010` by default. Leave it running while you us
 
     `xah` starts an agent server, not a chat window. An ACP client is the user-facing app where you choose an agent, send messages, and view replies. Clients are most often IDEs or editors, but desktop, terminal, and web interfaces are available too. See [client setup](acp.md).
 
-For custom agents and tools, see [components](components/) and [tools](tools/).
+For custom agents and tools, work through the [tutorials](tutorials/).

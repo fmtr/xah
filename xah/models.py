@@ -59,7 +59,10 @@ class AdapterModel(AcpAdapterModel):
 
 class AdapterModelOpenAI(AdapterModel):
     """Configure models served by OpenAI's provider."""
-
+    MODEL_SETTINGS = ModelSettings(
+        openai_reasoning_effort="medium",
+        openai_reasoning_summary="detailed",
+    )
 
 class AdapterModelOllama(AdapterModel):
     """Configure models served by an Ollama endpoint."""
@@ -80,7 +83,4 @@ class AdapterModelOllama(AdapterModel):
 
 class Luna(AdapterModelOpenAI):
     NAME = "gpt-6-luna"
-    MODEL_SETTINGS = ModelSettings(
-        openai_reasoning_effort="medium",
-        openai_reasoning_summary="detailed",
-    )
+
