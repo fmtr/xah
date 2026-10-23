@@ -257,7 +257,6 @@ def test_select_enabled_can_be_overridden():
         values=[options.Policies.DISABLED],
         value=options.Policies.DISABLED,
         description=None,
-        category="test",
     )
 
     assert not policy.enabled
@@ -412,7 +411,6 @@ def test_harness_flattens_toolset_option_lists():
                     values=["one", "two"],
                     value="one",
                     description="Additional setting.",
-                    category="tools",
                 ),
             ])
 
@@ -426,7 +424,11 @@ def test_harness_flattens_toolset_option_lists():
         usage_reporters=UsageReporterRegistry(),
     )
 
-    assert [option.id for option in selected.deps.options if option.category == "tools"] == [
+    assert [
+        option.id
+        for option in selected.deps.options
+        if option.id.startswith(("MultiOptionToolset/", "Utils/"))
+    ] == [
         "MultiOptionToolset/ExtraOption",
         "MultiOptionToolset/Policy",
         "Utils/Policy",

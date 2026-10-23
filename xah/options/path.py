@@ -42,7 +42,6 @@ class SelectPath(options.Select):
             values=values,
             value=value,
             description=description,
-            category="permissions",
             cwd=cwd.resolve(),
         )
 

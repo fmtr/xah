@@ -47,7 +47,6 @@ class Select(SessionConfigOptionSelect):
         values: list[str],
         value: str,
         description: str | None,
-        category: str,
         **fields: Any,
     ):
         name = cls.get_name(name)
@@ -67,7 +66,6 @@ class Select(SessionConfigOptionSelect):
             id=name,
             name=name,
             description=description,
-            category=category,
             type="select",
             currentValue=value,
             options=choices,
@@ -91,5 +89,4 @@ class Policy(Select):
             values=cls.VALUES,
             value=value,
             description=description,
-            category="tools",
         )
