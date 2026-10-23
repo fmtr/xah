@@ -3,7 +3,7 @@ requires = ["setuptools>=82", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.corio.metadata]
-version = "0.0.0"
+version = "0.0.1-alpha.0"
 port = 10
 base = "python"
 description = "An extensible AI agent harness"
@@ -40,12 +40,12 @@ env_list = ["xah"]
 
 [tool.tox.env.xah]
 description = "Run xah tests."
-deps = ["acpremote", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.15.2", "corio[test]~=2.15.2", "crawl4ai", "debugpy", "fastmcp==3.4.4", "humanize", "playwright==1.61.0", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]", "tavily-python>=0.8.0"]
+deps = ["acpremote", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.15.3", "corio[test]~=2.15.3", "crawl4ai", "debugpy", "fastmcp==3.4.4", "humanize", "playwright==1.61.0", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]", "tavily-python>=0.8.0"]
 commands = [["python", "-m", "pytest", "-q", "{posargs:xah/tests}"]]
 
 [project]
 name = "xah"
-version = "0.0.0"
+version = "0.0.1-alpha.0"
 description = "An extensible AI agent harness"
 readme = "README.md"
 license = "Apache-2.0"
@@ -54,10 +54,10 @@ requires-python = ">=3.12,<3.15"
 dependencies = []
 
 [project.optional-dependencies]
-test = ["corio[test]~=2.15.2", "corio[db.search,dev,dm,path.search,sets]~=2.15.2", "agent-client-protocol", "debugpy", "pydantic-acp", "acpremote", "pydantic-deep[all]", "pydantic-ai-slim[logfire,openai]", "fastmcp==3.4.4", "humanize", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+test = ["corio[test]~=2.15.3", "corio[db.search,dev,dm,path.search,sets]~=2.15.3", "agent-client-protocol", "debugpy", "pydantic-acp", "acpremote", "pydantic-deep[all]", "pydantic-ai-slim[logfire,openai]", "fastmcp==3.4.4", "humanize", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 dev = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 "tool.web" = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
-all = ["corio[test]~=2.15.2", "corio[db.search,dev,dm,path.search,sets]~=2.15.2", "agent-client-protocol", "debugpy", "pydantic-acp", "acpremote", "pydantic-deep[all]", "pydantic-ai-slim[logfire,openai]", "fastmcp==3.4.4", "humanize", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+all = ["corio[test]~=2.15.3", "corio[db.search,dev,dm,path.search,sets]~=2.15.3", "agent-client-protocol", "debugpy", "pydantic-acp", "acpremote", "pydantic-deep[all]", "pydantic-ai-slim[logfire,openai]", "fastmcp==3.4.4", "humanize", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 
 [[project.authors]]
 name = "Frontmatter AI"
