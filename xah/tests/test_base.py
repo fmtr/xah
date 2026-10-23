@@ -175,11 +175,13 @@ def test_shell_validation_uses_agent_output():
     deps = harness().deps
     toolset = deps.toolsets.all.cls[Shell]
     model = TestModel(
+        call_tools=[],
         custom_output_args={
-            "approval": True,
-            "comments": "The command is appropriate.",
+            "block": False,
+            "reasons": [],
         }
     )
+    deps.model = model
     ctx = RunContext(deps=deps, model=model, usage=RunUsage())
     tool_def = next(iter(toolset.tools.values())).tool_def
 

@@ -40,7 +40,6 @@ env_list = ["xah"]
 
 [tool.tox.env.xah]
 description = "Run xah tests."
-pass_env = ["PLAYWRIGHT_BROWSERS_PATH"]
 deps = ["acpremote", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.15.2", "corio[test]~=2.15.2", "crawl4ai", "debugpy", "fastmcp==3.4.4", "humanize", "playwright==1.61.0", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]", "tavily-python>=0.8.0"]
 commands = [["python", "-m", "pytest", "-q", "{posargs:xah/tests}"]]
 

@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from acp.schema import TextContentBlock, UsageUpdate
+from corio.iterator import ilist
+from pydantic_acp import AdapterModel
 from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 
@@ -22,6 +24,16 @@ class RecordingClient:
 
 def test_acp_session_emits_context_usage_update(tmp_path):
     class TestHarnessAcp(HarnessAcp):
+        @cached_property
+        def models(self):
+            return ilist([
+                AdapterModel(
+                    model_id="test",
+                    name="test",
+                    override=TestModel(custom_output_text="fixed response"),
+                )
+            ])
+
         @cached_property
         def agent(self):
             agent = Agent(
