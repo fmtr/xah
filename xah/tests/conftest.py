@@ -1,6 +1,10 @@
+import os
 import sys
 
 import pytest
+
+
+os.environ["OPENAI_API_KEY"] = "test"
 
 
 @pytest.fixture(autouse=True)

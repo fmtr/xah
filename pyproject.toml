@@ -15,11 +15,9 @@ is_dockerhub = false
 [tool.corio.metadata.setup]
 
 [tool.corio.dependencies]
+test = ["corio[test]", "corio[dev,db.search,dm,path.search,sets]", "agent-client-protocol", "debugpy", "pydantic-acp", "acpremote", "pydantic-deep[all]", "pydantic-ai-slim[logfire,openai]", "fastmcp==3.4.4", "humanize", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 dev = ["tool.web"]
 "tool.web" = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
-
-[tool.setuptools]
-package-dir = { "" = "." }
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -27,11 +25,24 @@ include = ["xah*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"xah" = ["pyproject.package.toml"]
+xah = ["pyproject.package.toml", "assets/**"]
 
 [tool.uv.sources.corio]
 path = "../corio"
 editable = true
+
+[tool.coverage.run]
+omit = ["xah/examples/*"]
+
+[tool.tox]
+requires = ["tox>=4.22", "tox-uv>=1"]
+env_list = ["xah"]
+
+[tool.tox.env.xah]
+description = "Run xah tests."
+pass_env = ["PLAYWRIGHT_BROWSERS_PATH"]
+deps = ["acpremote", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.15.2", "corio[test]~=2.15.2", "crawl4ai", "debugpy", "fastmcp==3.4.4", "humanize", "playwright==1.61.0", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]", "tavily-python>=0.8.0"]
+commands = [["python", "-m", "pytest", "-q", "{posargs:xah/tests}"]]
 
 [project]
 name = "xah"
@@ -41,21 +52,13 @@ readme = "README.md"
 license = "Apache-2.0"
 keywords = []
 requires-python = ">=3.12,<3.15"
-dependencies = [
-    "agent-client-protocol",
-    "corio[dev,db.search,dm,path.search,sets]",
-    "debugpy",
-    "pydantic-acp",
-    "acpremote",
-    "pydantic-deep[all]",
-    "pydantic-ai-slim[logfire,openai]",
-    "fastmcp==3.4.4",
-    "humanize",
-]
+dependencies = []
 
 [project.optional-dependencies]
-"tool.kb" = ["corio[db.search]"]
+test = ["corio[test]~=2.15.2", "corio[db.search,dev,dm,path.search,sets]~=2.15.2", "agent-client-protocol", "debugpy", "pydantic-acp", "acpremote", "pydantic-deep[all]", "pydantic-ai-slim[logfire,openai]", "fastmcp==3.4.4", "humanize", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+dev = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 "tool.web" = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+all = ["corio[test]~=2.15.2", "corio[db.search,dev,dm,path.search,sets]~=2.15.2", "agent-client-protocol", "debugpy", "pydantic-acp", "acpremote", "pydantic-deep[all]", "pydantic-ai-slim[logfire,openai]", "fastmcp==3.4.4", "humanize", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 
 [[project.authors]]
 name = "Frontmatter AI"
@@ -65,7 +68,7 @@ email = "innovative.fowler@mask.pro.fmtr.dev"
 Homepage = "https://github.com/fmtr/xah"
 
 [project.scripts]
-"xah" = "xah.entrypoint:main"
+xah = "xah.entrypoint:main"
 
-[tool.coverage.run]
-omit = ["xah/examples/*"]
+[dependency-groups]
+dev = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
