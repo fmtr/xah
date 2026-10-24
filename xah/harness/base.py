@@ -97,6 +97,10 @@ class HarnessBase(Generic[AgentDepsT]):
     def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
         return []
 
+    @classes
+    def Commands(cls):
+        return []
+
     @cached_property
     def deps_kwargs(self) -> dict[str, Any]:
         return {}
@@ -239,6 +243,12 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
             cls.TOOLSETS.Utils,
             cls.TOOLSETS.Management,
         ]
+
+    @classes
+    def Commands(cls):
+        from xah.commands.test import Test
+
+        return [Test]
 
     @ccp
     def Models(cls) -> list[AdapterModel]:
@@ -441,10 +451,16 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
 
     @cached_property
     def adapter_config(self):
+        from xah.commands.base import CommandsProvider
+
         return AdapterConfig(
             agent_name=self.name,
             agent_title=self.title,
             approval_bridge=self.approval_bridge,
+            slash_command_provider=CommandsProvider(
+                agent_source=self.agent_source,
+                command_types=self.Commands,
+            ),
             capability_bridges=self.bridges,
             config_options_provider=self.config_options_provider,
             available_models=self.models,
