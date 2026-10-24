@@ -36,4 +36,36 @@ async def test_commands_provider_runs_command():
 
     result = await provider.handle_command(request)
 
-    assert result.text == "Test command."
+    assert result.text == "Test command: value='test', count=1, verbose=False."
+
+
+@pytest.mark.asyncio
+async def test_commands_provider_parses_cli_arguments():
+    provider = CommandsProvider(agent_source=Source(), command_types=[Test])
+    request = SlashCommandRequest(
+        name="test",
+        argument='--value "Ada Lovelace" --count 3 --verbose',
+        raw_prompt='/test --value "Ada Lovelace" --count 3 --verbose',
+        session=object(),
+        agent=object(),
+    )
+
+    result = await provider.handle_command(request)
+
+    assert result.text == "Test command: value='Ada Lovelace', count=3, verbose=True."
+
+
+@pytest.mark.asyncio
+async def test_commands_provider_runs_subcommand():
+    provider = CommandsProvider(agent_source=Source(), command_types=[Test])
+    request = SlashCommandRequest(
+        name="test",
+        argument='sub --value "Nested value"',
+        raw_prompt='/test sub --value "Nested value"',
+        session=object(),
+        agent=object(),
+    )
+
+    result = await provider.handle_command(request)
+
+    assert result.text == "Sub-test command: value='Nested value'."
