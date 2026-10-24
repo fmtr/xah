@@ -39,6 +39,25 @@ def test_terminal_truncate_output_preserves_short_output():
     assert TerminalTool.truncate_output(output) == output
 
 
+def test_output_truncates_each_line_with_the_file_line_limit():
+    output = "x" * (Output.MAX_LINE_LENGTH + 1)
+
+    result = Output.format_output(output)
+
+    assert len(result) <= Output.MAX_LINE_LENGTH
+    assert result != output
+
+
+def test_output_keeps_only_the_tail_when_total_output_is_too_long():
+    output = "".join(f"line {index}\n" for index in range(Output.MAX_OUTPUT_LENGTH))
+
+    result = Output.format_output(output)
+
+    assert len(result) == Output.MAX_OUTPUT_LENGTH
+    assert result == output[-Output.MAX_OUTPUT_LENGTH:]
+    assert result.endswith(f"line {Output.MAX_OUTPUT_LENGTH - 1}\n")
+
+
 def test_terminal_summary_includes_runtime_status_and_command():
     terminal = Terminal.model_construct(
         id="test",

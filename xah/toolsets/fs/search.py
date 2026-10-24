@@ -16,16 +16,24 @@ class SearcherBase:
     MAX_RESULTS = 100
     SEARCH_TIMEOUT = 30
 
-    def __init__(self, path: Path, pattern: str | None, glob: str | None):
+    def __init__(self, path: Path, pattern: str | None, glob: str | None, feedback):
         self.path = path
         self.pattern = pattern
         self.glob = glob
+        self.feedback = feedback
 
     @cached_property
     def search_kwargs(self):
-        if not self.glob or self.glob == "*":
-            return {}
-        return {"globs": [self.glob]}
+        search_kwargs = dict(no_ignore=True, hidden=True)
+        if self.glob and self.glob != "*":
+            search_kwargs |= dict(globs=[self.glob])
+        return search_kwargs
+
+    def report_result_cap(self) -> None:
+        self.feedback(
+            f"Search hit the {self.MAX_RESULTS}-result cap; some results were omitted. "
+            "Use a more precise search."
+        )
 
     async def run(self) -> str:
         try:
@@ -58,7 +66,7 @@ class SearcherFiles(SearcherBase):
             lines.append(str(entry.relative_to(root)))
             lines.append(f"{entry.stat().st_size}b")
         if len(entries) > self.MAX_RESULTS:
-            lines.append("# ... more files omitted")
+            self.report_result_cap()
         return strings.join(lines, sep="\n")
 
 
@@ -89,6 +97,7 @@ class SearcherContent(SearcherBase):
             groups.append(strings.join(lines, sep="\n"))
             displayed += len(matches)
             if displayed >= self.MAX_RESULTS:
+                self.report_result_cap()
                 break
         return strings.join(groups, sep="\n-\n")
 
@@ -107,5 +116,5 @@ class Search(Tool):
 
     async def run(self) -> str:
         searcher_type = SearcherFiles if self.pattern is None else SearcherContent
-        searcher = searcher_type(self.path, self.pattern, self.glob)
+        searcher = searcher_type(self.path, self.pattern, self.glob, self.feedback)
         return await searcher.run()
