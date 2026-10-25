@@ -8,6 +8,7 @@ from pydantic import Field
 from pydantic_ai import ApprovalRequired, ModelRetry, RunContext
 from pydantic_ai.usage import RunUsage
 
+from corio import Path
 from corio.iterator import ilist
 from xah.class_collections import classes
 from xah.constants import HARNESS_FEEDBACK
@@ -77,7 +78,13 @@ class CombinedToolset(ApprovalToolset, SecondaryToolset):
 
 
 def context(toolset, approved=False, tool_call_id="call-1"):
-    deps = SimpleNamespace(toolsets=ilist([toolset]), approval_bridge=None)
+    settings = SimpleNamespace(path=SimpleNamespace(home=Path(".agent")))
+    deps = SimpleNamespace(
+        toolsets=ilist([toolset]),
+        approval_bridge=None,
+        settings=settings,
+        cwd_default=Path.cwd(),
+    )
     return RunContext(
         deps=deps,
         model=None,

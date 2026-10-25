@@ -198,14 +198,20 @@ def test_terminal_run_appends_to_terminal_collection():
     deps = harness().deps
     toolset = deps.toolsets.all.cls[Terminals]
     terminals = toolset.terminals
-    ctx = RunContext(deps=deps, model=TestModel(), usage=RunUsage())
+    ctx = RunContext(
+        deps=deps,
+        model=TestModel(),
+        usage=RunUsage(),
+        tool_call_id="test-terminal",
+    )
     tool = Run(ctx=ctx, toolset=toolset, source="printf hello")
 
     result = asyncio.run(tool.run())
 
     assert result == "hello"
     assert tool.terminals is terminals
-    assert terminals[0].output == "hello"
+    assert terminals[0].output_path.read_text() == "hello"
+    assert terminals[0].output_size == 5
 
     management_tool = Status(ctx=ctx, toolset=toolset, terminal_id=terminals[0].id)
 

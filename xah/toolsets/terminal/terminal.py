@@ -11,7 +11,7 @@ import humanize
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
-from corio import dm, strings
+from corio import Path, dm, strings
 from corio.function import cp
 from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
@@ -27,27 +27,25 @@ class TerminalStatus(StrEnum):
 
 
 class Terminal(dm.Base):
-    """A background process whose output can be read incrementally."""
+    """A background process whose output is written to a file."""
 
     READ_CHUNK_SIZE: ClassVar[int] = 4096
-    OUTPUT_CALLBACK_CHUNK_SIZE: ClassVar[int] = 2 * 1024
-    SUMMARY_MASK: ClassVar[str] = """
+    SUMMARY_MASK: ClassVar[str] = strings.trim("""
         Terminal `{id}` running `{command}` for {runtime}.
         Status: `{status}`; exit code: `{exit_code}`.
-    """
+    """)
 
     id: str | None = Field(default=None, description="Identifier used by the terminal management tools.")
     expression: Expression = Field(description="DSL expression being run.", exclude=True)
     timeout: int = Field(default=120, gt=0, description="Maximum execution time in seconds.")
     cwd: str = Field(description="Working directory used by the command.")
+    output_path: Path = Field(description="File receiving combined stdout and stderr output.")
     status: TerminalStatus = TerminalStatus.CREATED
-    output: str = ""
+    output_size: int = 0
     exit_code: int | None = None
     on_complete: SkipJsonSchema[Callable[["Terminal"], None] | None] = Field(default=None, exclude=True)
-    on_output: SkipJsonSchema[Callable[["Terminal"], None] | None] = Field(default=None, exclude=True)
 
     _read_offset: int = 0
-    _output_callback_pending: bool = False
     _started_at: float = 0
     _finished_at: float = 0
     _process_handle: asyncio.subprocess.Process | None = None
@@ -62,7 +60,10 @@ class Terminal(dm.Base):
         return finished_at - self._started_at
 
     def tail(self, size: int) -> str:
-        return self.output[-size:].strip()
+        with self.output_path.open("rb") as file:
+            file.seek(max(self.output_size - size, 0))
+            output = file.read().decode(errors="replace")
+        return output.strip()
 
     @cp
     def summary(self) -> str:
@@ -86,20 +87,16 @@ class Terminal(dm.Base):
         self.process
         return self.status
 
-    async def _read(self, stream: asyncio.StreamReader) -> None:
+    async def _read(self, stream: asyncio.StreamReader, output_file) -> None:
         while chunk := await stream.read(self.READ_CHUNK_SIZE):
-            self.output += chunk.decode(errors="replace")
-            if len(self.output) - self._read_offset < self.OUTPUT_CALLBACK_CHUNK_SIZE:
-                continue
-            if self._output_callback_pending or not self.on_output:
-                continue
-
-            self._output_callback_pending = True
-            self.on_output(self)
+            output_file.write(chunk)
+            output_file.flush()
+            self.output_size += len(chunk)
 
     async def _run(self) -> None:
         readers = []
         terminated = False
+        output_file = self.output_path.open("ab")
         try:
             process = await asyncio.create_subprocess_exec(
                 self.expression.name,
@@ -111,8 +108,8 @@ class Terminal(dm.Base):
             )
             self._process_handle = process
             readers = [
-                asyncio.create_task(self._read(process.stdout)),
-                asyncio.create_task(self._read(process.stderr)),
+                asyncio.create_task(self._read(process.stdout, output_file)),
+                asyncio.create_task(self._read(process.stderr, output_file)),
             ]
             try:
                 await asyncio.wait_for(process.wait(), timeout=self.timeout)
@@ -139,8 +136,12 @@ class Terminal(dm.Base):
             raise
         except OSError as error:
             self.status = TerminalStatus.FAILED
-            self.output += str(error)
+            error_text = str(error).encode()
+            output_file.write(error_text)
+            output_file.flush()
+            self.output_size += len(error_text)
         finally:
+            output_file.close()
             self._finished_at = time.monotonic()
             self._process_handle = None
             if self.on_complete:
@@ -161,7 +162,8 @@ class Terminal(dm.Base):
 
     async def get(self) -> str:
         await asyncio.sleep(0)
-        output = self.output[self._read_offset:]
-        self._read_offset = len(self.output)
-        self._output_callback_pending = False
+        with self.output_path.open("rb") as file:
+            file.seek(self._read_offset)
+            output = file.read().decode(errors="replace")
+        self._read_offset = self.output_size
         return output

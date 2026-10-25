@@ -27,5 +27,4 @@ class Terminals(Toolset):
     def Tools(cls):
         from xah.toolsets.terminal.status import Status
         from xah.toolsets.terminal.kill import Kill
-        from xah.toolsets.terminal.output import Output
-        return [Status, Kill, Output]
+        return [Status, Kill]

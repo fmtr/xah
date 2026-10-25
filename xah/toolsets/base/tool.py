@@ -51,6 +51,8 @@ class Validation(dm.Base):
 
 
 class Tool(dm.Base):
+    EXTERNALIZE_OUTPUT: ClassVar[bool] = True
+
     ctx: SkipJsonSchema[InstanceOf[RunContext]] = Field(exclude=True)
     toolset: SkipJsonSchema[InstanceOf[FunctionToolset]] = Field(exclude=True)
     validation: SkipJsonSchema[InstanceOf[Validation]] = Field(

@@ -8,4 +8,4 @@ class Status(TerminalManagementTool):
 
     async def run(self) -> str:
         terminal = self.terminal
-        return f"Terminal `{terminal.id}` is {terminal.status}."
+        return f"Terminal `{terminal.id}` is {terminal.status}. Output: `{terminal.output_path}` ({terminal.output_size} bytes)."

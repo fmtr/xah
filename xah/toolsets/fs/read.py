@@ -1,13 +1,12 @@
-from typing import Annotated, ClassVar
+from typing import ClassVar
 
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
-from corio import Path, dm, strings
+from corio import dm, strings
 from corio.function import cp
 from xah.constants import PROJECTION_READ_TOOL_NAMES
-from xah.toolsets.base.tool import Tool
-from xah.toolsets.fs.permissions import Permissions
+from xah.toolsets.fs.file import FileTool
 
 
 class Line(dm.Base):
@@ -37,38 +36,49 @@ class Line(dm.Base):
         return self.truncation.was_truncated
 
 
-class Read(Tool):
+class Read(FileTool):
     """Read file content with line numbers."""
 
-    path: Annotated[Path, Permissions(Permissions.Read)] = Field(
-        description="File path relative to the working directory.",
+    offset: int = Field(
+        default=0,
+        description="Zero-based line offset. Negative values start from the end; -1 is the final line.",
     )
-    offset: int = Field(default=0, ge=0, description="Zero-based line offset at which to start reading.")
-    limit: int = Field(default=2000, gt=0, description="Maximum number of lines to return.")
+    limit: int = Field(
+        default=500,
+        gt=0,
+        le=1000,
+        description="Maximum number of lines to return.",
+    )
 
     MAX_LINE_LENGTH: ClassVar[int] = 20_000
     MAX_OUTPUT_LENGTH: ClassVar[int] = 50_000
+    EXTERNALIZE_OUTPUT: ClassVar[bool] = False
     PROJECTIONS: ClassVar[str] = PROJECTION_READ_TOOL_NAMES
-    async def run(self) -> str:
-        if not self.path.exists():
-            raise ModelRetry(f"Error: File '{self.path}' not found")
 
-        if self.path.is_dir():
-            raise ModelRetry(f"Error: '{self.path}' is a directory")
+    async def run(self) -> str:
+        with self.path.open(errors="replace") as file:
+            total_line_count = sum(1 for _ in file)
+
+        start_offset = self.offset
+        if self.offset < 0:
+            start_offset = max(total_line_count + self.offset, 0)
+
+        if self.offset >= total_line_count and self.offset >= 0:
+            line_count = strings.suffix_plural(total_line_count, "line")
+            message = f"Offset {self.offset} exceeds the file length of {line_count}."
+            raise ModelRetry(message)
 
         lines = {}
         truncated_lines = []
         output_length = 0
-        total_line_count = 0
-        omitted_line_count = 0
         output_limit_reached = False
+        omitted_line_count = 0
 
         with self.path.open(errors="replace") as file:
             for number, raw_line in enumerate(file, 1):
-                total_line_count = number
-                if number <= self.offset:
+                if number <= start_offset:
                     continue
-                if number > self.offset + self.limit:
+                if number > start_offset + self.limit:
                     continue
                 if output_limit_reached:
                     omitted_line_count += 1
@@ -86,14 +96,7 @@ class Read(Tool):
                 lines[line.num] = line
                 output_length += len(line.text)
 
-        if self.offset >= total_line_count:
-            line_count = strings.suffix_plural(total_line_count, "line")
-            message = strings.Mask(
-                "Offset {offset} exceeds the file length of {line_count}; no lines were shown."
-            ).format(offset=self.offset, line_count=line_count)
-            self.feedback(str(message))
-
-        width = len(str(total_line_count))
+        width = len(str(total_line_count)) or 1
         output = "\n".join(
             f"{number:0{width}d}:{line.text}"
             for number, line in lines.items()
@@ -102,24 +105,19 @@ class Read(Tool):
         if truncated_lines:
             line_numbers = strings.join_natural(str(number) for number in truncated_lines)
             line_count = strings.suffix_plural(len(truncated_lines), "line")
-            message = strings.Mask(
-                "{line_count} ({line_numbers}) exceeded the per-line display limit; truncation was applied."
-            ).format(line_count=line_count, line_numbers=line_numbers)
+            message = strings.Mask("{line_count} ({line_numbers}) exceeded the per-line display limit; truncation was applied.").format(line_count=line_count, line_numbers=line_numbers)
             self.feedback(str(message))
 
         if output_limit_reached:
             line_count = strings.suffix_plural(omitted_line_count, "line")
-            message = strings.Mask(
-                "Not all lines were shown because the file contains extremely long lines; "
-                "{line_count} were omitted."
-            ).format(line_count=line_count)
+            message = strings.Mask("Not all lines were shown because the file contains extremely long lines; {line_count} were omitted.").format(line_count=line_count)
             self.feedback(str(message))
-            omitted = strings.suffix_plural(omitted_line_count, "line")
-            return strings.trim(output, f"# ... ({omitted} remaining)")
+            return output
 
-        remaining = total_line_count - (self.offset + self.limit)
+        remaining = total_line_count - (start_offset + self.limit)
         if remaining <= 0:
             return output
 
         remaining_count = strings.suffix_plural(remaining, "line")
-        return strings.trim(output, f"# ... ({remaining_count} remaining)")
+        self.feedback(f"The file contains {remaining_count} beyond the displayed range.")
+        return output

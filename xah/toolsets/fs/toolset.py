@@ -16,8 +16,9 @@ class Files(Toolset):
         from xah.toolsets.fs.mkdir import Mkdir
         from xah.toolsets.fs.move import Move
         from xah.toolsets.fs.read import Read
+        from xah.toolsets.fs.read_line import ReadLine
         from xah.toolsets.fs.remove import Remove
         from xah.toolsets.fs.search import Search
         from xah.toolsets.fs.write import Write
 
-        return [Read, Write, Edit, Move, Search, Mkdir, Remove]
+        return [Read, ReadLine, Write, Edit, Move, Search, Mkdir, Remove]

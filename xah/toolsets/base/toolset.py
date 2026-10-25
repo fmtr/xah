@@ -11,7 +11,7 @@ from pydantic_ai.messages import InstructionPart, SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
-from corio import strings
+from corio import Path, strings
 from corio.function import ccm, cp
 from corio.iterator import ilist
 from corio.strings import get_docstring
@@ -43,6 +43,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     IS_MANAGEMENT: ClassVar[bool] = False
     POLICY: ClassVar[str] = options.Policy.Policies.AUTO
     PROJECTIONS: ClassVar[str|None] = None
+    MAX_INLINE_OUTPUT_LENGTH: ClassVar[int] = 50_000
 
     @cached_classproperty
     def name(cls) -> str:
@@ -247,6 +248,26 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         finally:
             self.instances.remove(instance)
 
+    def externalize_output(self, instance: Tool, result: Any) -> Any:
+        if not instance.EXTERNALIZE_OUTPUT:
+            return result
+
+        suffix = "txt" if isinstance(result, str) else "json"
+        settings = instance.ctx.deps.settings
+        directory = instance.ctx.deps.cwd_default / settings.path.home.name / "artifacts"
+        directory.mkdirf()
+        artifact = directory / f"{instance.call_id}.{suffix}"
+        size = artifact.write_data(result)
+
+        if size <= self.MAX_INLINE_OUTPUT_LENGTH:
+            artifact.unlink()
+            return result
+
+        return strings.trim(f"""
+            Tool produced too much output.
+            Use regular file tools to inspect the full output: {artifact}
+        """)
+
     async def call_tool(
         self,
         name: str,
@@ -275,4 +296,4 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                 )
             )
 
-        return run_result
+        return self.externalize_output(instance, run_result)

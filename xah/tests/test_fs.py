@@ -98,6 +98,7 @@ def test_permission_failure_occurs_during_model_validation(tmp_path):
 
 
 def test_env_file_does_not_add_permission_validation_messages(tmp_path):
+    Path(tmp_path / ".env").write_text("KEY=value\n")
     ctx = context(tmp_path)
     tool = make(Read, ctx, path=".env")
     tool.validation = Validation()
@@ -141,20 +142,14 @@ def test_toolset_publishes_class_model_schemas(tmp_path):
     assert schema["properties"]["path"]["type"] == "string"
 
 
-def test_read_warns_via_feedback_when_offset_exceeds_file_length(tmp_path, monkeypatch):
+def test_read_rejects_offset_beyond_file_length(tmp_path):
     path = Path(tmp_path / "short.txt")
     path.write_text("one\ntwo\n")
     ctx = context(tmp_path)
     tool = make(Read, ctx, path="short.txt", offset=2)
-    feedback = []
-    monkeypatch.setattr(Read, "feedback", lambda self, message: feedback.append(message))
 
-    result = asyncio.run(tool.run())
-
-    assert result == ""
-    assert feedback == [
-        "Offset 2 exceeds the file length of 2 lines; no lines were shown."
-    ]
+    with pytest.raises(ModelRetry, match="Offset 2 exceeds the file length of 2 lines"):
+        asyncio.run(tool.run())
 
 
 def test_read_preserves_whitespace_without_truncation_feedback(tmp_path, monkeypatch):
