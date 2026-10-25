@@ -9,3 +9,9 @@ README.md
 ## Get started
 
 New to `xah`? Start with the [quick start](quick.md), then work through the [tutorials](tutorials/).
+
+## Built-in toolsets
+
+`xah` ships with built-in toolsets for filesystem access, Python, shell
+execution, skills, task management, and more. See the [built-in toolsets](toolsets.md)
+reference for the complete list and short descriptions.

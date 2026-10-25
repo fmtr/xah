@@ -61,6 +61,12 @@ xah
 
 For an ephemeral run, use `uvx xah`. The server needs an ACP client for the interactive interface. See the [quick start](https://fmtr.github.io/xah/quick/) and [PyCharm](https://fmtr.github.io/xah/acp/#pycharm) or [Zed](https://fmtr.github.io/xah/acp/#zed) setup instructions, then work through the [tutorials](https://fmtr.github.io/xah/tutorials/) to extend `xah`.
 
+## Built-in toolsets
+
+`xah` ships with built-in toolsets for common agent capabilities. See the
+[built-in toolsets reference](https://fmtr.github.io/xah/toolsets/) for the
+catalogue and short descriptions.
+
 ## Documentation
 
 Visit the [`xah` documentation](https://fmtr.link/xah/doc) for setup, ACP client configuration, tutorials, and agent data and skills.
