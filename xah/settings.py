@@ -1,4 +1,3 @@
-import asyncio
 import shutil
 from functools import cached_property
 from pydantic_acp import host
@@ -41,7 +40,7 @@ class PathAgent(dm.Base):
 class Acp(dm.Base):
     url: str
 
-    def run(self):
+    async def run(self):
         from xah.server.acp.proxy import Proxy
         from acp import run_agent
 
@@ -49,7 +48,7 @@ class Acp(dm.Base):
             url=self.url,
             options=TransportOptions(host_ownership="client_passthrough"),
         )
-        return asyncio.run(run_agent(agent))
+        return await run_agent(agent)
 
 
 

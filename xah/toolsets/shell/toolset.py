@@ -8,7 +8,7 @@ from xah.toolsets.base.toolset import Toolset
 class Shell(Toolset):
     """Shell execution tools."""
 
-    POLICY = options.Policy.Policies.DISABLED
+    POLICY = options.Policy.Policies.REQUESTABLE
 
     @classes
     def Tools(cls):

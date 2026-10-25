@@ -41,7 +41,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
     DESCRIPTION: ClassVar[str | None] = None
     IS_MANAGEMENT: ClassVar[bool] = False
-    POLICY: ClassVar[str] = options.Policy.Policies.FULL
+    POLICY: ClassVar[str] = options.Policy.Policies.AUTO
     PROJECTIONS: ClassVar[str|None] = None
 
     @cached_classproperty

@@ -5,7 +5,7 @@ from xah.settings import Settings
 
 def main():
 
-    Settings().run()
+    Settings().launch()
     from xah.harness.base import Harness
     Harness.launch()
 

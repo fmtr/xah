@@ -9,7 +9,11 @@ class SubTest(Command):
 
     value: str = "nested"
 
-    async def run_command(self) -> SlashCommandResult:
+    async def run(self) -> SlashCommandResult:
+        result = await self.run_subs()
+        if result.ran:
+            return result.result
+
         return SlashCommandResult(text=f"Sub-test command: value={self.value!r}.")
 
 
@@ -21,7 +25,11 @@ class Test(Command):
     count: int = 1
     verbose: bool = False
 
-    async def run_command(self) -> SlashCommandResult:
+    async def run(self) -> SlashCommandResult:
+        result = await self.run_subs()
+        if result.ran:
+            return result.result
+
         return SlashCommandResult(
             text=(
                 f"Test command: value={self.value!r}, "

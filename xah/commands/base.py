@@ -5,10 +5,10 @@ from collections.abc import Sequence
 
 from acp.schema import AvailableCommand
 from pydantic import PrivateAttr
-from pydantic_acp import SlashCommandRequest, SlashCommandResult
+from pydantic_acp import SlashCommandRequest
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 
-from corio import sets, tools
+from corio import sets
 from corio.function import ccp, cp
 from corio.iterator import ilist
 from corio.strings import get_docstring
@@ -52,7 +52,7 @@ class Command(sets.BaseCLI, cli_implicit_flags=True):
         return self._deps
 
     @ccp
-    def name(cls) -> str:
+    def command_name(cls) -> str:
         return cls.__name__.lower()
 
     @ccp
@@ -67,22 +67,13 @@ class Command(sets.BaseCLI, cli_implicit_flags=True):
     @ccp
     def available_command(cls) -> AvailableCommand:
         return AvailableCommand(
-            name=cls.name,
-            description=cls.description or cls.name,
+            name=cls.command_name,
+            description=cls.description or cls.command_name,
         )
 
     def exit(self, result):
         return result
 
-    async def run(self) -> SlashCommandResult:
-        result = await self.run_subs()
-        if result is not tools.Empty:
-            return result
-
-        return await self.run_command()
-
-    async def run_command(self) -> SlashCommandResult:
-        raise NotImplementedError
 
 
 class CommandsProvider:
@@ -95,7 +86,7 @@ class CommandsProvider:
         return [command_type.available_command for command_type in self.Commands]
 
     async def handle_command(self, request: SlashCommandRequest):
-        command_type = self.Commands.name[request.name]
+        command_type = self.Commands.command_name[request.name]
         runtime = self.agent_source.get_runtime(request.session)
         command = command_type(
             request=request,

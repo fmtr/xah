@@ -246,9 +246,10 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
 
     @classes
     def Commands(cls):
+        from xah.commands.policy import Policy
         from xah.commands.test import Test
 
-        return [Test]
+        return [Policy, Test]
 
     @ccp
     def Models(cls) -> list[AdapterModel]:
