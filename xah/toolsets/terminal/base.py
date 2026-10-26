@@ -89,7 +89,6 @@ class TerminalTool(TerminalToolBase):
     async def run(self) -> str:
         terminal = Terminal(
             id=self.terminal_id,
-            on_status=self.notify,
             expression=self.expression,
             timeout=self.timeout,
             cwd=str(self.cwd),
@@ -103,6 +102,8 @@ class TerminalTool(TerminalToolBase):
                 timeout=self.QUICK_COMPLETION_TIMEOUT,
             )
         except TimeoutError:
+            if not terminal.process.done():
+                terminal.on_status = self.notify
             return f"Started terminal `{terminal.id}` with status `{status}`. Use terminal_id `{terminal.id}` with the other Terminal tools."
 
         if terminal.output_size > self.OUTPUT_MAX_CHARS:

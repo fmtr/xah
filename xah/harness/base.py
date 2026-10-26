@@ -283,7 +283,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
         return strip_none(
             self.thinking,
             *self.capabilities,
-            self.stuck_loop_detection,
+            # self.stuck_loop_detection,
             self.model_traffic_logger,
         )
 
