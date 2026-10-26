@@ -48,6 +48,28 @@ def test_list_and_load_construct_per_call_models(tmp_path):
         asyncio.run(List(ctx=ctx, toolset=toolset).run())
 
 
+def test_skill_discovery_requires_frontmatter(tmp_path):
+    skill_path = Path(tmp_path / ".agents" / "skills" / "example")
+    skill_path.mkdir(parents=True)
+    settings = SimpleNamespace(
+        path=SimpleNamespace(
+            skills=Path(tmp_path / "global-skills"),
+            agents_dir=".agents",
+            skills_dir="skills",
+        )
+    )
+
+    (skill_path / "SKILL.md").write_text("# Example\nUse this guidance.\n")
+    without_frontmatter = Skills(settings, Path(tmp_path))
+    assert [skill.id for skill in without_frontmatter.skills] == []
+
+    (skill_path / "SKILL.md").write_text(
+        "---\nname: example\ndescription: Example guidance.\n---\nUse this guidance.\n"
+    )
+    with_frontmatter = Skills(settings, Path(tmp_path))
+    assert [skill.id for skill in with_frontmatter.skills] == ["example"]
+
+
 def test_loading_a_skill_twice_requires_compaction(tmp_path):
     skill_path = Path(tmp_path / "skills" / "python" / "style")
     skill_path.mkdir(parents=True)

@@ -12,8 +12,60 @@ from corio.hash import get_hash_int
 
 from xah.toolsets.kb.db import WebPage, WebPageBuilder
 from xah.toolsets.kb.get import Get
+from xah.toolsets.kb.history import ResearchHistory
+from xah.toolsets.kb.list import List
 from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.toolset import Knowledgebase
+
+
+def test_knowledgebase_defaults_unknown_ids_to_web_pages():
+    knowledgebase = Knowledgebase()
+
+    assert knowledgebase.collection_for("research-1") is WebPage
+
+
+def test_read_tools_expose_collection_validator_classes():
+    knowledgebase = Knowledgebase()
+
+    assert Get.Validators[0].__name__ == "CollectionValidator"
+    assert Query.Validators[0].__name__ == "CollectionValidator"
+    knowledgebase.states
+
+
+def test_research_history_tracks_prompts_with_ilist_lookup():
+    history = ResearchHistory.Prompts(
+        id="research-1",
+        desc="A completed investigation.",
+        prompts=["first prompt"],
+    )
+
+    assert history.id == "research-1"
+    assert history.prompts == ["first prompt"]
+
+
+@pytest.mark.asyncio
+async def test_list_converts_prompt_history_to_research_history():
+    knowledgebase = Knowledgebase()
+    knowledgebase.history.append(
+        ResearchHistory.Prompts(
+            id="research-1",
+            desc="A completed investigation.",
+            prompts=["first prompt"],
+        )
+    )
+
+    result = await List.model_construct(toolset=knowledgebase).run()
+
+    assert type(result[0]) is ResearchHistory
+    assert result[0].id == "research-1"
+
+
+def test_kb_tools_use_standard_identifier_names():
+    assert "collection_id" in Query.model_fields
+    assert Query.model_fields["collection_id"].description == "Collection ID to search."
+    assert "collection_id" in Get.model_fields
+    assert "document_id" in Get.model_fields
+    assert "id" not in Get.model_fields
 
 
 @pytest.fixture
