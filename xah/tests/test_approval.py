@@ -15,6 +15,7 @@ from xah.constants import HARNESS_FEEDBACK
 from xah.options import base as options
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.toolset import Toolset
+from xah.toolsets.web.request import Response
 
 
 class ApprovalTool(Tool):
@@ -93,6 +94,21 @@ def context(toolset, approved=False, tool_call_id="call-1"):
         pending_messages=[],
         tool_call_id=tool_call_id,
     )
+
+
+def test_externalize_output_serializes_pydantic_response(tmp_path):
+    toolset = ApprovalToolset()
+    ctx = context(toolset)
+    ctx.deps.cwd_default = Path(tmp_path)
+    instance = ApprovalTool(ctx=ctx, toolset=toolset, value="result")
+    toolset.MAX_INLINE_OUTPUT_LENGTH = 0
+    result = Response(status_code=200, headers={}, body={"ok": True})
+
+    output = toolset.externalize_output(instance, result)
+
+    artifact = Path(tmp_path) / ".agent" / "artifacts" / "call-1.json"
+    assert artifact.read_json() == result.model_dump(mode="json")
+    assert "Use regular file tools to inspect the full output" in output
 
 
 def test_tool_feedback_enqueues_system_prompt():

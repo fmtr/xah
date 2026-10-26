@@ -4,14 +4,14 @@ from functools import cached_property
 from typing import Any, ClassVar, Generic, TypedDict, TypeVar
 
 from cached_classproperty import cached_classproperty
-from pydantic import ValidationError, ConfigDict
+from pydantic import BaseModel, ValidationError, ConfigDict
 from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool, ToolFailed
 from pydantic_ai.exceptions import UserError
 from pydantic_ai.messages import InstructionPart, SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
-from corio import Path, strings
+from corio import Path, jsn, strings
 from corio.function import ccm, cp
 from corio.iterator import ilist
 from corio.strings import get_docstring
@@ -252,20 +252,39 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         finally:
             self.instances.remove(instance)
 
+    @staticmethod
+    def serialize_output(result: Any) -> Any:
+        if isinstance(result, BaseModel):
+            return result.model_dump(mode="json")
+
+        if isinstance(result, list):
+            return [Toolset.serialize_output(item) for item in result]
+
+        if isinstance(result, dict):
+            return {key: Toolset.serialize_output(value) for key, value in result.items()}
+
+        return result
+
     def externalize_output(self, instance: Tool, result: Any) -> Any:
         if not instance.EXTERNALIZE_OUTPUT:
             return result
 
-        suffix = "txt" if isinstance(result, str) else "json"
+        if isinstance(result, str):
+            suffix = "txt"
+            serialized = result
+        else:
+            suffix = "json"
+            data = self.serialize_output(result)
+            serialized = jsn.to_json(data)
+
+        if len(serialized) <= self.MAX_INLINE_OUTPUT_LENGTH:
+            return result
+
         settings = instance.ctx.deps.settings
         directory = instance.ctx.deps.cwd_default / settings.path.home.name / "artifacts"
         directory.mkdirf()
         artifact = directory / f"{instance.call_id}.{suffix}"
-        size = artifact.write_data(result)
-
-        if size <= self.MAX_INLINE_OUTPUT_LENGTH:
-            artifact.unlink()
-            return result
+        artifact.write_text(serialized)
 
         return strings.trim(f"""
             Tool produced too much output.
