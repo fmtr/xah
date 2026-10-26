@@ -1,5 +1,6 @@
 import asyncio
 import os
+from types import SimpleNamespace
 
 import pytest
 from pydantic import PrivateAttr
@@ -7,6 +8,7 @@ from corio import Path
 from corio.shell.dsl import shell
 
 from xah.toolsets.base.tool import Tool
+from xah.toolsets.shell.run import Run
 from xah.toolsets.terminal.terminal import Terminal, TerminalStatus
 
 
@@ -16,6 +18,22 @@ class RecordingTool(Tool):
     def notify(self):
         self._notifications += 1
         return "notified"
+
+
+def test_terminal_output_path_treats_absolute_executable_as_a_filename(tmp_path):
+    harness_cwd = Path(tmp_path / "project")
+    home = Path(tmp_path / ".xah")
+    deps = SimpleNamespace(
+        cwd_default=harness_cwd,
+        settings=SimpleNamespace(path=SimpleNamespace(home=home)),
+    )
+    tool = Run.model_construct(
+        ctx=SimpleNamespace(deps=deps, tool_call_id="absolute-shell"),
+    )
+    tool.__dict__["expression"] = SimpleNamespace(name="/system/bin/bash")
+
+    assert tool.output_path.parent == harness_cwd / home.name / "terminals"
+    assert tool.output_path.name.startswith("bash-")
 
 
 @pytest.mark.asyncio

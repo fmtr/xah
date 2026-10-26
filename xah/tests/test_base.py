@@ -187,7 +187,7 @@ def test_shell_validation_uses_agent_output():
     ctx = RunContext(deps=deps, model=model, usage=RunUsage())
     tool_def = next(iter(toolset.tools.values())).tool_def
 
-    assert toolset.options.cls[options.Policy].value == options.Policies.DISABLED
+    assert toolset.options.cls[options.Policy].value == options.Policies.REQUESTABLE
     toolset.options.cls[options.Policy].current_value = options.Policies.APPROVAL
 
     result = asyncio.run(toolset.validate(ctx, tool_def, {"source": "echo hello"}))
@@ -196,8 +196,14 @@ def test_shell_validation_uses_agent_output():
     assert result.messages == Messages()
 
 
-def test_terminal_run_appends_to_terminal_collection():
-    deps = harness().deps
+def test_terminal_run_appends_to_terminal_collection(tmp_path, monkeypatch):
+    output_path = Path(tmp_path / "terminal.log")
+    monkeypatch.setattr(
+        Run,
+        "output_path",
+        property(lambda self: output_path),
+    )
+    deps = harness(Path(tmp_path)).deps
     toolset = deps.toolsets.all.cls[Terminals]
     terminals = toolset.terminals
     ctx = RunContext(
@@ -231,8 +237,8 @@ def test_policy_value_controls_toolset_visibility():
     deps = harness().deps
     shell = deps.toolsets.all.cls[Shell]
 
-    assert shell.options.cls[options.Policy].value == options.Policies.DISABLED
-    assert shell not in deps.toolsets.permitted
+    assert shell.options.cls[options.Policy].value == options.Policies.REQUESTABLE
+    assert shell in deps.toolsets.permitted
 
     shell.options.cls[options.Policy].current_value = options.Policies.FULL
 
@@ -376,11 +382,9 @@ def test_harness_subclass_adds_capabilities_after_thinking():
     )
 
     assert selected.capabilities == [capability]
-    assert selected.agent_capabilities[:3] == [
-        selected.thinking,
-        capability,
-        selected.stuck_loop_detection,
-    ]
+    assert selected.agent_capabilities[:2] == [selected.thinking, capability]
+    assert selected.model_traffic_logger in selected.agent_capabilities
+    assert selected.context_manager in selected.agent_capabilities
 
 
 def test_harness_deps_are_generic():

@@ -90,8 +90,8 @@ def test_acp_permitted_toolsets_follow_policy_state():
     files = deps.toolsets.all.cls[Files]
     shell = deps.toolsets.all.cls[Shell]
 
-    assert deps.toolsets.permitted == ilist([files])
-    assert deps.toolsets.wrapped == [files.wrapper]
+    assert deps.toolsets.permitted == ilist([files, shell])
+    assert {wrapped.wrapped for wrapped in deps.toolsets.wrapped} == {files, shell}
 
     shell.options.cls[options.Policy].current_value = options.Policies.FULL
 
@@ -171,8 +171,8 @@ def test_acp_toolsets_manager_applies_policy_after_activation():
     manager = ToolsetsManager(parent)
     shell = manager.all.name[Shell.name]
 
-    assert manager.permitted == ilist([manager.all.name[Files.name]])
-    assert manager.agent == ilist([manager.all.name[Files.name]])
+    assert manager.permitted == ilist([manager.all.name[Files.name], shell])
+    assert set(manager.agent) == {manager.all.name[Files.name], shell}
 
     shell.options.cls[options.Policy].current_value = options.Policies.FULL
     assert manager.permitted == manager.all

@@ -84,7 +84,8 @@ class TerminalTool(TerminalToolBase):
         settings = self.ctx.deps.settings
         directory = self.ctx.deps.cwd_default / settings.path.home.name / "terminals"
         directory.mkdirf()
-        return directory / f"{self.expression.name}-{self.terminal_id}.log"
+        executable_name = Path(self.expression.name).name
+        return directory / f"{executable_name}-{self.terminal_id}.log"
 
     async def run(self) -> str:
         terminal = Terminal(

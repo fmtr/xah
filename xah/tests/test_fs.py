@@ -197,5 +197,5 @@ def test_read_stops_after_many_long_lines_and_provides_feedback(tmp_path, monkey
     assert result.startswith("001:")
     assert len(result.encode()) <= 50_000
     assert feedback == [
-        "Not all lines were shown because the file contains extremely long lines; 98 lines were omitted."
+        "Not all lines were shown because the file contains extremely long lines; 48 lines were omitted."
     ]
