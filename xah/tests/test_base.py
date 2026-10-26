@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import gc
+import weakref
 import sys
 from functools import cached_property
 from types import SimpleNamespace
@@ -205,6 +207,7 @@ def test_terminal_run_appends_to_terminal_collection():
         tool_call_id="test-terminal",
     )
     tool = Run(ctx=ctx, toolset=toolset, source="printf hello")
+    tool_ref = weakref.ref(tool)
 
     result = asyncio.run(tool.run())
 
@@ -212,6 +215,11 @@ def test_terminal_run_appends_to_terminal_collection():
     assert tool.terminals is terminals
     assert terminals[0].output_path.read_text() == "hello"
     assert terminals[0].output_size == 5
+    assert not hasattr(terminals[0], "tool")
+
+    del tool
+    gc.collect()
+    assert tool_ref() is None
 
     management_tool = Status(ctx=ctx, toolset=toolset, terminal_id=terminals[0].id)
 

@@ -7,5 +7,4 @@ class Status(TerminalManagementTool):
     EVENT = "finished"
 
     async def run(self) -> str:
-        terminal = self.terminal
-        return f"Terminal `{terminal.id}` is {terminal.status}. Output: `{terminal.output_path}` ({terminal.output_size} bytes)."
+        return self.message

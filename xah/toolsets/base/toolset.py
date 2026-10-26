@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypedDict, TypeVar
 
 from cached_classproperty import cached_classproperty
 from pydantic import ValidationError, ConfigDict
 from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool, ToolFailed
+from pydantic_ai.exceptions import UserError
 from pydantic_ai.messages import InstructionPart, SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
@@ -26,8 +26,7 @@ from xah.toolsets.base.tool import Tool, ToolState, Validation
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
 
 
-@dataclass
-class ToolsetInfo:
+class ToolsetInfo(TypedDict):
     active: bool
     name: str
     desc: str | None
@@ -130,7 +129,12 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             message = strings.trim(HARNESS_FEEDBACK, message)
             message = SystemPromptPart(content=message)
 
-        return ctx.enqueue(message)
+        try:
+            return ctx.enqueue(message)
+        except UserError:
+            logger.warning(
+                f"Toolset feedback occurred after the agent run completed: {message.content}"
+            )
 
     async def raise_errors(self, method, *args):
         try:

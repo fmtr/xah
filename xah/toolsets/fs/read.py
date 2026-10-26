@@ -41,12 +41,12 @@ class Read(FileTool):
 
     offset: int = Field(
         default=0,
-        description="Zero-based line offset. Negative values start from the end; -1 is the final line.",
+        description="Zero-based line offset. To read the tail, use negative values, e.g. -10 returns the last 10 lines.",
     )
     limit: int = Field(
-        default=500,
+        default=50,
         gt=0,
-        le=1000,
+        le=500,
         description="Maximum number of lines to return.",
     )
 

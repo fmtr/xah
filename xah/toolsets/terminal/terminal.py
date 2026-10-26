@@ -5,7 +5,6 @@ import time
 from collections.abc import Callable
 from enum import StrEnum, auto
 from typing import ClassVar
-from uuid import uuid4
 
 import humanize
 from pydantic import Field
@@ -13,8 +12,8 @@ from pydantic.json_schema import SkipJsonSchema
 
 from corio import Path, dm, strings
 from corio.function import cp
-from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
+
 
 
 class TerminalStatus(StrEnum):
@@ -35,26 +34,22 @@ class Terminal(dm.Base):
         Status: `{status}`; exit code: `{exit_code}`.
     """)
 
-    id: str | None = Field(default=None, description="Identifier used by the terminal management tools.")
+    id: str = Field(description="Identifier used by the terminal management tools.")
     expression: Expression = Field(description="DSL expression being run.", exclude=True)
     timeout: int = Field(default=120, gt=0, description="Maximum execution time in seconds.")
     cwd: str = Field(description="Working directory used by the command.")
     output_path: Path = Field(description="File receiving combined stdout and stderr output.")
+    on_status: SkipJsonSchema[Callable[[], str] | None] = Field(default=None, exclude=True)
     status: TerminalStatus = TerminalStatus.CREATED
     output_size: int = 0
     exit_code: int | None = None
-    on_complete: SkipJsonSchema[Callable[["Terminal"], None] | None] = Field(default=None, exclude=True)
 
     _read_offset: int = 0
     _started_at: float = 0
     _finished_at: float = 0
     _process_handle: asyncio.subprocess.Process | None = None
 
-    def model_post_init(self, __context) -> None:
-        if not self.id:
-            self.id = get_hash_readable(str(uuid4()), length=4)
-
-    @cp
+    @property
     def runtime(self) -> float:
         finished_at = self._finished_at or time.monotonic()
         return finished_at - self._started_at
@@ -65,7 +60,7 @@ class Terminal(dm.Base):
             output = file.read().decode(errors="replace")
         return output.strip()
 
-    @cp
+    @property
     def summary(self) -> str:
         command = strings.truncate_mid(str(self.expression), length=60)
         return strings.Mask(self.SUMMARY_MASK).format(
@@ -81,6 +76,13 @@ class Terminal(dm.Base):
     def process(self) -> asyncio.Task:
         self._started_at = time.monotonic()
         return asyncio.create_task(self._run())
+
+    def set(self, status: TerminalStatus) -> None:
+        if self.status == status:
+            return
+        self.status = status
+        if self.on_status:
+            self.on_status()
 
     async def start(self) -> TerminalStatus:
         self.status = TerminalStatus.RUNNING
@@ -114,9 +116,9 @@ class Terminal(dm.Base):
             try:
                 await asyncio.wait_for(process.wait(), timeout=self.timeout)
             except TimeoutError:
-                self.status = TerminalStatus.TIMED_OUT
+                self.set(TerminalStatus.TIMED_OUT)
             except asyncio.CancelledError:
-                self.status = TerminalStatus.KILLED
+                self.set(TerminalStatus.KILLED)
                 raise
             finally:
                 if self.status in (TerminalStatus.TIMED_OUT, TerminalStatus.KILLED):
@@ -128,14 +130,15 @@ class Terminal(dm.Base):
 
             self.exit_code = process.returncode
             if self.status == TerminalStatus.RUNNING:
-                self.status = TerminalStatus.COMPLETED if process.returncode == 0 else TerminalStatus.FAILED
+                status = TerminalStatus.COMPLETED if process.returncode == 0 else TerminalStatus.FAILED
+                self.set(status)
         except asyncio.CancelledError:
             if self._process_handle and not terminated:
                 await self._terminate(self._process_handle)
-            self.status = TerminalStatus.KILLED
+            self.set(TerminalStatus.KILLED)
             raise
         except OSError as error:
-            self.status = TerminalStatus.FAILED
+            self.set(TerminalStatus.FAILED)
             error_text = str(error).encode()
             output_file.write(error_text)
             output_file.flush()
@@ -144,8 +147,7 @@ class Terminal(dm.Base):
             output_file.close()
             self._finished_at = time.monotonic()
             self._process_handle = None
-            if self.on_complete:
-                self.on_complete(self)
+            self.on_status = None
 
     async def _terminate(self, process: asyncio.subprocess.Process) -> None:
         try:

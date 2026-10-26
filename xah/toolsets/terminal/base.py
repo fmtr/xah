@@ -1,18 +1,57 @@
 import asyncio
-from functools import cached_property, partial
+from functools import cached_property
 from typing import ClassVar
 
 from pydantic import Field
-from pydantic_ai import RunContext
 
 from corio import Path, strings
+from corio.function import cp
+from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
+
 from xah.toolsets.base.tool import Tool
-from xah.toolsets.base.toolset import Toolset
+
 from xah.toolsets.terminal.terminal import Terminal
 
 
-class TerminalTool(Tool):
+class TerminalToolBase(Tool):
+    """Base for tools that address a managed terminal."""
+
+    MASK: ClassVar[str] = strings.trim("""
+        {summary}
+        Output is being written to: `{path}` ({size} bytes).
+        Use `{toolset}` tools to monitor output tail, etc.
+    """)
+
+    @cp
+    def terminal(self) -> Terminal:
+        return self.terminals.id[self.terminal_id]
+
+    @cached_property
+    def terminals(self):
+        from xah.toolsets.terminal.toolset import Terminals
+
+        return self.ctx.deps.toolsets.all.cls[Terminals].terminals
+
+    @property
+    def message(self) -> str:
+        from xah.options.path import PathCwd
+        from xah.toolsets.fs.toolset import Files
+
+        terminal = self.terminal
+        cwd = self.ctx.deps.options.cls[PathCwd].value
+        path = terminal.output_path.relative_to(cwd)
+        return strings.Mask(self.MASK).format(
+            status=terminal.status,
+            id=terminal.id,
+            summary=terminal.summary,
+            path=path,
+            size=terminal.output_size,
+            toolset=Files.name,
+        )
+
+
+class TerminalTool(TerminalToolBase):
     """Run a DSL subprocess expression as a managed background terminal."""
 
     QUICK_COMPLETION_TIMEOUT: ClassVar[int] = 5
@@ -23,27 +62,34 @@ class TerminalTool(Tool):
     """)
     timeout: int = Field(default=120, gt=0, description="Maximum execution time in seconds.")
 
+    @cp
+    def terminal_id(self) -> str:
+        return get_hash_readable(self.call_id, length=4)
+
+    def notify(self) -> str:
+        message = strings.trim(f"""
+            Terminal has changed state:
+
+            {self.message}
+        """)
+        self.feedback(message)
+        return message
+
     @cached_property
     def expression(self) -> Expression:
         raise NotImplementedError
-
-    @cached_property
-    def terminals(self):
-        from xah.toolsets.terminal.toolset import Terminals
-
-        return self.ctx.deps.toolsets.all.cls[Terminals].terminals
 
     @cached_property
     def output_path(self) -> Path:
         settings = self.ctx.deps.settings
         directory = self.ctx.deps.cwd_default / settings.path.home.name / "terminals"
         directory.mkdirf()
-        return directory / f"{self.expression.name}-{self.call_id}.log"
+        return directory / f"{self.expression.name}-{self.terminal_id}.log"
 
     async def run(self) -> str:
-        from xah.toolsets.terminal.status import Status
-
         terminal = Terminal(
+            id=self.terminal_id,
+            on_status=self.notify,
             expression=self.expression,
             timeout=self.timeout,
             cwd=str(self.cwd),
@@ -57,7 +103,6 @@ class TerminalTool(Tool):
                 timeout=self.QUICK_COMPLETION_TIMEOUT,
             )
         except TimeoutError:
-            terminal.on_complete = partial(Status.notify, self.ctx)
             return f"Started terminal `{terminal.id}` with status `{status}`. Use terminal_id `{terminal.id}` with the other Terminal tools."
 
         if terminal.output_size > self.OUTPUT_MAX_CHARS:
@@ -68,35 +113,9 @@ class TerminalTool(Tool):
         return await terminal.get()
 
 
-class TerminalManagementTool(Tool):
+class TerminalManagementTool(TerminalToolBase):
     """Operate on an existing managed terminal."""
 
     EVENT: ClassVar[str]
-    MASK: ClassVar[str] = strings.trim("""
-        Terminal {event}.
-        {summary}
-        Output: `{path}` ({size} bytes).
-    """)
     terminal_id: str = Field(description="Identifier of the background terminal.")
 
-    @classmethod
-    def notify(cls, ctx: RunContext, terminal: Terminal) -> None:
-        event = cls.EVENT.format(status=terminal.status)
-        message = strings.Mask(cls.MASK).format(
-            id=terminal.id,
-            event=event,
-            summary=terminal.summary,
-            path=terminal.output_path,
-            size=terminal.output_size,
-        )
-        Toolset.feedback(ctx, message)
-
-    @cached_property
-    def terminals(self):
-        from xah.toolsets.terminal.toolset import Terminals
-
-        return self.ctx.deps.toolsets.all.cls[Terminals].terminals
-
-    @cached_property
-    def terminal(self) -> Terminal:
-        return self.terminals.id[self.terminal_id]
