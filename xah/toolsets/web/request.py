@@ -12,6 +12,9 @@ from corio import dm, https
 from xah.toolsets.web.base import WebTool
 
 
+type JsonValue = None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
+
+
 class Method(StrEnum):
     """HTTP methods supported by the request tool."""
 
@@ -50,7 +53,7 @@ class Response(dm.Base):
 
     status_code: int = Field(description="The HTTP response status code.")
     headers: dict[str, str] = Field(description="The HTTP response headers.")
-    body: str | dict = Field(description="The response body as text or structured data.")
+    body: JsonValue = Field(description="The response body as text or JSON data.")
 
 
 class RequestBase(WebTool):
@@ -128,7 +131,7 @@ class RequestBase(WebTool):
         response_content_type = response_headers.get(ContentType.HEADER_LOW, "")
         response_media_type = ContentType.parse(response_content_type)
 
-        body: str | dict = response.text
+        body: JsonValue = response.text
         is_json = response_media_type == ContentType.JSON or response_media_type.endswith("+json")
         if is_json:
             body = json.loads(response.text)
