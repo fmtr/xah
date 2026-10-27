@@ -60,7 +60,7 @@ class TerminalTool(TerminalToolBase):
         Command output was not returned inline because it exceeded {chars} characters.
         Use the output path to inspect the complete output.
     """)
-    timeout: int = Field(default=120, gt=0, description="Maximum execution time in seconds.")
+    timeout: int | None = Field(default=None, description="Maximum execution time in seconds; None means no timeout.")
 
     @cp
     def terminal_id(self) -> str:

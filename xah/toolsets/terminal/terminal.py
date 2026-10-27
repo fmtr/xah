@@ -36,7 +36,7 @@ class Terminal(dm.Base):
 
     id: str = Field(description="Identifier used by the terminal management tools.")
     expression: Expression = Field(description="DSL expression being run.", exclude=True)
-    timeout: int = Field(default=120, gt=0, description="Maximum execution time in seconds.")
+    timeout: int | None = Field(default=None, description="Maximum execution time in seconds; None means no timeout.")
     cwd: str = Field(description="Working directory used by the command.")
     output_path: Path = Field(description="File receiving combined stdout and stderr output.")
     on_status: SkipJsonSchema[Callable[[], str] | None] = Field(default=None, exclude=True)
