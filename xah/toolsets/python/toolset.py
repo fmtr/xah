@@ -17,4 +17,4 @@ class Python(Toolset):
         from xah.toolsets.python.run_code import RunCode
         from xah.toolsets.python.test import Test
 
-        return [Pip, Run, RunCode, Test]
+        return [Run, RunCode, Test]

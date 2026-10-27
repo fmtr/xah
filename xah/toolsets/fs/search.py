@@ -105,7 +105,7 @@ class SearcherContent(SearcherBase):
 class Search(Tool):
     """Search for files or file contents."""
 
-    pattern: str | None = Field(default=None, description="Content pattern. Omit to list files.")
+    pattern: str | None = Field(default=None, description="Content pattern **as a regex**. Omit to list files.")
     path: Annotated[Path | None, Permissions(Permissions.Read)] = Field(
         default=None,
         description="Directory or file to search.",

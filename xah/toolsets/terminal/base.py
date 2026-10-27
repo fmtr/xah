@@ -20,7 +20,6 @@ class TerminalToolBase(Tool):
     MASK: ClassVar[str] = strings.trim("""
         {summary}
         Output is being written to: `{path}` ({size} bytes).
-        Use `{toolset}` tools to monitor output tail, etc.
     """)
 
     @cp
@@ -36,7 +35,6 @@ class TerminalToolBase(Tool):
     @property
     def message(self) -> str:
         from xah.options.path import PathCwd
-        from xah.toolsets.fs.toolset import Files
 
         terminal = self.terminal
         cwd = self.ctx.deps.options.cls[PathCwd].value
@@ -47,7 +45,6 @@ class TerminalToolBase(Tool):
             summary=terminal.summary,
             path=path,
             size=terminal.output_size,
-            toolset=Files.name,
         )
 
 
@@ -56,11 +53,14 @@ class TerminalTool(TerminalToolBase):
 
     QUICK_COMPLETION_TIMEOUT: ClassVar[int] = 5
     OUTPUT_MAX_CHARS: ClassVar[int] = 8 * 1024
-    TRUNCATION_FEEDBACK: ClassVar[str] = strings.trim("""
-        Command output was not returned inline because it exceeded {chars} characters.
-        Use the output path to inspect the complete output.
-    """)
     timeout: int | None = Field(default=None, description="Maximum execution time in seconds; None means no timeout.")
+
+    def activate_async_tools(self) -> None:
+        from xah.toolsets.fs.toolset import Files
+        from xah.toolsets.utils.toolset import Utils
+
+        for toolset_type in (Files, Utils):
+            self.ctx.deps.toolsets.all.cls[toolset_type].activated = True
 
     @cp
     def terminal_id(self) -> str:
@@ -96,7 +96,7 @@ class TerminalTool(TerminalToolBase):
             output_path=self.output_path,
         )
         self.terminals.append(terminal)
-        status = await terminal.start()
+        await terminal.start()
         try:
             await asyncio.wait_for(
                 asyncio.shield(terminal.process),
@@ -104,13 +104,13 @@ class TerminalTool(TerminalToolBase):
             )
         except TimeoutError:
             if not terminal.process.done():
+                self.activate_async_tools()
                 terminal.on_status = self.notify
-            return f"Started terminal `{terminal.id}` with status `{status}`. Use terminal_id `{terminal.id}` with the other Terminal tools."
+            return self.message
 
         if terminal.output_size > self.OUTPUT_MAX_CHARS:
-            feedback = strings.Mask(self.TRUNCATION_FEEDBACK).format(chars=self.OUTPUT_MAX_CHARS)
-            self.feedback(feedback)
-            return f"Terminal `{terminal.id}` completed. Full output is available at `{terminal.output_path}`."
+            self.activate_async_tools()
+            return self.message
 
         return await terminal.get()
 

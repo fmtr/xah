@@ -67,7 +67,7 @@ async def test_toolset_releases_tool_after_terminal_finishes(tmp_path, monkeypat
     tool_ref = weakref.ref(terminal.on_status.__self__)
     result = await task
 
-    assert result.startswith(f"Started terminal `{terminal.id}`")
+    assert result.startswith(f"Terminal `{terminal.id}`")
     assert not toolset.instances
     assert terminal.status.value == "running"
     assert tool_ref() is not None
@@ -107,5 +107,5 @@ def test_terminal_kill_operates_on_a_background_shell_process(tmp_path):
 
     kill_result = asyncio.run(kill.run())
 
-    assert result.startswith(f"Started terminal `{terminal.id}`")
+    assert result.startswith(f"Terminal `{terminal.id}`")
     assert kill_result == f"Terminal `{terminal.id}` has status `killed`."
