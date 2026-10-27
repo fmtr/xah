@@ -60,7 +60,7 @@ class TerminalTool(TerminalToolBase):
         from xah.toolsets.utils.toolset import Utils
 
         for toolset_type in (Files, Utils):
-            self.ctx.deps.toolsets.all.cls[toolset_type].activated = True
+            self.ctx.deps.toolsets.all.name[toolset_type.name].activated = True
 
     @cp
     def terminal_id(self) -> str:

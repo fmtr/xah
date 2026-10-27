@@ -28,7 +28,8 @@ class Terminals(Toolset):
 
             Output from longer-running and verbose {self.name} will not be shown inline. 
             You must use the relevant toolsets to interact with them.
-
+            
+            - `{self.name}` to manage the processes themselves, to stop them early, etc.
             - `{Files.name}` tools to monitor output tail, search output, etc.
             - `{Utils.name}` tools if you need to wait for output. Do not just spam the `{Status.local_name}` tool repeatedly.
         """)
