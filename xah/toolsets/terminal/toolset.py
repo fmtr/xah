@@ -18,6 +18,16 @@ class Terminals(Toolset):
         self.shell = settings.shell
         super().__init__(settings=settings, cwd=cwd, activated=activated)
 
+    @cp
+    def statuses(self)->str:
+        lines = [
+            f"{status}: {', '.join(terminal.id for terminal in terminals)}"
+            for status, terminals in self.terminals.status.items()
+        ]
+        statuses = "\n".join(lines) or "none"
+        return statuses
+
+
     async def get_instructions(self, ctx: RunContext) -> list[InstructionPart]:
         from xah.toolsets.fs.toolset import Files
         from xah.toolsets.terminal.status import Status
@@ -26,12 +36,14 @@ class Terminals(Toolset):
         text = strings.trim(f"""
             # {self.name}
 
-            Output from longer-running and verbose {self.name} will not be shown inline. 
-            You must use the relevant toolsets to interact with them.
-            
-            - `{self.name}` to manage the processes themselves, to stop them early, etc.
-            - `{Files.name}` tools to monitor output tail, search output, etc.
-            - `{Utils.name}` tools if you need to wait for output. Do not just spam the `{Status.local_name}` tool repeatedly.
+            {self.statuses}
+
+            Output from longer-running and verbose {self.name} will not be shown inline.
+            You must use the relevant tools to manage them.
+
+            - `{self.name}` tools manage the processes themselves, including stopping them early.
+            - `{Files.name}` tools monitor output tail, search output, and inspect output files.
+            - `{Utils.name}` tools to wait for output. Do not spam the `{Status.local_name}` tool repeatedly.
         """)
         return [InstructionPart(content=text, dynamic=True)]
 

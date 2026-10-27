@@ -136,6 +136,45 @@ async def test_request_serializes_form_body_from_content_type(web):
 
 
 @pytest.mark.asyncio
+async def test_request_accepts_json_array_response(web):
+    toolset, ctx = web
+    response = MagicMock(status_code=200, text='[{"name": "default.nix"}]')
+    response.headers = {"content-type": "application/json"}
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.request.return_value = response
+
+    with patch("corio.https.AsyncClient", return_value=client):
+        result = await Request(
+            ctx=ctx,
+            toolset=toolset,
+            url="https://api.github.com/repos/NixOS/nixpkgs/contents/pkgs/applications/networking/browsers/brave",
+        ).run()
+
+    assert result == Response(
+        status_code=200,
+        headers={"content-type": "application/json"},
+        body=[{"name": "default.nix"}],
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        [{"name": "default.nix"}],
+        {"name": "default.nix"},
+        "plain text",
+        42,
+        3.14,
+        True,
+        None,
+    ],
+)
+def test_response_accepts_json_value_types(body):
+    assert Response(status_code=200, headers={}, body=body).body == body
+
+
+@pytest.mark.asyncio
 async def test_request_reports_failures(web):
     toolset, ctx = web
     client = AsyncMock()
