@@ -12,6 +12,7 @@ from xah.tests.test_base import harness
 from xah.toolsets.shell.run import Run
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.terminal.kill import Kill
+from xah.toolsets.terminal.status import Status
 from xah.toolsets.terminal.toolset import Terminals
 
 
@@ -77,6 +78,17 @@ async def test_toolset_releases_tool_after_terminal_finishes(tmp_path, monkeypat
     assert terminal.status.value == "completed"
     assert terminal.on_status is None
     assert tool_ref() is None
+
+
+def test_terminal_status_rejects_an_unknown_terminal_id(tmp_path):
+    runtime = harness(Path(tmp_path))
+    toolset = runtime.deps.toolsets.all.cls[Terminals]
+    status = Status(ctx=context(runtime), toolset=toolset, terminal_id="unknown")
+
+    asyncio.run(status.validate())
+
+    assert status.validation.messages.errors == ["Terminal with ID 'unknown' not found"]
+    assert status.validation.abort
 
 
 def test_terminal_kill_operates_on_a_background_shell_process(tmp_path):
