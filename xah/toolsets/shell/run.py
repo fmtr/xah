@@ -168,9 +168,12 @@ class AdversarialApproval(Run):
         decision = await self.get_decision()
         self.validation.approval |= decision.block
         if decision.block:
-            self.validation.messages.approval.extend(decision.reasons)
-            self.validation.messages.decline.extend(decision.reasons)
             self.state.pending[self.ctx.tool_call_id] = set(decision.reasons)
+            self.validation.messages.decline.extend(decision.reasons)
+
+            source=strings.truncate_mid(self.source,length=250)
+            reasons=decision.reasons+[source]
+            self.validation.messages.approval.extend(reasons)
 
     async def after_approval(self):
         reasons = self.state.pending.pop(self.ctx.tool_call_id, set())
