@@ -17,9 +17,14 @@ from xah.toolsets.terminal.toolset import Terminals
 
 
 def context(runtime):
+    model = TestModel(
+        call_tools=[],
+        custom_output_args={"block": False, "reasons": []},
+    )
+    runtime.deps.model = model
     return RunContext(
         deps=runtime.deps,
-        model=TestModel(),
+        model=model,
         usage=RunUsage(),
         tool_call_id="call-terminal",
     )
@@ -59,13 +64,10 @@ async def test_toolset_releases_tool_after_terminal_finishes(tmp_path, monkeypat
         )
     )
 
+    result = await task
     terminals = runtime.deps.toolsets.all.cls[Terminals].terminals
-    while not terminals:
-        await asyncio.sleep(0)
-
     terminal = terminals[0]
     tool_ref = weakref.ref(terminal.on_status.__self__)
-    result = await task
 
     assert result.startswith(f"Terminal `{terminal.id}`")
     assert not toolset.instances
