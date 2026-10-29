@@ -3,11 +3,11 @@ import warnings
 
 from pydantic.warnings import ArbitraryTypeWarning
 
-from corio import Path
+from corio import Path, sets
 
 import xah.settings as settings_module
 from xah.paths import paths
-from xah.settings import PathAgent, Settings
+from xah.settings import Acp, PathAgent, Settings
 
 
 def test_path_defaults_and_directories(tmp_path):
@@ -28,6 +28,10 @@ def test_path_home_expands_user(tmp_path):
     path = PathAgent(home=Path("~/.workspace"))
 
     assert path.home == Path.home() / ".workspace"
+
+
+def test_acp_implements_corio_subcommand_contract():
+    assert issubclass(Acp, sets.SubCommand)
 
 
 def test_settings_uses_xah_paths_and_environment_prefix():

@@ -700,7 +700,7 @@ wheels = [
 
 [[package]]
 name = "corio"
-version = "2.15.11"
+version = "2.16.0"
 source = { editable = "../corio" }
 dependencies = [
     { name = "cached-classproperty" },

@@ -36,7 +36,7 @@ env_list = ["xah"]
 
 [tool.tox.env.xah]
 description = "Run xah tests."
-deps = ["corio[db.search]~=2.15.8", "corio[test]~=2.15.8", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+deps = ["corio[db.search]~=2.16.0", "corio[test]~=2.16.0", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 commands = [["python", "-m", "pytest", "-q", "{posargs:xah/tests}"]]
 pass_env = ["PLAYWRIGHT_BROWSERS_PATH"]
 
@@ -48,11 +48,11 @@ readme = "README.md"
 license = "Apache-2.0"
 keywords = []
 requires-python = ">=3.12,<3.15"
-dependencies = ["acpremote", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.15.8", "debugpy", "fastmcp==3.4.4", "humanize", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]"]
+dependencies = ["acpremote", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.16.0", "debugpy", "fastmcp==3.4.4", "humanize", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]"]
 
 [project.optional-dependencies]
-test = ["corio[test]~=2.15.8", "corio[db.search]~=2.15.8", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
-"tool.kb" = ["corio[db.search]~=2.15.8"]
+test = ["corio[test]~=2.16.0", "corio[db.search]~=2.16.0", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+"tool.kb" = ["corio[db.search]~=2.16.0"]
 "tool.web" = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 
 [[project.authors]]

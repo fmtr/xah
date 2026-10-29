@@ -37,7 +37,7 @@ class PathAgent(dm.Base):
         return self.home / "sessions"
 
 
-class Acp(dm.Base):
+class Acp(sets.SubCommand):
     url: str
 
     async def run(self):

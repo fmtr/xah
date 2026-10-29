@@ -3,9 +3,14 @@ from types import SimpleNamespace
 import pytest
 from pydantic_acp import SlashCommandRequest
 
-from xah.commands.base import CommandsProvider
+from corio import sets
+from xah.commands.base import Command, CommandsProvider
 from xah.commands.test import Test
 from xah.harness.deps import HarnessDeps
+
+
+def test_command_uses_corio_subcommand_contract():
+    assert issubclass(Command, sets.SubCommand)
 
 
 class Source:
