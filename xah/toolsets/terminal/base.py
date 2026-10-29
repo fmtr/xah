@@ -20,6 +20,14 @@ class TerminalToolBase(Tool):
     MASK: ClassVar[str] = strings.trim("""
         {summary}
         Output is being written to: `{path}` ({size} bytes).
+
+        ## Tail
+
+        ```
+        {tail}
+        ```
+
+        The above is the tail only. Review the output file directly if you need to see more.
     """)
 
     @cp
@@ -45,6 +53,7 @@ class TerminalToolBase(Tool):
             summary=terminal.summary,
             path=path,
             size=terminal.output_size,
+            tail=terminal.tail(),
         )
 
 
@@ -112,7 +121,7 @@ class TerminalTool(TerminalToolBase):
             self.activate_async_tools()
             return self.message
 
-        return await terminal.get()
+        return terminal.tail(length=terminal.output_size)
 
 
 class TerminalManagementTool(TerminalToolBase):

@@ -5,7 +5,7 @@ from xah.toolsets.terminal.base import TerminalManagementTool
 
 
 class Status(TerminalManagementTool):
-    """Return the current status of a background terminal."""
+    """Return the status and a short output tail of a background terminal."""
 
     EVENT = "finished"
     terminal_id: str | None = Field(

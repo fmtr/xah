@@ -56,8 +56,7 @@ async def test_terminal_writes_output_to_file(tmp_path):
     assert terminal.on_status is None
     assert terminal.output_size == len("firstsecond")
     assert terminal.output_path.read_text() == "firstsecond"
-    assert await terminal.get() == "firstsecond"
-    assert await terminal.get() == ""
+    assert terminal.tail(length=terminal.output_size) == "firstsecond"
 
 
 @pytest.mark.asyncio
@@ -73,6 +72,7 @@ async def test_terminal_summary_tracks_lifecycle(tmp_path):
 
     await terminal.start()
     assert "running" in terminal.summary
+    assert "Last output:" in terminal.summary
     await terminal.process
 
     assert "completed" in terminal.summary
@@ -130,7 +130,7 @@ async def test_terminal_kill_terminates_the_process_group(tmp_path):
 
     await terminal.start()
     await asyncio.sleep(0.05)
-    child_pid = int((await terminal.get()).strip())
+    child_pid = int(terminal.tail().strip())
 
     await terminal.kill()
     for _ in range(25):
@@ -155,7 +155,7 @@ async def test_terminal_timeout_terminates_the_process_group(tmp_path):
 
     await terminal.start()
     await terminal.process
-    child_pid = int((await terminal.get()).strip())
+    child_pid = int(terminal.tail().strip())
 
     assert terminal.status == TerminalStatus.TIMED_OUT
     for _ in range(25):

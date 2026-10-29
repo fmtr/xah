@@ -29,9 +29,11 @@ class Terminal(dm.Base):
     """A background process whose output is written to a file."""
 
     READ_CHUNK_SIZE: ClassVar[int] = 4096
+    TAIL_LENGTH: ClassVar[int] = 256
     SUMMARY_MASK: ClassVar[str] = strings.trim("""
         Terminal `{id}` running `{command}` for {runtime}.
-        Status: `{status}`; exit code: `{exit_code}`.
+        Last output: {last_output} ago.
+        Status: `{status}`; exit code: `{exit_code}`.        
     """)
 
     id: str = Field(description="Identifier used by the terminal management tools.")
@@ -44,8 +46,8 @@ class Terminal(dm.Base):
     output_size: int = 0
     exit_code: int | None = None
 
-    _read_offset: int = 0
     _started_at: float = 0
+    _last_output_at: float = 0
     _finished_at: float = 0
     _process_handle: asyncio.subprocess.Process | None = None
 
@@ -54,10 +56,16 @@ class Terminal(dm.Base):
         finished_at = self._finished_at or time.monotonic()
         return finished_at - self._started_at
 
-    def tail(self, size: int) -> str:
+    @property
+    def output_idle(self) -> float:
+        return time.monotonic() - self._last_output_at
+
+    def tail(self, length: int | None = None) -> str:
+        if length is None:
+            length = self.TAIL_LENGTH
         with self.output_path.open("rb") as file:
-            file.seek(max(self.output_size - size, 0))
-            output = file.read().decode(errors="replace")
+            file.seek(max(self.output_size - length, 0))
+            output = file.read(length).decode(errors="replace")
         return output.strip()
 
     @property
@@ -70,11 +78,13 @@ class Terminal(dm.Base):
             runtime=humanize.precisedelta(self.runtime, format="%0.1f"),
             status=self.status,
             exit_code=self.exit_code,
+            last_output=humanize.precisedelta(self.output_idle, format="%0.1f"),
         )
 
     @cp
     def process(self) -> asyncio.Task:
         self._started_at = time.monotonic()
+        self._last_output_at = self._started_at
         return asyncio.create_task(self._run())
 
     def set(self, status: TerminalStatus) -> None:
@@ -94,6 +104,7 @@ class Terminal(dm.Base):
             output_file.write(chunk)
             output_file.flush()
             self.output_size += len(chunk)
+            self._last_output_at = time.monotonic()
 
     async def _run(self) -> None:
         readers = []
@@ -162,10 +173,3 @@ class Terminal(dm.Base):
         await asyncio.gather(self.process, return_exceptions=True)
         return self.status
 
-    async def get(self) -> str:
-        await asyncio.sleep(0)
-        with self.output_path.open("rb") as file:
-            file.seek(self._read_offset)
-            output = file.read().decode(errors="replace")
-        self._read_offset = self.output_size
-        return output
