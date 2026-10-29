@@ -105,16 +105,18 @@ class SearcherContent(SearcherBase):
 class Search(Tool):
     """Search for files or file contents."""
 
-    pattern: str | None = Field(default=None, description="Content pattern **as a regex**. Omit to list files.")
+    glob: str | None = Field(default=None, description="Glob to filter search paths/filenames.")
+    regex: str | None = Field(default=None, description="Regex to search **inside** files. Leave empty to search only paths/filenames.")
     path: Annotated[Path | None, Permissions(Permissions.Read)] = Field(
         default=None,
         description="Directory or file to search.",
     )
-    glob: str | None = Field(default=None, description="Optional file glob filter.")
 
     PROJECTIONS: ClassVar[str] = PROJECTION_SEARCH_TOOL_NAMES
 
     async def run(self) -> str:
-        searcher_type = SearcherFiles if self.pattern is None else SearcherContent
-        searcher = searcher_type(self.path, self.pattern, self.glob, self.feedback)
+        Searcher=SearcherFiles
+        if self.regex:
+            Searcher=SearcherContent
+        searcher = Searcher(self.path, self.regex, self.glob, self.feedback)
         return await searcher.run()
