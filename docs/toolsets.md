@@ -25,3 +25,16 @@ The default `xah` harness enables Context, Files, Terminals, Shell, Python,
 Skills, Todo, Utils, and Management. Knowledgebase, Subagent, and Web are also
 included in the built-in catalogue and can be enabled by a custom harness when
 they are needed.
+
+## Shell and background terminals
+
+The Shell tool accepts a `script` argument and runs it in the working directory.
+If a command needs adversarial review, the review includes the command as well as
+the reasons for the decision. Shell commands have no execution timeout by
+default; set `timeout` when a limit is needed.
+
+Long-running commands continue in the background as managed terminals. Their
+status messages include a short output tail and how recently output was
+produced. The terminal status tool can return summaries for all managed
+terminals when called without a terminal ID; use the Files tools to inspect or
+search the complete output log.
