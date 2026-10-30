@@ -406,6 +406,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#shell-and-background-terminals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell and background terminals
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -422,6 +433,8 @@
   
     
     
+      
+        
       
         
       
@@ -570,6 +583,34 @@
     
   
     0.0.3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/0.0.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.0.4
   
 
     
@@ -1020,6 +1061,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#shell-and-background-terminals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell and background terminals
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1065,6 +1117,16 @@ custom harness can enable the toolsets it needs through its <code>Toolsets</code
 Skills, Todo, Utils, and Management. Knowledgebase, Subagent, and Web are also
 included in the built-in catalogue and can be enabled by a custom harness when
 they are needed.</p>
+<h2 id="shell-and-background-terminals">Shell and background terminals</h2>
+<p>The Shell tool accepts a <code>script</code> argument and runs it in the working directory.
+If a command needs adversarial review, the review includes the command as well as
+the reasons for the decision. Shell commands have no execution timeout by
+default; set <code>timeout</code> when a limit is needed.</p>
+<p>Long-running commands continue in the background as managed terminals. Their
+status messages include a short output tail and how recently output was
+produced. The terminal status tool can return summaries for all managed
+terminals when called without a terminal ID; use the Files tools to inspect or
+search the complete output log.</p>
 
 
 
