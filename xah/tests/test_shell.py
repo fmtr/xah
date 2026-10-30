@@ -46,7 +46,7 @@ def test_adversarial_approval_includes_previous_decisions_in_prompt():
             prompt="original goal",
             messages=[],
         ),
-        source="rm -rf build",
+        script="rm -rf build",
     )
     approval.__dict__["state"] = AdversarialApproval.State(
         approveds={"Do not block ordinary requested repository cleanup."},

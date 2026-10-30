@@ -37,7 +37,7 @@ def test_short_terminal_does_not_notify_after_completion(tmp_path, monkeypatch):
     tool = Run(
         ctx=context(runtime),
         toolset=toolset,
-        source="printf terminal-e2e",
+        script="printf terminal-e2e",
         timeout=30,
     )
 
@@ -58,7 +58,7 @@ async def test_toolset_releases_tool_after_terminal_finishes(tmp_path, monkeypat
     task = asyncio.create_task(
         toolset.call_tool(
             toolset.tool_name(Run),
-            {"source": "sleep 1", "timeout": 30},
+            {"script": "sleep 1", "timeout": 30},
             ctx,
             tools[toolset.tool_name(Run)],
         )
@@ -99,7 +99,7 @@ def test_terminal_kill_operates_on_a_background_shell_process(tmp_path):
     tool = Run(
         ctx=context(runtime),
         toolset=toolset,
-        source="sleep 30",
+        script="sleep 30",
         timeout=30,
     )
 

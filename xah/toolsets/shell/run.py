@@ -8,6 +8,7 @@ from pydantic_deep.features.periodic_reminder.capability import build_compact_tr
 from corio import Constants, dm, strings
 from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import classes
+from xah.constants import PROJECTION_BASH_TOOL_NAMES
 from xah.harness.base import Harness
 from xah.options.base import Policy
 from xah.toolsets.base.tool import ToolState, Validation
@@ -86,7 +87,8 @@ class HarnessTerminalAdversary(Harness):
 class Run(TerminalTool):
     """Run a shell command in the working directory."""
 
-    source: str = Field(description="Shell source to execute in the working directory.")
+    script: str = Field(description="Shell script to execute in the working directory.")
+    PROJECTIONS: ClassVar[str] = PROJECTION_BASH_TOOL_NAMES
 
     @classes
     def Validators(cls):
@@ -95,7 +97,7 @@ class Run(TerminalTool):
     @cached_property
     def expression(self) -> Expression:
         expression = shell(str(self.ctx.deps.toolsets.all.cls[Terminals].shell))
-        return expression(-arg.c + self.source)
+        return expression(-arg.c + self.script)
 
 
 class AdversarialApproval(Run):
@@ -144,7 +146,7 @@ class AdversarialApproval(Run):
     def prompt(self):
         return self.PROMPT.format(
             transcript=self.transcript,
-            command=self.source,
+            command=self.script,
             approveds=self.approveds,
             declineds=self.declineds,
         )
@@ -171,8 +173,8 @@ class AdversarialApproval(Run):
             self.state.pending[self.ctx.tool_call_id] = set(decision.reasons)
             self.validation.messages.decline.extend(decision.reasons)
 
-            source=strings.truncate_mid(self.source,length=250)
-            reasons=decision.reasons+[source]
+            script = strings.truncate_mid(self.script, length=250)
+            reasons = decision.reasons + [script]
             self.validation.messages.approval.extend(reasons)
 
     async def after_approval(self):

@@ -173,6 +173,20 @@ def test_files_write_projection_is_a_diff_without_default_tool_names():
     ]
 
 
+def test_shell_projection_displays_script_command():
+    harness_instance = harness()
+    shell_toolset = harness_instance.deps.toolsets.all.cls[Shell]
+    projection_map = compose_projection_maps(harness_instance.projections)
+
+    projection = projection_map.project_start(
+        shell_toolset.tool_name(Run),
+        raw_input={"script": "echo hello"},
+    )
+
+    assert projection is not None
+    assert projection.content[0].content.text == "```bash\necho hello\n```"
+
+
 def test_shell_validation_uses_agent_output():
     deps = harness().deps
     toolset = deps.toolsets.all.cls[Shell]
@@ -190,7 +204,7 @@ def test_shell_validation_uses_agent_output():
     assert toolset.options.cls[options.Policy].value == options.Policies.REQUESTABLE
     toolset.options.cls[options.Policy].current_value = options.Policies.APPROVAL
 
-    result = asyncio.run(toolset.validate(ctx, tool_def, {"source": "echo hello"}))
+    result = asyncio.run(toolset.validate(ctx, tool_def, {"script": "echo hello"}))
 
     assert result.approval
     assert result.messages == Messages()
@@ -212,7 +226,7 @@ def test_terminal_run_appends_to_terminal_collection(tmp_path, monkeypatch):
         usage=RunUsage(),
         tool_call_id="test-terminal",
     )
-    tool = Run(ctx=ctx, toolset=toolset, source="printf hello")
+    tool = Run(ctx=ctx, toolset=toolset, script="printf hello")
     tool_ref = weakref.ref(tool)
 
     result = asyncio.run(tool.run())
