@@ -61,6 +61,10 @@ xah
 
 For an ephemeral run, use `uvx xah`. The server needs an ACP client for the interactive interface. See the [quick start](https://fmtr.github.io/xah/quick/) and [PyCharm](https://fmtr.github.io/xah/acp/#pycharm) or [Zed](https://fmtr.github.io/xah/acp/#zed) setup instructions, then work through the [tutorials](https://fmtr.github.io/xah/tutorials/) to extend `xah`.
 
+## Model adapters
+
+Declare adapter classes in a harness's `Models` method; xah constructs each adapter with the harness's complete settings object. Adapters can use that object for provider credentials while keeping Pydantic AI model settings separate. The `ai.token` setting is a `SecretStr`; standalone xah reads it from `XAH__AI__TOKEN`.
+
 ## Built-in toolsets
 
 `xah` ships with built-in toolsets for common agent capabilities. See the
