@@ -10,7 +10,7 @@ custom harness can enable the toolsets it needs through its `Toolsets` definitio
 - **Files** — Read, write, edit, move, search, create, and remove files and
   directories.
 - **Knowledgebase** — Search and retrieve web pages and fixed collections.
-- **Management** — List and activate toolsets at runtime.
+- **Management** — List available toolsets and activate them at runtime.
 - **Python** — Run Python code, manage packages, and run tests.
 - **Shell** — Execute shell commands.
 - **Skills** — Discover and load agent skills.
@@ -24,7 +24,9 @@ custom harness can enable the toolsets it needs through its `Toolsets` definitio
 The default `xah` harness enables Context, Files, Terminals, Shell, Python,
 Skills, Todo, Utils, and Management. Knowledgebase, Subagent, and Web are also
 included in the built-in catalogue and can be enabled by a custom harness when
-they are needed.
+they are needed. The available toolset catalogue does not change during a
+session. Activation is one-way for the session; activated toolsets stay active, so
+they do not need to be activated again on every turn.
 
 ## Shell and background terminals
 
