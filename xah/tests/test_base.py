@@ -4,12 +4,14 @@ import asyncio
 import gc
 import weakref
 import sys
+from datetime import datetime, timezone
 from functools import cached_property
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import humanize
 from cached_classproperty import cached_classproperty
-from corio import Path
+from corio import Path, dt
 from corio.iterator import ilist
 
 from xah.class_collections import classes
@@ -17,6 +19,7 @@ from xah.server.acp.server import SessionAgentSource
 from xah.server.acp.usage import UsageReporterRegistry
 from xah.settings import PathAgent
 from xah.harness.base import Harness, HarnessAcp
+from xah.instructions.time import Time
 from xah.instructions.agent import Agent
 from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
@@ -96,6 +99,20 @@ def test_harness_instructions_ignore_missing_files(tmp_path):
 
     context = SimpleNamespace(deps=harness.deps)
     assert asyncio.run(Agent(ctx=context, harness_type=type(harness)).run()) == []
+
+
+def test_time_instruction_is_registered_and_reports_local_time(monkeypatch):
+    fixed_now = datetime(2026, 10, 31, 20, 21, tzinfo=timezone.utc)
+    monkeypatch.setattr(dt, "now", lambda: fixed_now)
+    monkeypatch.setattr(humanize, "naturaldate", lambda value: "today")
+
+    instruction = Time(ctx=None, harness_type=Harness)
+    result = asyncio.run(instruction.run())
+
+    local_now = fixed_now.astimezone()
+    expected_time = local_now.strftime("%I:%M %p %Z")
+    assert result == f"Current local time: {expected_time} (today)."
+    assert Time in Harness.Instructions
 
 
 def harness(cwd=None):

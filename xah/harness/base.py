@@ -88,11 +88,12 @@ class HarnessBase(Generic[AgentDepsT]):
 
     @classes
     def Instructions(cls):
+        from xah.instructions.time import Time
         from xah.instructions.agent import Agent
         from xah.instructions.paths import Paths
         from xah.instructions.static import Static
 
-        return [Static, Agent, Paths]
+        return [Static, Agent, Paths, Time]
 
     @classes
     def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
