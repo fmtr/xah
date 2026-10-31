@@ -23,6 +23,9 @@ namespaces = false
 [tool.setuptools.package-data]
 xah = ["pyproject.package.toml", "assets/**"]
 
+[tool.uv.config-settings-package.corio]
+editable_mode = "compat"
+
 [tool.uv.sources.corio]
 path = "../corio"
 editable = true

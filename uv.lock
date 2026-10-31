@@ -15,28 +15,28 @@ resolution-markers = [
 
 [[package]]
 name = "acpremote"
-version = "1.9.0"
+version = "1.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "agent-client-protocol" },
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b0/a4/0e3fc9c0dd2a963d97a579e6592d2423dcac829bd9c5c1864706d686cc85/acpremote-1.9.0.tar.gz", hash = "sha256:97cf5973630d370b0780627a6f6e471e4bc911ad7566bcc30372d0f7ca49e88b", size = 18187, upload-time = "2026-09-10T10:39:44.604Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/45/b79d8fccfe723cc487eb312d63430d31948ac4a137ee65b4b6ebf2e3f225/acpremote-1.12.0.tar.gz", hash = "sha256:acbfa74fe61e01b04e4dcdf29ef460516fd7ea6842e2a3683a9c0c02be7eb0c4", size = 18637, upload-time = "2026-10-30T00:48:39.861Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cf/d7/1cad5ee654439d5cb07498b4a398ff8cf18cf29d1fe9399f6342ba4cb877/acpremote-1.9.0-py3-none-any.whl", hash = "sha256:233781b4db7cb838701ebf16830c9f64c0aad838048ddc5e121cd90dc820ad3f", size = 23068, upload-time = "2026-09-10T10:39:38.691Z" },
+    { url = "https://files.pythonhosted.org/packages/36/6f/f4783ffe75bc7b7e4e7b75f0c9e0c2ab2e840908312aa6037da455e608bd/acpremote-1.12.0-py3-none-any.whl", hash = "sha256:2e9ccac014e7983443e2df59efaae38592698cc4f80d1d8dfcc93988afa02753", size = 23577, upload-time = "2026-10-30T00:48:33.212Z" },
 ]
 
 [[package]]
 name = "agent-client-protocol"
-version = "0.11.0"
+version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/93/396d02c91b387b2678f23081869ca47bd495fc6c78789022c683180cf5f1/agent_client_protocol-0.11.0.tar.gz", hash = "sha256:8920a3b27bdcc852fd7c73066f47ab53257dbfbe57b505e20a40c69f80a5391c", size = 87402, upload-time = "2026-07-05T17:07:56.803Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/95/2c28ca34e545ce0282e88272aa3a8abdf8f3f926a0492f567ea11acd071b/agent_client_protocol-0.12.1.tar.gz", hash = "sha256:9963ccb590ed96d7dc542c9c023e90676fc76b1c6562e21a9ee112f4fbcb0095", size = 130605, upload-time = "2026-08-16T14:08:22.545Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/48/a1367dded7765f5489f9840389949d5aeac53a73aeb1b4e6c0ab61e1617a/agent_client_protocol-0.11.0-py3-none-any.whl", hash = "sha256:2d8570cd4911f8af9fbab4808f7b05f09204a756f346c7409ecdcae3f37cdb2f", size = 68089, upload-time = "2026-07-05T17:07:55.518Z" },
+    { url = "https://files.pythonhosted.org/packages/21/61/0a2186c8ca53cf464767d4c4fb7fd9e23f48ce4547c2fa0d1c83a4d52410/agent_client_protocol-0.12.1-py3-none-any.whl", hash = "sha256:aaf3cc301ed87d9e2c4ccb91adfe1cd58784355f6ce7e513f50e7ca2391862ef", size = 85929, upload-time = "2026-08-16T14:08:21.307Z" },
 ]
 
 [[package]]
@@ -700,7 +700,7 @@ wheels = [
 
 [[package]]
 name = "corio"
-version = "2.16.0"
+version = "2.16.1"
 source = { editable = "../corio" }
 dependencies = [
     { name = "cached-classproperty" },
@@ -3698,7 +3698,7 @@ email = [
 
 [[package]]
 name = "pydantic-acp"
-version = "1.9.0"
+version = "1.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "agent-client-protocol" },
@@ -3707,9 +3707,9 @@ dependencies = [
     { name = "pydantic-ai-slim" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/e5/0fa5c94bb43233a50cf1651743992709d3ddd327534b9b54bcb9939c3fbb/pydantic_acp-1.9.0.tar.gz", hash = "sha256:38b2f7c0cd7810000e97a98006ac97c0db82e00a7ed84bd42fc308a1b00854ed", size = 108244, upload-time = "2026-09-10T10:39:46.914Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/d4/9c4bb3149092707a6d2361c8f9bd4d2b6acaa340a2cb0d1492f3506b1df2/pydantic_acp-1.12.0.tar.gz", hash = "sha256:f9f48681788d9b613e75d18ef81be45107bd4cd76689ce2755360e0b7e7f0d90", size = 109118, upload-time = "2026-10-30T00:48:42.641Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/56/db5298f7328eb9727b78251c04b020c141abc42ac062ae8b0f47c4d9d094/pydantic_acp-1.9.0-py3-none-any.whl", hash = "sha256:ec59be617ace59a634d09fb24ddd938579e86ef6121dbeb174dca675027cf5ec", size = 144177, upload-time = "2026-09-10T10:39:42.185Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/d9/d63d78c1dafcc6335c3b996754dae8bd7c6321305890fb186437ad1ed6f8/pydantic_acp-1.12.0-py3-none-any.whl", hash = "sha256:cffe6a02a3fc7dac84faf53473a6d55fa114b346f2a593dbf246fe141fa0e153", size = 145042, upload-time = "2026-10-30T00:48:36.794Z" },
 ]
 
 [[package]]
@@ -5383,7 +5383,7 @@ wheels = [
 
 [[package]]
 name = "xah"
-version = "0.0.3"
+version = "0.0.5"
 source = { editable = "." }
 dependencies = [
     { name = "acpremote" },
@@ -5415,7 +5415,7 @@ tool-web = [
 
 [package.metadata]
 requires-dist = [
-    { name = "acpremote" },
+    { name = "acpremote", specifier = ">=1.12.0,<2.0.0" },
     { name = "agent-client-protocol" },
     { name = "corio", extras = ["db-search"], marker = "extra == 'test'", editable = "../corio" },
     { name = "corio", extras = ["db-search"], marker = "extra == 'tool-kb'", editable = "../corio" },
