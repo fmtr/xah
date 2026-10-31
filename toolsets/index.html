@@ -446,6 +446,8 @@
       
         
       
+        
+      
     
     
     
@@ -634,6 +636,34 @@
   
     <li class="md-nav__item">
       <a href="../changelog/0.0.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/0.0.6/" class="md-nav__link">
         
   
   
@@ -1132,7 +1162,7 @@ custom harness can enable the toolsets it needs through its <code>Toolsets</code
 <li><strong>Files</strong> — Read, write, edit, move, search, create, and remove files and
   directories.</li>
 <li><strong>Knowledgebase</strong> — Search and retrieve web pages and fixed collections.</li>
-<li><strong>Management</strong> — List and activate toolsets at runtime.</li>
+<li><strong>Management</strong> — List available toolsets and activate them at runtime.</li>
 <li><strong>Python</strong> — Run Python code, manage packages, and run tests.</li>
 <li><strong>Shell</strong> — Execute shell commands.</li>
 <li><strong>Skills</strong> — Discover and load agent skills.</li>
@@ -1146,7 +1176,9 @@ custom harness can enable the toolsets it needs through its <code>Toolsets</code
 <p>The default <code>xah</code> harness enables Context, Files, Terminals, Shell, Python,
 Skills, Todo, Utils, and Management. Knowledgebase, Subagent, and Web are also
 included in the built-in catalogue and can be enabled by a custom harness when
-they are needed.</p>
+they are needed. The available toolset catalogue does not change during a
+session. Activation is one-way for the session; activated toolsets stay active, so
+they do not need to be activated again on every turn.</p>
 <h2 id="shell-and-background-terminals">Shell and background terminals</h2>
 <p>The Shell tool accepts a <code>script</code> argument and runs it in the working directory.
 If a command needs adversarial review, the review includes the command as well as
