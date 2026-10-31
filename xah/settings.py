@@ -5,6 +5,7 @@ from typing import ClassVar, Self
 
 from acpremote import TransportOptions
 from cached_classproperty import cached_classproperty
+from pydantic import SecretStr
 from pydantic_settings import CliSubCommand
 
 from corio import Path, PackagePaths, dm, env, sets
@@ -53,9 +54,14 @@ class Acp(sets.SubCommand):
 
 
 
+class Ai(sets.SubCommand):
+    token: SecretStr | None = None
+
+
 class Settings(sets.Base, cli_parse_args=True):
     paths = paths
     acp: CliSubCommand[Acp]
+    ai: Ai = Ai()
     path: PathAgent = PathAgent()
     port: int|None = None
     host: str='localhost'

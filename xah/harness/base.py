@@ -252,13 +252,13 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
 
         return [Policy, Test]
 
-    @ccp
-    def Models(cls) -> list[AdapterModel]:
-        return [Luna()]
+    @classes
+    def Models(cls) -> list[type[AdapterModel]]:
+        return [Luna]
 
     @cached_property
     def models(self) -> ilist[AdapterModel]:
-        return ilist(self.Models)
+        return ilist(model_type(settings=self.settings) for model_type in self.Models)
 
     @cached_property
     def thinking(self):

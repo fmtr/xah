@@ -7,7 +7,7 @@ from corio import Path, sets
 
 import xah.settings as settings_module
 from xah.paths import paths
-from xah.settings import Acp, PathAgent, Settings
+from xah.settings import Acp, Ai, PathAgent, Settings
 
 
 def test_path_defaults_and_directories(tmp_path):
@@ -34,9 +34,22 @@ def test_acp_implements_corio_subcommand_contract():
     assert issubclass(Acp, sets.SubCommand)
 
 
+def test_ai_implements_corio_subcommand_contract():
+    assert issubclass(Ai, sets.SubCommand)
+
+
 def test_settings_uses_xah_paths_and_environment_prefix():
     assert Settings.paths is paths
     assert Settings.get_env_prefix() == "XAH__"
+
+
+def test_ai_token_is_loaded_from_the_environment(monkeypatch):
+    monkeypatch.setenv("XAH__AI__TOKEN", "test-token")
+    settings = Settings(_cli_parse_args=False)
+
+    assert isinstance(settings.ai, Ai)
+    assert settings.ai.token.get_secret_value() == "test-token"
+    assert str(settings.ai.token) == "**********"
 
 
 def test_settings_path_annotation_does_not_emit_arbitrary_type_warning():

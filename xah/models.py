@@ -6,9 +6,7 @@ from typing import Any, ClassVar
 from pydantic_acp import AdapterModel as AcpAdapterModel
 from pydantic_ai import ModelSettings
 from pydantic_ai.models import Model
-from pydantic_ai.models.ollama import OllamaModel
 from pydantic_ai.models.openai import OpenAIResponsesModel
-from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
 
@@ -22,12 +20,13 @@ class AdapterModel(AcpAdapterModel):
     MODEL_SETTINGS: ClassVar[ModelSettings] = ModelSettings()
     MODEL_KWARGS: ClassVar[dict[str, Any]] = {}
 
-    def __init__(self, id: str | None = None) -> None:
+    def __init__(self, id: str | None = None, *, settings: Any = None) -> None:
+        self.settings = settings
         model_name = self.NAME if id is None else id
         model = self.model_class(
             model_name,
             provider=self.provider,
-            settings=self.settings,
+            settings=self.model_settings,
             **self.MODEL_KWARGS,
         )
         super().__init__(
@@ -45,7 +44,7 @@ class AdapterModel(AcpAdapterModel):
         return {}
 
     @cached_property
-    def settings(self) -> ModelSettings:
+    def model_settings(self) -> ModelSettings:
         return self.MODEL_SETTINGS
 
     @cached_property
@@ -63,23 +62,6 @@ class AdapterModelOpenAI(AdapterModel):
         openai_reasoning_effort="medium",
         openai_reasoning_summary="detailed",
     )
-
-class AdapterModelOllama(AdapterModel):
-    """Configure models served by an Ollama endpoint."""
-
-    MODEL_CLASS = OllamaModel
-    PROVIDER_CLASS = OllamaProvider
-    PROVIDER_NAME = "ollama"
-    BASE_URL: ClassVar[str] = "http://localhost:11434"
-    HTTP_CLIENT: ClassVar[Any] = None
-
-    @cached_property
-    def provider_kwargs(self) -> dict[str, Any]:
-        return {
-            "base_url": self.BASE_URL,
-            "http_client": self.HTTP_CLIENT,
-        }
-
 
 class Luna(AdapterModelOpenAI):
     NAME = "gpt-6-luna"
