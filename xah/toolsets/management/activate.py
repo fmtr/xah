@@ -9,45 +9,63 @@ from xah.toolsets.base.toolset import Toolset
 
 
 class Activate(Tool):
-    """Activate or deactivate toolsets by ID."""
+    """Activate toolsets by ID."""
 
     ids: list[str] = Field(description="Toolset IDs.")
-    activate: bool = Field(description="Whether to activate or deactivate the selected toolsets.")
     reason: str = Field(description="A very short reason to justify why the tool is needed, and why your goal cannot be achieved using existing tools.")
 
     @classes
     def Validators(cls):
-        return [ValidIDs, ApproveRequestables]
+        return [ApproveRequestables]
 
-    async def run(self)->str:
-        activateds=[]
-        for toolset_id in self.ids:
-            toolset = self.ctx.deps.toolsets.permitted.name[toolset_id]
-            if self.activate and toolset.activated:
-                continue
-            if toolset.IS_MANAGEMENT and not self.activate:
-                self.validation.messages.approval.append(
-                    f"The {toolset.name} toolset cannot be deactivated."
-                )
-                continue
-            toolset.activated = self.activate
-            activateds.append(toolset_id)
-            if self.activate:
+    @cp
+    def permitted(self):
+        return self.ctx.deps.toolsets.permitted.name
+
+    @cp
+    def valids(self) -> set[str]:
+        return IterDiffer(before=self.permitted.keys(), after=self.ids).same
+
+    @cp
+    def invalids(self) -> set[str]:
+        return IterDiffer(before=self.permitted.keys(), after=self.ids).added
+
+    @cp
+    def duplicates(self) -> set[str]:
+        activated = self.ctx.deps.toolsets.activated.name
+        return IterDiffer(before=activated.keys(), after=self.ids).same
+
+    async def run(self) -> str:
+        if self.invalids:
+            invalids_text = strings.join_natural(
+                sorted(self.invalids), mask=strings.MASK_QUOTE
+            )
+            message = strings.trim(f"""
+                The following toolset IDs do not exist: {invalids_text}.
+                You can use the List tool to check available toolset IDs.
+            """)
+            self.feedback(message)
+
+        permitted = self.permitted
+        duplicates = self.duplicates
+        for toolset_id in self.valids:
+            toolset = permitted[toolset_id]
+            if not toolset.activated:
                 self.toolset.toolsets.append(type(toolset))
+            toolset.activated = True
 
-        activateds= strings.join_natural(sorted(activateds), mask=strings.MASK_QUOTE)
-        msg=f'The following toolsets have been activated: {activateds}'
-        return msg
+        if duplicates:
+            names = strings.join_natural(
+                sorted(duplicates), mask=strings.MASK_QUOTE
+            )
+            message = strings.trim(f"""
+                The following toolsets were already activated: {names}.
+                They will stay activated until further notice. You do not need to activate tools again for every turn.
+            """)
+            self.feedback(message)
 
-
-class ValidIDs(Activate):
-    async def validate(self):
-        permitted = self.ctx.deps.toolsets.permitted.name
-        diff = IterDiffer(before=permitted.keys(), after=self.ids)
-        if diff.added:
-            invalid = strings.join_natural(sorted(diff.added), mask=strings.MASK_QUOTE)
-            self.validation.messages.errors.append(f"Invalid toolset IDs: {invalid}.")
-            self.validation.abort = True
+        activateds_text = strings.join_natural(sorted(self.valids), mask=strings.MASK_QUOTE)
+        return f"The following toolsets have been activated: {activateds_text}"
 
 
 class ApproveRequestables(Activate):
@@ -55,8 +73,8 @@ class ApproveRequestables(Activate):
     @cp
     def requesteds(self)->ilist[Toolset]:
         return ilist(
-            self.ctx.deps.toolsets.permitted.name[toolset_id]
-            for toolset_id in self.ids
+            self.permitted[toolset_id]
+            for toolset_id in self.valids
         )
 
     @cp
@@ -81,7 +99,7 @@ class ApproveRequestables(Activate):
         self.validation.messages.approval.append(msg)
 
     async def after_approval(self):
-        for toolset_id in self.ids:
-            toolset = self.ctx.deps.toolsets.permitted.name[toolset_id]
+        for toolset_id in self.valids:
+            toolset = self.permitted[toolset_id]
             toolset.options.cls[Policy].current_value = Policy.Policies.APPROVAL
         await self.ctx.deps.update_config()

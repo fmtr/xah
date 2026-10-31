@@ -182,23 +182,82 @@ def test_acp_toolsets_manager_applies_policy_after_activation():
     assert manager.agent == ilist([shell])
 
 
-def test_activate_reports_management_toolset_cannot_be_disabled():
-    management = Management(settings=SimpleNamespace(), cwd=Path.cwd())
-    files = Files(settings=SimpleNamespace(), cwd=Path.cwd())
-    deps = SimpleNamespace(toolsets=SimpleNamespace(permitted=ilist([management, files])))
-    context = RunContext(deps=deps, model=TestModel(), usage=RunUsage())
+def test_activate_reactivates_toolsets_and_reports_already_active(monkeypatch):
+    parent = SimpleNamespace(
+        settings=SimpleNamespace(),
+        cwd_default=Path.cwd(),
+        toolsets_classes=[Management, Files],
+    )
+    deps = ToolsetsManager(parent)
+    management = deps.all.name[Management.name]
+    files = deps.all.name[Files.name]
+    files.activated = False
+    context = RunContext(
+        deps=SimpleNamespace(toolsets=deps), model=TestModel(), usage=RunUsage()
+    )
+    feedback = []
+    monkeypatch.setattr(
+        Activate, "feedback", lambda self, message: feedback.append(message)
+    )
     tool = Activate(
         ctx=context,
         toolset=management,
         ids=[Management.name, Files.name],
-        activate=False,
-        reason="Test deactivation",
+        reason="Test activation",
     )
 
-    asyncio.run(tool.run())
+    result = asyncio.run(tool.run())
 
     assert management.activated
-    assert not files.activated
-    assert tool.validation.messages.approval == [
-        "The Management toolset cannot be deactivated."
+    assert files.activated
+    assert management.toolsets == [Files]
+    assert "Management" in feedback[0]
+    assert "until further notice" in feedback[0]
+    assert result == 'The following toolsets have been activated: "Files" and "Management"'
+
+    repeated_tool = Activate(
+        ctx=context,
+        toolset=management,
+        ids=[Management.name, Files.name],
+        reason="Test repeated activation",
+    )
+    repeated_result = asyncio.run(repeated_tool.run())
+
+    assert repeated_result == result
+    assert management.toolsets == [Files]
+    assert "Files" in feedback[1]
+    assert "activate" not in Activate.model_fields
+
+
+def test_activate_feedbacks_unknown_ids_while_activating_known_ids(monkeypatch):
+    parent = SimpleNamespace(
+        settings=SimpleNamespace(),
+        cwd_default=Path.cwd(),
+        toolsets_classes=[Management, Files],
+    )
+    deps = ToolsetsManager(parent)
+    management = deps.all.name[Management.name]
+    files = deps.all.name[Files.name]
+    files.activated = False
+    context = RunContext(
+        deps=SimpleNamespace(toolsets=deps), model=TestModel(), usage=RunUsage()
+    )
+    feedback = []
+    monkeypatch.setattr(
+        Activate, "feedback", lambda self, message: feedback.append(message)
+    )
+    tool = Activate(
+        ctx=context,
+        toolset=management,
+        ids=[Files.name, "Missing"],
+        reason="Test activation with an unknown ID",
+    )
+
+    result = asyncio.run(tool.run())
+
+    assert files.activated
+    assert feedback == [
+        "The following toolset IDs do not exist: \"Missing\".\n"
+        "You can use the List tool to check available toolset IDs."
     ]
+    assert result == 'The following toolsets have been activated: "Files"'
