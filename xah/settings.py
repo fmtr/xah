@@ -63,7 +63,7 @@ class Settings(sets.Base, cli_parse_args=True):
     harness_type: ClassVar
 
     def model_post_init(self, __context):
-        self.port = self.port or self.paths.metadata.port + 8000
+        self.port = self.port or self.paths.metadata.port + 8000 + (int(paths.is_dev) * 1000)
 
     @cached_classproperty
     def path_agent_type(self) -> type[PathAgent]:

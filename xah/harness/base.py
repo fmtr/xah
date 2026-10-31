@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from functools import cached_property, partial
+from functools import cached_property
 from typing import Any, Generic, Self, Sequence, TypeVar, cast
-from unittest.mock import patch
-
-import acpremote.server
 from acp.schema import ConfigOptionUpdate
 from acpremote import TransportOptions, serve_acp
 from cached_classproperty import cached_classproperty
@@ -39,14 +36,6 @@ from xah.toolsets.utils.toolset import Utils
 
 AgentDepsT = TypeVar("AgentDepsT", bound=HarnessAgentDeps)
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
-
-def select_acp_subprotocol(
-    connection: Any,
-    subprotocols: Sequence[str],
-) -> str | None:
-    """Negotiate ACP when requested while supporting clients that omit it."""
-    del connection
-    return "acp.v1" if "acp.v1" in subprotocols else None
 
 
 class HarnessModelsProvider:
@@ -514,27 +503,15 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
         return self.Settings.instance
 
     async def serve(self):
-        # Temporary until acpremote exposes WebSocket subprotocols directly.
-        with (
-            patch.object(
-                acpremote.server,
-                "serve",
-                partial(
-                    acpremote.server.serve,
-                    subprotocols=["acp.v1"],
-                    select_subprotocol=select_acp_subprotocol,
-                ),
-            )
-        ):
-            server = await serve_acp(
-                self.agent_factory,
-                host=self.settings.host,
-                port=self.settings.port,
-                options=TransportOptions(ping_timeout=600.0),
-            )
-            logger.info(f"Launching {self.name} at {self.url}")
-            async with server:
-                await server.serve_forever()
+        server = await serve_acp(
+            self.agent_factory,
+            host=self.settings.host,
+            port=self.settings.port,
+            options=TransportOptions(ping_timeout=600.0),
+        )
+        logger.info(f"Launching {self.name} at {self.url}")
+        async with server:
+            await server.serve_forever()
 
     @classmethod
     async def launch_async(cls):
