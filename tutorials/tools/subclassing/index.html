@@ -379,6 +379,8 @@
       
         
       
+        
+      
     
     
     
@@ -595,6 +597,34 @@
   
     <li class="md-nav__item">
       <a href="../../../changelog/0.0.6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../changelog/0.0.7/" class="md-nav__link">
         
   
   
@@ -936,6 +966,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Customize a tool by subclassing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -952,6 +1000,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#customize-tool-call-presentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customize tool-call presentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1049,6 +1127,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#customize-tool-call-presentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customize tool-call presentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1088,6 +1185,29 @@
 <li>Override <code>run()</code> to change the behavior while retaining the inherited argument.</li>
 </ol>
 <p>The next exercise launches a harness that uses this subclass.</p>
+<h2 id="customize-tool-call-presentation">Customize tool-call presentation</h2>
+<p>By default, <code>xah</code> formats tool input and output for the ACP client. A tool can
+replace that presentation by returning a custom <code>Projection</code> class:</p>
+<div class="language-python highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">corio.function</span><span class="w"> </span><span class="kn">import</span> <span class="n">ccp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic_acp.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolProjection</span> <span class="k">as</span> <span class="n">AcpToolProjection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">Projection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tool</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchProjection</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">raw_input</span><span class="p">,</span> <span class="n">cwd</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">AcpToolProjection</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Searching for </span><span class="si">{</span><span class="n">raw_input</span><span class="p">[</span><span class="s1">'query'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchTool</span><span class="p">(</span><span class="n">Tool</span><span class="p">):</span>
+    <span class="nd">@ccp</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Projection</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">Projection</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">SearchProjection</span>
+</code></pre></div>
+<p>Override <code>start()</code> to customize the initial display and <code>progress()</code> to
+customize updates as the tool runs. The default <code>Projection</code> implementation
+provides both methods and can be subclassed when only part of the presentation
+needs to change.</p>
 
 
 
