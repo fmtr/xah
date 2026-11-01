@@ -10,8 +10,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import humanize
+from pydantic import BaseModel
 from cached_classproperty import cached_classproperty
-from corio import Path, dt
+from corio import Path, dt, function, yml
 from corio.iterator import ilist
 
 from xah.class_collections import classes
@@ -25,10 +26,11 @@ from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
 from xah.options import base as options
-from xah.toolsets.base.tool import Messages
+from xah.toolsets.base.projection import Projection as BaseProjection
+from xah.toolsets.base.tool import Messages, Tool
 from xah.toolsets.base.toolset import Toolset as ToolsetBase, ToolsetInfo
 from pydantic_acp import compose_projection_maps
-from pydantic_acp.projection import FileEditToolCallContent
+from pydantic_acp.projection import FileEditToolCallContent, HarnessFileSystemProjectionMap, ToolProjection
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.models.test import TestModel
@@ -140,6 +142,77 @@ def test_similarity_validator_has_shared_thresholds():
     assert SimilarityValidator.SIMILARITY_MIN_PERCENT == 80
 
 
+def test_toolset_default_projection_displays_input_and_output():
+    class PreviewTool(Tool):
+        args: list[str]
+
+    class PreviewToolset(ToolsetBase):
+        @classes
+        def Tools(cls):
+            return [PreviewTool]
+
+    tool_name = PreviewToolset.tool_name(PreviewTool)
+    projection_map = compose_projection_maps(PreviewToolset.projections)
+
+    class Result(BaseModel):
+        state: str
+        count: int
+
+    raw_input = {
+        "args": ["status", "--short"],
+        "context": {"cwd": "repo"},
+    }
+
+    start = projection_map.project_start(tool_name, raw_input=raw_input)
+    progress = projection_map.project_progress(
+        tool_name,
+        raw_input=raw_input,
+        raw_output=Result(state="ok", count=3),
+        serialized_output='{"ignored": true}',
+        status="completed",
+    )
+
+    input_tree = yml.from_yaml(start.content[0].content.text)
+    output_tree = yml.from_yaml(progress.content[0].content.text)
+
+    assert tool_name in start.title
+    assert "status" in start.title
+    assert input_tree == {
+        "args": ["status", "--short"],
+        "context": {"cwd": "repo"},
+    }
+    assert progress.status == "completed"
+    assert "ok" in progress.title
+    assert output_tree == {"state": "ok", "count": "3"}
+
+    empty_start = projection_map.project_start(tool_name, raw_input={})
+    assert yml.from_yaml(empty_start.content[0].content.text) == {}
+    assert tool_name in empty_start.title
+
+
+def test_tool_can_select_a_custom_projection():
+    class CustomProjection(BaseProjection):
+        def start(self, *, raw_input, cwd):
+            return ToolProjection(title="custom projection")
+
+    class CustomTool(Tool):
+        @function.ccp
+        def Projection(cls) -> type[BaseProjection]:
+            return CustomProjection
+
+    class CustomToolset(ToolsetBase):
+        @classes
+        def Tools(cls):
+            return [CustomTool]
+
+    tool_name = CustomToolset.tool_name(CustomTool)
+    projection_map = compose_projection_maps(CustomToolset.projections)
+
+    start = projection_map.project_start(tool_name, raw_input={"value": 1})
+
+    assert start.title == "custom projection"
+
+
 def test_toolset_projections_are_owned_by_toolsets():
     harness_instance = harness()
     toolset = harness_instance.deps.toolsets.all.name[Files.name]
@@ -167,7 +240,8 @@ def test_files_write_projection_is_a_diff_without_default_tool_names():
     write_projection = next(
         projection
         for projection in harness_instance.projections
-        if "Files-Write" in projection.write_tool_names
+        if isinstance(projection, HarnessFileSystemProjectionMap)
+        and "Files-Write" in projection.write_tool_names
     )
 
     assert write_projection.read_tool_names == frozenset()

@@ -8,6 +8,7 @@ from pydantic import Field, InstanceOf, model_validator
 
 from xah.toolsets.fs.permissions import Permissions
 from pydantic.json_schema import SkipJsonSchema
+from xah.toolsets.base.projection import Projection as ToolProjection
 from pydantic_acp import ProjectionMap
 from pydantic_ai import RunContext
 from pydantic_ai.messages import SystemPromptPart
@@ -63,6 +64,10 @@ class Tool(dm.Base):
     @ccp
     def State(cls) -> type[ToolState]:
         return ToolState
+
+    @ccp
+    def Projection(cls) -> type[ToolProjection]:
+        return ToolProjection
 
     state: SkipJsonSchema[InstanceOf[ToolState]] | None = Field(
         default=None,
