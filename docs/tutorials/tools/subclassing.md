@@ -10,3 +10,31 @@ This exercise builds on the age lookup by introducing a second kind of response 
 2. Override `run()` to change the behavior while retaining the inherited argument.
 
 The next exercise launches a harness that uses this subclass.
+
+## Customize tool-call presentation
+
+By default, `xah` formats tool input and output for the ACP client. A tool can
+replace that presentation by returning a custom `Projection` class:
+
+```python
+from corio.function import ccp
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.projection import Projection
+from xah.toolsets.base.tool import Tool
+
+
+class SearchProjection(Projection):
+    def start(self, *, raw_input, cwd):
+        return AcpToolProjection(title=f"Searching for {raw_input['query']}")
+
+
+class SearchTool(Tool):
+    @ccp
+    def Projection(cls) -> type[Projection]:
+        return SearchProjection
+```
+
+Override `start()` to customize the initial display and `progress()` to
+customize updates as the tool runs. The default `Projection` implementation
+provides both methods and can be subclassed when only part of the presentation
+needs to change.
