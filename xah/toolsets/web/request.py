@@ -134,10 +134,11 @@ class RequestBase(WebTool):
         response_content_type = response_headers.get(ContentType.HEADER_LOW, "")
         response_media_type = ContentType.parse(response_content_type)
 
-        body: JsonValue = response.text
+        response_text = response.text
+        body: JsonValue = response_text
         is_json = response_media_type == ContentType.JSON or response_media_type.endswith("+json")
-        if is_json:
-            body = json.loads(response.text)
+        if is_json and response_text:
+            body = json.loads(response_text)
 
         headers = dict(response_headers)
         if not self.include_headers:

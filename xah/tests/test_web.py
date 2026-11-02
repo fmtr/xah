@@ -158,6 +158,30 @@ async def test_request_accepts_json_array_response(web):
     )
 
 
+@pytest.mark.asyncio
+async def test_request_accepts_empty_json_response_body(web):
+    toolset, ctx = web
+    response = MagicMock(status_code=200, text="")
+    response.headers = {"content-type": "application/json"}
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.request.return_value = response
+
+    with patch("corio.https.AsyncClient", return_value=client):
+        result = await Request(
+            ctx=ctx,
+            toolset=toolset,
+            url="https://example.test/api",
+            method=Method.HEAD,
+        ).run()
+
+    assert result == Response(
+        status_code=200,
+        headers={"content-type": "application/json"},
+        body="",
+    )
+
+
 @pytest.mark.parametrize(
     "body",
     [
