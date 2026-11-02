@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from enum import StrEnum, auto
 from functools import cached_property
 from typing import ClassVar, Self
 
 from cached_classproperty import cached_classproperty
 from pydantic import Field, InstanceOf, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from xah.toolsets.fs.permissions import Permissions
-from pydantic.json_schema import SkipJsonSchema
 from xah.toolsets.base.projection import Projection as ToolProjection
 from pydantic_acp import ProjectionMap
 from pydantic_ai import RunContext
@@ -20,6 +21,19 @@ from corio.iterator import enlist, ilist
 from corio.strings import get_docstring
 from xah.class_collections import classes
 from xah.options.path import PathCwd
+
+
+class Kinds(StrEnum):
+    READ = auto()
+    EDIT = auto()
+    DELETE = auto()
+    MOVE = auto()
+    SEARCH = auto()
+    EXECUTE = auto()
+    THINK = auto()
+    FETCH = auto()
+    SWITCH_MODE = auto()
+    OTHER = auto()
 
 
 class ToolState(dm.Base):
@@ -53,6 +67,7 @@ class Validation(dm.Base):
 
 class Tool(dm.Base):
     EXTERNALIZE_OUTPUT: ClassVar[bool] = True
+    KIND: ClassVar[Kinds] = Kinds.OTHER
 
     ctx: SkipJsonSchema[InstanceOf[RunContext]] = Field(exclude=True)
     toolset: SkipJsonSchema[InstanceOf[FunctionToolset]] = Field(exclude=True)

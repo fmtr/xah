@@ -3,12 +3,14 @@ from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.todo.constants import TodoStatus
 
 
 class UpdateStatus(Tool):
     """Update one todo's status."""
+
+    KIND = Kinds.EDIT
 
     todo_id: str = Field(description="ID of the todo to update.")
     status: TodoStatus = Field(description="New todo status.")

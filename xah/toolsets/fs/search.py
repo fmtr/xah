@@ -8,7 +8,7 @@ from pydantic_ai import ModelRetry
 
 from corio import Path, strings
 from xah.constants import PROJECTION_SEARCH_TOOL_NAMES
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -104,6 +104,8 @@ class SearcherContent(SearcherBase):
 
 class Search(Tool):
     """Search for files or file contents."""
+
+    KIND = Kinds.SEARCH
 
     glob: str | None = Field(default=None, description="Glob to filter search paths/filenames.")
     regex: str | None = Field(default=None, description="Regex to search **inside** files. Leave empty to search only paths/filenames.")

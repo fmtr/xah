@@ -9,13 +9,15 @@ from corio.function import cp
 from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
 
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 
 from xah.toolsets.terminal.terminal import Terminal
 
 
 class TerminalToolBase(Tool):
     """Base for tools that address a managed terminal."""
+
+    KIND = Kinds.OTHER
 
     MASK: ClassVar[str] = strings.trim("""
         {summary}

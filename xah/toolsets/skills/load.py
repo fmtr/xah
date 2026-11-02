@@ -5,11 +5,13 @@ from pydantic_ai import ModelRetry
 
 from corio import strings
 from corio.iterator import IterDiffer
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 
 
 class Load(Tool):
     """Load the full text for one or more skills."""
+
+    KIND = Kinds.READ
 
     skill_ids: list[str] = Field(description="Full list of relevant skill IDs to load in one call.")
 

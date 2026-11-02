@@ -1,11 +1,14 @@
 from pydantic import Field
 
 from xah.class_collections import classes
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.terminal.base import TerminalManagementTool
 
 
 class Status(TerminalManagementTool):
     """Return the status and a short output tail of a background terminal."""
+
+    KIND = Kinds.READ
 
     EVENT = "finished"
     terminal_id: str | None = Field(

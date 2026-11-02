@@ -6,13 +6,15 @@ from pydantic import Field
 
 from corio import Path
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
 class Write(Tool):
     """Write complete content to a file."""
+
+    KIND = Kinds.EDIT
 
     path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="Destination path relative to the working directory.",

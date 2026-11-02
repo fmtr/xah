@@ -7,11 +7,13 @@ from subagents_pydantic_ai.retry import run_with_retry
 from subagents_pydantic_ai.toolset import _serialize_output
 
 from xah.options import base as options
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 
 
 class Task(Tool):
     """Delegate a bounded task to a context-free subagent and return its result."""
+
+    KIND = Kinds.OTHER
 
     prompt: str = Field(
         description="Self-contained task prompt with paths, context, behavior, and validation requirements.",

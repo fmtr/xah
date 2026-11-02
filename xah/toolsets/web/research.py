@@ -19,6 +19,7 @@ from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.history import ResearchHistory
 from xah.toolsets.kb.toolset import Knowledgebase
 
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import WebTool
 from xah.toolsets.web.search import Search
 
@@ -146,6 +147,8 @@ class HarnessResearch(Harness):
 
 class Research(WebTool):
     """Search, fetch, and index web pages for the user's research request."""
+
+    KIND = Kinds.SEARCH
 
     FETCH_TIMEOUT: ClassVar[int] = 60
 

@@ -2,11 +2,13 @@ import asyncio
 
 from pydantic import Field
 
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 
 
 class Sleep(Tool):
     """Pause for the specified number of seconds."""
+
+    KIND = Kinds.OTHER
 
     seconds: float = Field(
         default=10,

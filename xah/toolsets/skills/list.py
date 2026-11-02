@@ -2,11 +2,13 @@ from pydantic_ai import ModelRetry
 
 from corio import strings
 from corio.iterator import IterDiffer
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 
 
 class List(Tool):
     """List available skill names and summaries."""
+
+    KIND = Kinds.READ
 
     async def run(self) -> str:
         from xah.toolsets.skills.load import Load

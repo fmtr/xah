@@ -20,7 +20,7 @@ replace that presentation by returning a custom `Projection` class:
 from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.projection import Projection
-from xah.toolsets.base.tool import Tool
+from xah import Kinds, Tool
 
 
 class SearchProjection(Projection):
@@ -29,12 +29,22 @@ class SearchProjection(Projection):
 
 
 class SearchTool(Tool):
+    KIND = Kinds.SEARCH
+
     @ccp
     def Projection(cls) -> type[Projection]:
         return SearchProjection
 ```
 
+`Tool.KIND` uses Xah's `Kinds` enum and defaults to `Kinds.OTHER`. Set it to the
+kind that best matches the tool's semantics. Current tools that execute actions
+use `Kinds.OTHER`; `Kinds.EXECUTE` is available for ACP compatibility. Clients
+such as Zed use the kind to choose how to present a tool call. In particular,
+Zed shows ordinary tool content for `read` and `search` calls. Xah sends
+`rawInput` and `rawOutput` separately and keeps the default title concise.
+
 Override `start()` to customize the initial display and `progress()` to
-customize updates as the tool runs. The default `Projection` implementation
+customize updates as the tool runs. When overriding either method, include the
+content you want the client to display. The default `Projection` implementation
 provides both methods and can be subclassed when only part of the presentation
 needs to change.

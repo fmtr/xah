@@ -1,10 +1,12 @@
 from pydantic import Field
 
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 
 
 class Compact(Tool):
     """Request conversation compaction before the next model request."""
+
+    KIND = Kinds.THINK
 
     focus: str | None = Field(
         default=None,

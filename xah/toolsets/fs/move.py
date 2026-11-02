@@ -6,12 +6,14 @@ from pydantic_ai import ModelRetry
 
 from corio import Path
 from xah.constants import PROJECTION_WRITE_TOOL_NAMES
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 
 
 class Move(Tool):
     """Move or copy a file or directory."""
+
+    KIND = Kinds.MOVE
 
     source: Annotated[Path, Permissions(Permissions.Read)] = Field(
         description="Existing file or directory to move or copy.",

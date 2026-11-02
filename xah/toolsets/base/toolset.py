@@ -10,9 +10,10 @@ from pydantic_ai.exceptions import UserError
 from pydantic_ai.messages import InstructionPart, SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
+from pydantic_acp import ProjectionMap
 
 from corio import Path, jsn, strings
-from corio.function import ccm, cp
+from corio.function import ccm, ccp, cp
 from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import classes
@@ -48,6 +49,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     @cached_classproperty
     def name(cls) -> str:
         return cls.__name__
+
+    @ccp
+    def prefix(cls) -> str:
+        return f"{cls.name}-"
 
     @cached_classproperty
     def description(cls) -> str | None:
@@ -101,21 +106,16 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         return self.states[(owner_class, state_class)]
 
     @cached_classproperty
-    def projections(cls) -> list:
-        projections = []
-        tool_projections = {}
+    def projections(cls) -> list[ProjectionMap]:
+        projections: list[ProjectionMap] = []
         for tool_class in cls.Tools:
-            tool_name = cls.tool_name(tool_class)
-            if tool_class.PROJECTIONS:
-                projections.extend(tool_class.build_projections(tool_name))
+            if not tool_class.PROJECTIONS:
                 continue
-            tool_projections[tool_name] = tool_class.Projection(
-                tool_type=tool_class,
-                toolset_type=cls,
+            projections.extend(
+                tool_class.build_projections(cls.tool_name(tool_class))
             )
 
-        if tool_projections:
-            projections.append(ToolsetProjectionMap(tool_projections))
+        projections.append(ToolsetProjectionMap(cls))
         return projections
 
     def __init__(self, activated: bool = True, **kwargs):
@@ -127,11 +127,11 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
     @ccm
     def tool_name(cls, tool_class: type[Tool]) -> str:
-        return f"{cls.name}-{tool_class.local_name}"
+        return f"{cls.prefix}{tool_class.local_name}"
 
     @ccm
     def local_tool_name(cls, name: str) -> str:
-        return name.removeprefix(f"{cls.name}-")
+        return name.removeprefix(cls.prefix)
 
     @staticmethod
     def feedback(ctx: RunContext, message: str | SystemPromptPart) -> str | None:

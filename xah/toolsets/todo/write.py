@@ -2,12 +2,14 @@ from pydantic import Field
 
 from corio import strings
 from corio.iterator import ilist
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.todo.item import TodoItem
 
 
 class Write(Tool):
     """Replace the full todo list, including initial status metadata."""
+
+    KIND = Kinds.EDIT
 
     todos: list[TodoItem] = Field(description="Complete replacement todo list.")
 

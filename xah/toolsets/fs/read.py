@@ -6,6 +6,7 @@ from pydantic_ai import ModelRetry
 from corio import dm, strings
 from corio.function import cp
 from xah.constants import PROJECTION_READ_TOOL_NAMES
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.fs.file import FileTool
 
 
@@ -38,6 +39,8 @@ class Line(dm.Base):
 
 class Read(FileTool):
     """Read file content with line numbers."""
+
+    KIND = Kinds.READ
 
     offset: int = Field(
         default=0,

@@ -10,16 +10,19 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import humanize
-from pydantic import BaseModel
 from cached_classproperty import cached_classproperty
-from corio import Path, dt, function, yml
+from corio import Path, dt, function
 from corio.iterator import ilist
 
 from xah.class_collections import classes
 from xah.server.acp.server import SessionAgentSource
 from xah.server.acp.usage import UsageReporterRegistry
 from xah.settings import PathAgent
-from xah.harness.base import Harness, HarnessAcp
+from xah.harness.base import (
+    Harness,
+    HarnessAcp,
+    HarnessProjectionAwareToolClassifier,
+)
 from xah.instructions.time import Time
 from xah.instructions.agent import Agent
 from xah.harness.deps import HarnessDeps
@@ -27,10 +30,15 @@ from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
 from xah.options import base as options
 from xah.toolsets.base.projection import Projection as BaseProjection
-from xah.toolsets.base.tool import Messages, Tool
+from xah.toolsets.base.tool import Kinds, Messages, Tool
 from xah.toolsets.base.toolset import Toolset as ToolsetBase, ToolsetInfo
 from pydantic_acp import compose_projection_maps
-from pydantic_acp.projection import FileEditToolCallContent, HarnessFileSystemProjectionMap, ToolProjection
+from pydantic_acp.projection import (
+    DefaultToolClassifier,
+    FileEditToolCallContent,
+    HarnessFileSystemProjectionMap,
+    ToolProjection,
+)
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.models.test import TestModel
@@ -135,6 +143,69 @@ def test_harness_ignores_non_progress_tools_in_stuck_loop_detection():
     assert harness().stuck_loop_detection.ignore_tools == {"Files-Edit", "Utils-Sleep"}
 
 
+def test_harness_tools_have_semantic_kinds():
+    classifier = harness().adapter_config.tool_classifier
+    expected_kinds = {
+        "Files-Read": "read",
+        "Files-ReadLine": "read",
+        "Files-Write": "edit",
+        "Files-Edit": "edit",
+        "Files-Move": "move",
+        "Files-Search": "search",
+        "Files-Mkdir": "edit",
+        "Files-Remove": "delete",
+        "Terminals-Status": "read",
+        "Terminals-Kill": "other",
+        "Shell-Run": "other",
+        "Python-Run": "other",
+        "Python-RunCode": "other",
+        "Python-Test": "other",
+        "Skills-List": "read",
+        "Skills-Load": "read",
+        "Todo-Read": "read",
+        "Todo-Write": "edit",
+        "Todo-UpdateStatus": "edit",
+        "Utils-Sleep": "other",
+        "Context-Compact": "think",
+        "Management-List": "read",
+        "Management-Activate": "switch_mode",
+    }
+
+    for tool_name, expected_kind in expected_kinds.items():
+        assert classifier.classify(tool_name) == expected_kind
+
+
+def test_optional_toolsets_have_semantic_kinds():
+    from xah.toolsets.kb.toolset import Knowledgebase
+    from xah.toolsets.subagent.parent import Parent
+    from xah.toolsets.subagent.toolset import Subagent
+    from xah.toolsets.web.toolset import Web
+
+    toolsets = [Knowledgebase, Parent, Subagent, Web]
+    projections = [
+        projection
+        for toolset_type in toolsets
+        for projection in toolset_type.projections
+    ]
+    classifier = HarnessProjectionAwareToolClassifier(
+        base_classifier=DefaultToolClassifier(),
+        projection_maps=projections,
+    )
+    expected_kinds = {
+        "Knowledgebase-Query": "search",
+        "Knowledgebase-Get": "read",
+        "Knowledgebase-List": "read",
+        "Parent-Ask": "other",
+        "Subagent-Task": "other",
+        "Web-Fetch": "fetch",
+        "Web-Research": "search",
+        "Web-Request": "fetch",
+    }
+
+    for tool_name, expected_kind in expected_kinds.items():
+        assert classifier.classify(tool_name) == expected_kind
+
+
 def test_similarity_validator_has_shared_thresholds():
     from xah.toolsets.fs.similarity import SimilarityValidator
 
@@ -142,7 +213,7 @@ def test_similarity_validator_has_shared_thresholds():
     assert SimilarityValidator.SIMILARITY_MIN_PERCENT == 80
 
 
-def test_toolset_default_projection_displays_input_and_output():
+def test_default_projection_leaves_raw_data_to_acp():
     class PreviewTool(Tool):
         args: list[str]
 
@@ -152,50 +223,39 @@ def test_toolset_default_projection_displays_input_and_output():
             return [PreviewTool]
 
     tool_name = PreviewToolset.tool_name(PreviewTool)
-    projection_map = compose_projection_maps(PreviewToolset.projections)
-
-    class Result(BaseModel):
-        state: str
-        count: int
-
-    raw_input = {
-        "args": ["status", "--short"],
-        "context": {"cwd": "repo"},
-    }
+    projection_maps = PreviewToolset.projections
+    projection_map = compose_projection_maps(projection_maps)
+    classifier = HarnessProjectionAwareToolClassifier(
+        base_classifier=DefaultToolClassifier(),
+        projection_maps=projection_maps,
+    )
+    raw_input = {"args": ["status", "--short"]}
 
     start = projection_map.project_start(tool_name, raw_input=raw_input)
     progress = projection_map.project_progress(
         tool_name,
         raw_input=raw_input,
-        raw_output=Result(state="ok", count=3),
-        serialized_output='{"ignored": true}',
+        raw_output={"state": "ok", "count": 3},
+        serialized_output='{"state": "ok", "count": 3}',
         status="completed",
     )
 
-    input_tree = yml.from_yaml(start.content[0].content.text)
-    output_tree = yml.from_yaml(progress.content[0].content.text)
-
-    assert tool_name in start.title
-    assert "status" in start.title
-    assert input_tree == {
-        "args": ["status", "--short"],
-        "context": {"cwd": "repo"},
-    }
+    assert start.title == tool_name
+    assert start.content is None
+    assert classifier.classify(tool_name) == "other"
     assert progress.status == "completed"
-    assert "ok" in progress.title
-    assert output_tree == {"state": "ok", "count": "3"}
-
-    empty_start = projection_map.project_start(tool_name, raw_input={})
-    assert yml.from_yaml(empty_start.content[0].content.text) == {}
-    assert tool_name in empty_start.title
+    assert progress.title == tool_name
+    assert progress.content is None
 
 
-def test_tool_can_select_a_custom_projection():
+def test_custom_projection_preserves_the_tool_kind():
     class CustomProjection(BaseProjection):
         def start(self, *, raw_input, cwd):
             return ToolProjection(title="custom projection")
 
     class CustomTool(Tool):
+        KIND = Kinds.SEARCH
+
         @function.ccp
         def Projection(cls) -> type[BaseProjection]:
             return CustomProjection
@@ -206,11 +266,17 @@ def test_tool_can_select_a_custom_projection():
             return [CustomTool]
 
     tool_name = CustomToolset.tool_name(CustomTool)
-    projection_map = compose_projection_maps(CustomToolset.projections)
+    projection_maps = CustomToolset.projections
+    projection_map = compose_projection_maps(projection_maps)
+    classifier = HarnessProjectionAwareToolClassifier(
+        base_classifier=DefaultToolClassifier(),
+        projection_maps=projection_maps,
+    )
 
     start = projection_map.project_start(tool_name, raw_input={"value": 1})
 
     assert start.title == "custom projection"
+    assert classifier.classify(tool_name) == "search"
 
 
 def test_toolset_projections_are_owned_by_toolsets():
@@ -220,7 +286,8 @@ def test_toolset_projections_are_owned_by_toolsets():
     write_projections = [
         projection
         for projection in toolset.projections
-        if toolset.tool_name(Write) in projection.write_tool_names
+        if isinstance(projection, HarnessFileSystemProjectionMap)
+        and toolset.tool_name(Write) in projection.write_tool_names
     ]
 
     assert len(write_projections) == 1

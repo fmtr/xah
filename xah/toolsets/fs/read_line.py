@@ -5,6 +5,7 @@ from pydantic_ai import ModelRetry
 
 from corio import strings
 from xah.constants import PROJECTION_READ_TOOL_NAMES
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.fs.file import FileTool
 
 
@@ -17,6 +18,8 @@ class ReadLine(FileTool):
     Only to be used in niche cases where a single, very long line contains important content, but truncated by other tools.
 
     """
+
+    KIND = Kinds.READ
 
     line_number: int = Field(
         ge=1,

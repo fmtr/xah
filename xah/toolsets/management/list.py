@@ -1,11 +1,13 @@
 from corio import strings
 from corio.function import ccp
-from xah.toolsets.base.tool import Tool, ToolState
+from xah.toolsets.base.tool import Kinds, Tool, ToolState
 from xah.toolsets.base.toolset import ToolsetInfo
 
 
 class List(Tool):
     """List available toolsets and their activation state."""
+
+    KIND = Kinds.READ
 
     @ccp
     def State(cls) -> type[ToolState]:

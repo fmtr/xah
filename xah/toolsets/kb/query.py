@@ -5,13 +5,15 @@ from qdrant_client.http import models
 from corio import strings
 from corio.db.search.document import Document
 from xah.class_collections import classes
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.validators import CollectionValidator
 
 
 class Query(Tool):
     """Run a text query against a knowledgebase document type."""
+
+    KIND = Kinds.SEARCH
 
     query: str = Field(
         description=strings.trim("""

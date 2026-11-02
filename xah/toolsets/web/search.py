@@ -1,10 +1,13 @@
 from pydantic import Field
 
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import WebTool
 
 
 class Search(WebTool):
     """Search the web and return relevant sources and an answer."""
+
+    KIND = Kinds.SEARCH
 
     query: str = Field(description="Web search query.")
 

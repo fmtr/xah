@@ -9,6 +9,7 @@ import httpx
 from pydantic import Field
 
 from corio import dm, https
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import WebTool
 
 
@@ -58,6 +59,8 @@ class Response(dm.Base):
 
 class RequestBase(WebTool):
     """Shared request fields and execution for HTTP API tools."""
+
+    KIND = Kinds.FETCH
 
     method: Annotated[
         Method,

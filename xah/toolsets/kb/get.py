@@ -1,13 +1,15 @@
 from pydantic import Field
 
 from xah.class_collections import classes
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.validators import CollectionValidator
 
 
 class Get(Tool):
     """Used to page through documents of interest found by search."""
+
+    KIND = Kinds.READ
 
     collection_id: str = Field(description="Collection ID for the document to fetch chunks from.")
     document_id: str = Field(description="Document ID to fetch chunks from.")

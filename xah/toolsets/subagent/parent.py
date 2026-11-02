@@ -2,12 +2,14 @@ from cached_classproperty import cached_classproperty
 from xah.class_collections import classes
 from pydantic import Field
 
-from xah.toolsets.base.tool import Tool
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.base.toolset import Toolset
 
 
 class Ask(Tool):
     """Ask the parent agent one clarification question."""
+
+    KIND = Kinds.OTHER
 
     question: str = Field(description="One clarification question for the parent agent.")
 

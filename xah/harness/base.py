@@ -31,11 +31,27 @@ from xah.options.provider import ConfigOptionsProvider
 from xah.server.acp.thinking import AgentAcp
 from xah.server.acp.usage import UsageReporterRegistry
 
+from xah.toolsets.base.projection import ToolsetProjectionMap
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
 from xah.toolsets.utils.toolset import Utils
 
 AgentDepsT = TypeVar("AgentDepsT", bound=HarnessAgentDeps)
 DepsT = TypeVar("DepsT", bound=HarnessDeps)
+
+
+class HarnessProjectionAwareToolClassifier(ProjectionAwareToolClassifier):
+    def _projection_kind(self, tool_name: str) -> str | None:
+        for projection_map in self.projection_maps:
+            if not isinstance(projection_map, ToolsetProjectionMap):
+                continue
+            toolset = projection_map.toolset
+            prefix = toolset.prefix
+            if not tool_name.startswith(prefix):
+                continue
+            local_name = toolset.local_tool_name(tool_name)
+            tool_class = toolset.Tools.local_name[local_name]
+            return tool_class.KIND.value
+        return super()._projection_kind(tool_name)
 
 
 class HarnessModelsProvider:
@@ -470,7 +486,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             models_provider=HarnessModelsProvider(self.agent_source, self.models),
             session_store=self.session_store,
             projection_maps=self.projections,
-            tool_classifier=ProjectionAwareToolClassifier(
+            tool_classifier=HarnessProjectionAwareToolClassifier(
                 base_classifier=DefaultToolClassifier(),
                 projection_maps=self.projections,
             ),

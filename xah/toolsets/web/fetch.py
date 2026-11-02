@@ -1,10 +1,13 @@
 from pydantic import Field
 
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import FetchResult, WebTool
 
 
 class Fetch(WebTool):
     """Fetch web pages and return their readable text."""
+
+    KIND = Kinds.FETCH
 
     urls: list[str] = Field(description="The web page URLs to fetch.")
 
