@@ -381,6 +381,8 @@
       
         
       
+        
+      
     
     
     
@@ -625,6 +627,34 @@
   
     <li class="md-nav__item">
       <a href="../../../changelog/0.0.7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../changelog/0.0.8/" class="md-nav__link">
         
   
   
@@ -1191,7 +1221,7 @@ replace that presentation by returning a custom <code>Projection</code> class:</
 <div class="language-python highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">corio.function</span><span class="w"> </span><span class="kn">import</span> <span class="n">ccp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic_acp.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolProjection</span> <span class="k">as</span> <span class="n">AcpToolProjection</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">Projection</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tool</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xah</span><span class="w"> </span><span class="kn">import</span> <span class="n">Kinds</span><span class="p">,</span> <span class="n">Tool</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">SearchProjection</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
@@ -1200,12 +1230,21 @@ replace that presentation by returning a custom <code>Projection</code> class:</
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">SearchTool</span><span class="p">(</span><span class="n">Tool</span><span class="p">):</span>
+    <span class="n">KIND</span> <span class="o">=</span> <span class="n">Kinds</span><span class="o">.</span><span class="n">SEARCH</span>
+
     <span class="nd">@ccp</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">Projection</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">Projection</span><span class="p">]:</span>
         <span class="k">return</span> <span class="n">SearchProjection</span>
 </code></pre></div>
+<p><code>Tool.KIND</code> uses Xah's <code>Kinds</code> enum and defaults to <code>Kinds.OTHER</code>. Set it to the
+kind that best matches the tool's semantics. Current tools that execute actions
+use <code>Kinds.OTHER</code>; <code>Kinds.EXECUTE</code> is available for ACP compatibility. Clients
+such as Zed use the kind to choose how to present a tool call. In particular,
+Zed shows ordinary tool content for <code>read</code> and <code>search</code> calls. Xah sends
+<code>rawInput</code> and <code>rawOutput</code> separately and keeps the default title concise.</p>
 <p>Override <code>start()</code> to customize the initial display and <code>progress()</code> to
-customize updates as the tool runs. The default <code>Projection</code> implementation
+customize updates as the tool runs. When overriding either method, include the
+content you want the client to display. The default <code>Projection</code> implementation
 provides both methods and can be subclassed when only part of the presentation
 needs to change.</p>
 
