@@ -7,6 +7,7 @@ from typing import Any, Generic, Self, Sequence, TypeVar, cast
 from acp.schema import ConfigOptionUpdate
 from acpremote import TransportOptions, serve_acp
 from cached_classproperty import cached_classproperty
+import corio
 from corio import PackagePaths, Path
 from corio.function import ccp
 from corio.iterator import enlist, ilist, strip_none
@@ -87,7 +88,10 @@ class HarnessBase(Generic[AgentDepsT]):
     NAME=None
     title = "Xah"
     description = "Root/orchestrator agent"
-    instructions = f"You are {paths.name}: {paths.metadata.description}. Developed by {paths.metadata.org_friendly}."
+    instructions = f"""
+        You are {paths.name} v{paths.metadata.version}: {paths.metadata.description}.
+        Developed by {paths.metadata.org_friendly}.
+        """
     deps_type = cast(type[AgentDepsT], HarnessAgentDeps)
     model_settings = {}
     retries = 20
@@ -101,6 +105,13 @@ class HarnessBase(Generic[AgentDepsT]):
     @ccp
     def name(cls):
         return cls.NAME or cls.__name__
+
+    @ccp
+    def launch_message(cls) -> str:
+        return (
+            f"Launching {paths.name} v{paths.metadata.version} "
+            f"(corio v{corio.get_version()})"
+        )
 
     @classes
     def Instructions(cls):
@@ -526,7 +537,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             port=self.settings.port,
             options=TransportOptions(ping_timeout=600.0),
         )
-        logger.info(f"Launching {self.name} at {self.url}")
+        logger.info(f"{self.launch_message} at {self.url}")
         async with server:
             await server.serve_forever()
 
