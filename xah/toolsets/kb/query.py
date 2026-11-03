@@ -55,7 +55,7 @@ class Query(Tool):
         from xah.toolsets.kb.get import Get
         msg=strings.trim(f"""
             These are excepts matching your query only.
-            Use the {self.toolset.tool_name(Get)} tool to page through documents of interest.
+            Use the {self.toolset.get_name(Get)} tool to page through documents of interest.
         """)
         self.feedback(msg)
 

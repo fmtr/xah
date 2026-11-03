@@ -82,7 +82,7 @@ async def test_management_list_result_can_be_externalized(tmp_path):
         tool_call_id="call-1",
     )
     tools = await management.get_tools(ctx)
-    name = management.tool_name(List)
+    name = management.get_name(List)
 
     result = await management.call_tool(name, {}, ctx, tools[name])
 

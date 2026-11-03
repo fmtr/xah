@@ -1,12 +1,10 @@
 from functools import cached_property
-from typing import Annotated, ClassVar
+from typing import Annotated
 
-from cached_classproperty import cached_classproperty
 from xah.class_collections import classes
 from pydantic import Field
 
 from corio import Path, strings
-from xah.constants import PROJECTION_EDIT_TOOL_NAMES
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
@@ -24,7 +22,6 @@ class Edit(Tool):
     new_text: str = Field(description="Replacement text.")
     replace_all: bool = Field(default=False, description="Replace every exact occurrence.")
 
-    PROJECTIONS: ClassVar[str] = PROJECTION_EDIT_TOOL_NAMES
 
     @classes
     def Validators(cls):

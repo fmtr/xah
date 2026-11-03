@@ -57,10 +57,10 @@ async def test_toolset_releases_tool_after_terminal_finishes(tmp_path, monkeypat
     tools = await toolset.get_tools(ctx)
     task = asyncio.create_task(
         toolset.call_tool(
-            toolset.tool_name(Run),
+            toolset.get_name(Run),
             {"script": "sleep 1", "timeout": 30},
             ctx,
-            tools[toolset.tool_name(Run)],
+            tools[toolset.get_name(Run)],
         )
     )
 

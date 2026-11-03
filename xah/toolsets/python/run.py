@@ -38,7 +38,7 @@ class ValidArguments(Run):
         if "-c" in self.args:
             from xah.toolsets.python.run_code import RunCode
 
-            run_code_name = self.toolset.tool_name(RunCode)
+            run_code_name = self.toolset.get_name(RunCode)
             message = f"Use {run_code_name} for a short Python code fragment. Write longer code to a .py file and run that file."
             self.validation.messages.errors.append(message)
             self.validation.abort = True

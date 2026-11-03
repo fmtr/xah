@@ -13,7 +13,7 @@ class List(Tool):
     async def run(self) -> str:
         from xah.toolsets.skills.load import Load
 
-        load_name = self.toolset.tool_name(Load)
+        load_name = self.toolset.get_name(Load)
         diff = IterDiffer(
             before=self.toolset.skills.id.keys(),
             after=self.toolset.history,

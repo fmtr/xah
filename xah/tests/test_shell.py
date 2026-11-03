@@ -83,7 +83,7 @@ def test_terminal_adversary_exposes_only_file_review_tools():
     files = HarnessTerminalAdversary.Toolsets[0]
     assert HarnessTerminalAdversary.Toolsets == [files]
 
-    assert [tool.local_name for tool in files.Tools] == [
+    assert [tool.suffix for tool in files.Tools] == [
         "Read",
         "Search",
     ]

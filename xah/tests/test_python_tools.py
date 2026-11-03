@@ -46,7 +46,7 @@ def test_public_name_schema_and_dsl_expression(tmp_path):
 def test_registered_tool_schema_excludes_context(tmp_path):
     ctx = context(tmp_path)
     toolset = ctx.deps.toolsets.cls[Python]
-    tool_definition = toolset.tools[toolset.tool_name(Run)].tool_def
+    tool_definition = toolset.tools[toolset.get_name(Run)].tool_def
 
     assert "ctx" not in tool_definition.parameters_json_schema["properties"]
 
@@ -54,7 +54,7 @@ def test_registered_tool_schema_excludes_context(tmp_path):
 def test_tool_argument_errors_hide_context_and_external_urls(tmp_path):
     ctx = context(tmp_path)
     toolset = ctx.deps.toolsets.cls[Python]
-    tool_definition = toolset.tools[toolset.tool_name(Run)].tool_def
+    tool_definition = toolset.tools[toolset.get_name(Run)].tool_def
 
     with pytest.raises(ModelRetry) as error:
         toolset.init_tool(ctx, tool_definition, {})

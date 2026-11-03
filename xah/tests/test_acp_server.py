@@ -146,7 +146,7 @@ def test_sessionless_acp_agent_routes_declines_to_session_toolsets(tmp_path):
     assert response.session_id
     assert session.cwd == tmp_path.resolve()
 
-    tool_name = DeclineToolset.tool_name(DeclineTool)
+    tool_name = DeclineToolset.get_name(DeclineTool)
     requests = DeferredToolRequests(
         approvals=[
             ToolCallPart(
@@ -180,7 +180,7 @@ def test_sessionless_acp_agent_routes_declines_to_session_toolsets(tmp_path):
 
 def test_acp_session_log_includes_client_info(monkeypatch):
     class Runtime:
-        projections = []
+        maps = []
 
         def __init__(self, **kwargs):
             pass

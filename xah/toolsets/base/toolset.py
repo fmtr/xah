@@ -9,20 +9,23 @@ from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool, ToolFailed
 from pydantic_ai.exceptions import UserError
 from pydantic_ai.messages import InstructionPart, SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
-from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
+from acp.schema import ToolCallStatus
 from pydantic_acp import ProjectionMap
+from pydantic_acp.projection import ToolProjection
+from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
 from corio import Path, jsn, strings
-from corio.function import ccm, ccp, cp
+from corio.function import ccp, cp
 from corio.iterator import ilist
+from corio.tools import Empty
 from corio.strings import get_docstring
 from xah.class_collections import classes
 from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.projection import ToolsetProjectionMap
-from xah.toolsets.base.tool import Tool, ToolState, Validation
+from xah.toolsets.base.projection import Projection
+from xah.toolsets.base.tool import Kinds, Tool, ToolState, Validation
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
@@ -43,7 +46,6 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     DESCRIPTION: ClassVar[str | None] = None
     IS_MANAGEMENT: ClassVar[bool] = False
     POLICY: ClassVar[str] = options.Policy.Policies.AUTO
-    PROJECTIONS: ClassVar[str|None] = None
     MAX_INLINE_OUTPUT_LENGTH: ClassVar[int] = 50_000
 
     @cached_classproperty
@@ -72,7 +74,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             name=self.name,
             desc=self.description,
             protected=self.options.cls[options.Policy].value == options.Policy.Policies.REQUESTABLE,
-            tools=[Tool.local_name for Tool in self.Tools]
+            tools=[tool_class.suffix for tool_class in self.Tools],
         )
 
     async def get_instructions(self, ctx: RunContext[AgentDepsT]) -> list[InstructionPart] | None:
@@ -105,18 +107,87 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     ) -> ToolState:
         return self.states[(owner_class, state_class)]
 
-    @cached_classproperty
-    def projections(cls) -> list[ProjectionMap]:
-        projections: list[ProjectionMap] = []
-        for tool_class in cls.Tools:
-            if not tool_class.PROJECTIONS:
-                continue
-            projections.extend(
-                tool_class.build_projections(cls.tool_name(tool_class))
-            )
+    @ccp
+    def maps(cls) -> list[ProjectionMap]:
+        return [cls]
 
-        projections.append(ToolsetProjectionMap(cls))
-        return projections
+    @classmethod
+    def get_name(cls, tool_class: type[Tool]) -> str:
+        return f"{cls.prefix}{tool_class.suffix}"
+
+    @classmethod
+    def get_suffix(cls, name: str) -> str:
+        return name.removeprefix(cls.prefix)
+
+    @classmethod
+    def get_tool(cls, name: str, default=Empty) -> Any:
+        if name.startswith(cls.prefix):
+            suffix = cls.get_suffix(name)
+        elif "-" in name:
+            if default is Empty:
+                raise KeyError(name)
+            return default
+        else:
+            suffix = name
+
+        if default is Empty:
+            return cls.Tools.suffix[suffix]
+        return cls.Tools.suffix.get(suffix, default)
+
+    @classmethod
+    def kind_for(cls, tool_name: str) -> Kinds | None:
+        tool_class = cls.get_tool(tool_name, None)
+        if tool_class is None:
+            return None
+        return tool_class.KIND
+
+    @classmethod
+    def project_start(
+        cls,
+        tool_name: str,
+        *,
+        cwd: Path | None = None,
+        raw_input: Any = None,
+    ) -> ToolProjection | None:
+        tool_class = cls.get_tool(tool_name, None)
+        if tool_class is None:
+            return None
+
+        projection_class = tool_class.projections[0]
+        projection = projection_class(
+            tool_cls=tool_class,
+            toolset_cls=cls,
+            raw_input=raw_input,
+            cwd=cwd,
+        )
+        return projection.start()
+
+    @classmethod
+    def project_progress(
+        cls,
+        tool_name: str,
+        *,
+        cwd: Path | None = None,
+        raw_input: Any = None,
+        raw_output: Any = None,
+        serialized_output: str,
+        status: ToolCallStatus,
+    ) -> ToolProjection | None:
+        tool_class = cls.get_tool(tool_name, None)
+        if tool_class is None:
+            return None
+
+        projection_class = tool_class.projections[0]
+        projection = projection_class(
+            tool_cls=tool_class,
+            toolset_cls=cls,
+            raw_input=raw_input,
+            cwd=cwd,
+            raw_output=raw_output,
+            serialized_output=serialized_output,
+            status=status,
+        )
+        return projection.progress()
 
     def __init__(self, activated: bool = True, **kwargs):
         del kwargs
@@ -124,14 +195,6 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         super().__init__(id=self.name)
         for tool_class in self.Tools:
             self.register(tool_class)
-
-    @ccm
-    def tool_name(cls, tool_class: type[Tool]) -> str:
-        return f"{cls.prefix}{tool_class.local_name}"
-
-    @ccm
-    def local_tool_name(cls, name: str) -> str:
-        return name.removeprefix(cls.prefix)
 
     @staticmethod
     def feedback(ctx: RunContext, message: str | SystemPromptPart) -> str | None:
@@ -165,7 +228,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
         pydantic_tool = PydanticTool.from_schema(
             function=get_instance,
-            name=self.tool_name(tool_class),
+            name=self.get_name(tool_class),
             description=tool_class.description,
             json_schema=tool_class.model_json_schema(),
             takes_ctx=True,
@@ -216,8 +279,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         tool_def: ToolDefinition,
         tool_args: dict[str, Any],
     ) -> Tool:
-        local_name = self.local_tool_name(tool_def.name)
-        tool_class = self.Tools.local_name[local_name]
+        tool_class = self.get_tool(tool_def.name)
         try:
             instance = tool_class(
                 ctx=ctx,

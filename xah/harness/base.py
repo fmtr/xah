@@ -32,7 +32,6 @@ from xah.options.provider import ConfigOptionsProvider
 from xah.server.acp.thinking import AgentAcp
 from xah.server.acp.usage import UsageReporterRegistry
 
-from xah.toolsets.base.projection import ToolsetProjectionMap
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
 from xah.toolsets.utils.toolset import Utils
 
@@ -43,15 +42,9 @@ DepsT = TypeVar("DepsT", bound=HarnessDeps)
 class HarnessProjectionAwareToolClassifier(ProjectionAwareToolClassifier):
     def _projection_kind(self, tool_name: str) -> str | None:
         for projection_map in self.projection_maps:
-            if not isinstance(projection_map, ToolsetProjectionMap):
-                continue
-            toolset = projection_map.toolset
-            prefix = toolset.prefix
-            if not tool_name.startswith(prefix):
-                continue
-            local_name = toolset.local_tool_name(tool_name)
-            tool_class = toolset.Tools.local_name[local_name]
-            return tool_class.KIND.value
+            kind = projection_map.kind_for(tool_name)
+            if kind is not None:
+                return kind.value
         return super()._projection_kind(tool_name)
 
 
@@ -302,8 +295,8 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
         return StuckLoopDetection(
             max_repeated=self.stuck_loop_max_repeated,
             ignore_tools={
-                Files.tool_name(Edit),
-                Utils.tool_name(Sleep),
+                Files.get_name(Edit),
+                Utils.get_name(Sleep),
             },
         )
 
@@ -456,12 +449,11 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
         )
 
     @cached_property
-    def projections(self):
-
-        projections = []
+    def maps(self):
+        maps = []
         for toolset_type in self.Toolsets:
-            projections.extend(toolset_type.projections or [])
-        return ilist(projections)
+            maps.extend(toolset_type.maps)
+        return ilist(maps)
 
     @cached_property
     def agent_source(self):
@@ -472,7 +464,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             settings=self.settings,
             usage_reporters=self.usage_reporters,
             capability_bridges=self.bridges,
-            projection_maps=self.projections,
+            projection_maps=self.maps,
         )
 
     @cached_property
@@ -496,10 +488,10 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             available_models=self.models,
             models_provider=HarnessModelsProvider(self.agent_source, self.models),
             session_store=self.session_store,
-            projection_maps=self.projections,
+            projection_maps=self.maps,
             tool_classifier=HarnessProjectionAwareToolClassifier(
                 base_classifier=DefaultToolClassifier(),
-                projection_maps=self.projections,
+                projection_maps=self.maps,
             ),
         )
 

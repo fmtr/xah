@@ -26,7 +26,7 @@ class Load(Tool):
         if diff.added:
             valid = strings.join_natural(sorted(diff.before))
             invalid = strings.join_natural(sorted(diff.added))
-            list_name = self.toolset.tool_name(List)
+            list_name = self.toolset.get_name(List)
             message = strings.Mask("""
                 Invalid skill IDs: {invalid}.
                 Choose IDs shown by {list_name}: {valid}.

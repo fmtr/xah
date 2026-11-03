@@ -8,7 +8,6 @@ from pydantic_deep.features.periodic_reminder.capability import build_compact_tr
 from corio import Constants, dm, strings
 from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import classes
-from xah.constants import PROJECTION_BASH_TOOL_NAMES
 from xah.harness.base import Harness
 from xah.options.base import Policy
 from xah.toolsets.base.tool import ToolState, Validation
@@ -88,7 +87,6 @@ class Run(TerminalTool):
     """Run a shell command in the working directory."""
 
     script: str = Field(description="Shell script to execute in the working directory.")
-    PROJECTIONS: ClassVar[str] = PROJECTION_BASH_TOOL_NAMES
 
     @classes
     def Validators(cls):

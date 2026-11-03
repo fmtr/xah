@@ -8,19 +8,18 @@ from cached_classproperty import cached_classproperty
 from pydantic import Field, InstanceOf, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
-from xah.toolsets.fs.permissions import Permissions
-from xah.toolsets.base.projection import Projection as ToolProjection
-from pydantic_acp import ProjectionMap
 from pydantic_ai import RunContext
 from pydantic_ai.messages import SystemPromptPart
 from pydantic_ai.toolsets import FunctionToolset
 
 from corio import Path, dm, strings
 from corio.function import ccp, cp
-from corio.iterator import enlist, ilist
+from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import classes
 from xah.options.path import PathCwd
+from xah.toolsets.base.projection import Projection
+from xah.toolsets.fs.permissions import Permissions
 
 
 class Kinds(StrEnum):
@@ -34,6 +33,10 @@ class Kinds(StrEnum):
     FETCH = auto()
     SWITCH_MODE = auto()
     OTHER = auto()
+
+
+class Signature(dm.Base):
+    pass
 
 
 class ToolState(dm.Base):
@@ -81,8 +84,17 @@ class Tool(dm.Base):
         return ToolState
 
     @ccp
-    def Projection(cls) -> type[ToolProjection]:
-        return ToolProjection
+    def sig(cls) -> type[Signature] | None:
+        for base in cls.__mro__:
+            if base is Signature or issubclass(base, Tool):
+                continue
+            if issubclass(base, Signature):
+                return base
+        return None
+
+    @ccp
+    def projections(cls) -> list[type[Projection]]:
+        return [Projection]
 
     state: SkipJsonSchema[InstanceOf[ToolState]] | None = Field(
         default=None,
@@ -99,43 +111,9 @@ class Tool(dm.Base):
 
     NAME: ClassVar[str | None] = None
     DESCRIPTION: ClassVar[str | None] = None
-    PROJECTIONS: ClassVar[str | list[str]] = []
-
-    @classmethod
-    def build_projection(cls, field_name: str, tool_name: str | None = None) -> ProjectionMap:
-        from pydantic_acp import FileSystemProjectionMap, HarnessFileSystemProjectionMap
-        from xah.constants import (
-            PROJECTION_BASH_TOOL_NAMES,
-            PROJECTION_EDIT_TOOL_NAMES,
-            PROJECTION_READ_TOOL_NAMES,
-            PROJECTION_SEARCH_TOOL_NAMES,
-            PROJECTION_WRITE_TOOL_NAMES,
-        )
-
-        tool_name = tool_name or cls.local_name
-        if field_name == PROJECTION_BASH_TOOL_NAMES:
-            return FileSystemProjectionMap(
-                bash_tool_names=frozenset({tool_name}), command_arg="shell"
-            )
-
-        projection_fields = {
-            PROJECTION_READ_TOOL_NAMES: frozenset(),
-            PROJECTION_WRITE_TOOL_NAMES: frozenset(),
-            PROJECTION_EDIT_TOOL_NAMES: frozenset(),
-            PROJECTION_SEARCH_TOOL_NAMES: frozenset(),
-        }
-        projection_fields[field_name] = frozenset({tool_name})
-        return HarnessFileSystemProjectionMap(**projection_fields)
-
-    @classmethod
-    def build_projections(cls, tool_name: str) -> list[ProjectionMap]:
-        projections = []
-        for field_name in enlist(cls.PROJECTIONS):
-            projections.append(cls.build_projection(field_name, tool_name))
-        return projections
 
     @cached_classproperty
-    def local_name(cls) -> str:
+    def suffix(cls) -> str:
         return cls.NAME or cls.__name__
 
     @cached_classproperty
@@ -198,7 +176,7 @@ class Tool(dm.Base):
 
     @cached_property
     def name(self) -> str:
-        return self.toolset.tool_name(type(self))
+        return self.toolset.get_name(type(self))
 
     @cached_property
     def policy(self):

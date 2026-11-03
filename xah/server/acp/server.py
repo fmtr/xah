@@ -198,7 +198,7 @@ class SessionAgentSource(ilist[HarnessAcp[DepsT]], Generic[DepsT]):
         if self.projection_maps is not None and not self.projection_maps:
             # AdapterConfig is created before ACP supplies a session and keeps
             # this same list. Populate it in place once tools can be built.
-            self.projection_maps.extend(runtime.projections)
+            self.projection_maps.extend(runtime.maps)
         self.append(runtime)
         return runtime
 

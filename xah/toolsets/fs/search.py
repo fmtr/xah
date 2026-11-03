@@ -7,7 +7,6 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path, strings
-from xah.constants import PROJECTION_SEARCH_TOOL_NAMES
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 
@@ -114,7 +113,6 @@ class Search(Tool):
         description="Directory or file to search.",
     )
 
-    PROJECTIONS: ClassVar[str] = PROJECTION_SEARCH_TOOL_NAMES
 
     async def run(self) -> str:
         Searcher=SearcherFiles

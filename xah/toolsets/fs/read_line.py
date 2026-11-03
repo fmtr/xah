@@ -4,7 +4,6 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import strings
-from xah.constants import PROJECTION_READ_TOOL_NAMES
 from xah.toolsets.base.tool import Kinds
 from xah.toolsets.fs.file import FileTool
 
@@ -38,7 +37,6 @@ class ReadLine(FileTool):
     )
 
     EXTERNALIZE_OUTPUT: ClassVar[bool] = False
-    PROJECTIONS: ClassVar[str] = PROJECTION_READ_TOOL_NAMES
 
     async def run(self) -> str:
         number=0
@@ -55,7 +53,7 @@ class ReadLine(FileTool):
                     msg=strings.trim(f"""
                         The selected line is {len(text)} chars long. 
                         This tool is for reading extremely long lines.
-                        Use regular tools like {Files.tool_name(Read)} instead.
+                        Use regular tools like {Files.get_name(Read)} instead.
                     """)
                     raise ModelRetry(msg)
 

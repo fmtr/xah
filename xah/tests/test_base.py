@@ -6,12 +6,15 @@ import weakref
 import sys
 from datetime import datetime, timezone
 from functools import cached_property
+from typing import Annotated, ClassVar
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import humanize
+import pytest
 from cached_classproperty import cached_classproperty
 from corio import Path, dt, function
+from pydantic import Field, model_validator
 from corio.iterator import ilist
 
 from xah.class_collections import classes
@@ -30,15 +33,11 @@ from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
 from xah.options import base as options
 from xah.toolsets.base.projection import Projection as BaseProjection
-from xah.toolsets.base.tool import Kinds, Messages, Tool
+from xah.toolsets.base.tool import Kinds, Messages, Signature, Tool
+from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.base.toolset import Toolset as ToolsetBase, ToolsetInfo
 from pydantic_acp import compose_projection_maps
-from pydantic_acp.projection import (
-    DefaultToolClassifier,
-    FileEditToolCallContent,
-    HarnessFileSystemProjectionMap,
-    ToolProjection,
-)
+from pydantic_acp.projection import DefaultToolClassifier, ToolProjection
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.models.test import TestModel
@@ -182,14 +181,14 @@ def test_optional_toolsets_have_semantic_kinds():
     from xah.toolsets.web.toolset import Web
 
     toolsets = [Knowledgebase, Parent, Subagent, Web]
-    projections = [
-        projection
+    maps = [
+        projection_map
         for toolset_type in toolsets
-        for projection in toolset_type.projections
+        for projection_map in toolset_type.maps
     ]
     classifier = HarnessProjectionAwareToolClassifier(
         base_classifier=DefaultToolClassifier(),
-        projection_maps=projections,
+        projection_maps=maps,
     )
     expected_kinds = {
         "Knowledgebase-Query": "search",
@@ -213,7 +212,7 @@ def test_similarity_validator_has_shared_thresholds():
     assert SimilarityValidator.SIMILARITY_MIN_PERCENT == 80
 
 
-def test_default_projection_leaves_raw_data_to_acp():
+def test_toolset_name_suffix_and_lookup():
     class PreviewTool(Tool):
         args: list[str]
 
@@ -222,8 +221,35 @@ def test_default_projection_leaves_raw_data_to_acp():
         def Tools(cls):
             return [PreviewTool]
 
-    tool_name = PreviewToolset.tool_name(PreviewTool)
-    projection_maps = PreviewToolset.projections
+    tool_name = PreviewToolset.get_name(PreviewTool)
+
+    assert PreviewTool.suffix == "PreviewTool"
+    assert tool_name == "PreviewToolset-PreviewTool"
+    assert PreviewToolset.get_suffix("PreviewTool") == "PreviewTool"
+    assert PreviewToolset.get_suffix(tool_name) == "PreviewTool"
+    assert PreviewToolset.get_suffix("Foreign-PreviewTool") == "Foreign-PreviewTool"
+    assert PreviewToolset.get_tool("PreviewTool") is PreviewTool
+    assert PreviewToolset.get_tool(tool_name) is PreviewTool
+    default_value = []
+    assert PreviewToolset.get_tool("Missing", default=default_value) is default_value
+    assert PreviewToolset.get_tool("Foreign-PreviewTool", default=None) is None
+    with pytest.raises(KeyError):
+        PreviewToolset.get_tool("Missing")
+    with pytest.raises(KeyError):
+        PreviewToolset.get_tool("Foreign-PreviewTool")
+
+
+def test_toolset_classes_compose_as_projection_maps():
+    class PreviewTool(Tool):
+        args: list[str]
+
+    class PreviewToolset(ToolsetBase):
+        @classes
+        def Tools(cls):
+            return [PreviewTool]
+
+    tool_name = PreviewToolset.get_name(PreviewTool)
+    projection_maps = PreviewToolset.maps
     projection_map = compose_projection_maps(projection_maps)
     classifier = HarnessProjectionAwareToolClassifier(
         base_classifier=DefaultToolClassifier(),
@@ -240,109 +266,151 @@ def test_default_projection_leaves_raw_data_to_acp():
         status="completed",
     )
 
+    assert projection_maps == [PreviewToolset]
     assert start.title == tool_name
     assert start.content is None
     assert classifier.classify(tool_name) == "other"
     assert progress.status == "completed"
     assert progress.title == tool_name
     assert progress.content is None
+    assert PreviewToolset.project_start("Foreign-PreviewTool") is None
 
 
-def test_custom_projection_preserves_the_tool_kind():
+def test_custom_projection_dispatch_uses_the_selected_class():
     class CustomProjection(BaseProjection):
-        def start(self, *, raw_input, cwd):
+        def start(self):
             return ToolProjection(title="custom projection")
 
     class CustomTool(Tool):
         KIND = Kinds.SEARCH
 
         @function.ccp
-        def Projection(cls) -> type[BaseProjection]:
-            return CustomProjection
+        def projections(cls) -> list[type[BaseProjection]]:
+            return [CustomProjection]
 
     class CustomToolset(ToolsetBase):
         @classes
         def Tools(cls):
             return [CustomTool]
 
-    tool_name = CustomToolset.tool_name(CustomTool)
-    projection_maps = CustomToolset.projections
-    projection_map = compose_projection_maps(projection_maps)
+    tool_name = CustomToolset.get_name(CustomTool)
+    projection_map = compose_projection_maps(CustomToolset.maps)
     classifier = HarnessProjectionAwareToolClassifier(
         base_classifier=DefaultToolClassifier(),
-        projection_maps=projection_maps,
+        projection_maps=CustomToolset.maps,
     )
 
     start = projection_map.project_start(tool_name, raw_input={"value": 1})
 
     assert start.title == "custom projection"
+    assert CustomToolset.kind_for(tool_name) == Kinds.SEARCH
+    assert CustomToolset.kind_for("Foreign-CustomTool") is None
     assert classifier.classify(tool_name) == "search"
+    assert classifier.classify("External-Tool") == DefaultToolClassifier().classify("External-Tool")
 
 
-def test_toolset_projections_are_owned_by_toolsets():
-    harness_instance = harness()
-    toolset = harness_instance.deps.toolsets.all.name[Files.name]
+def test_projection_signature_validates_without_constructing_the_tool():
+    class PreviewSignature(Signature):
+        value: int
+        path: Annotated[Path, Permissions(Permissions.Read)]
+        post_init_values: ClassVar[list[int]] = []
 
-    write_projections = [
-        projection
-        for projection in toolset.projections
-        if isinstance(projection, HarnessFileSystemProjectionMap)
-        and toolset.tool_name(Write) in projection.write_tool_names
-    ]
+        def model_post_init(self, context):
+            self.post_init_values.append(self.value)
 
-    assert len(write_projections) == 1
+    class SignedTool(PreviewSignature, Tool):
+        @model_validator(mode="after")
+        def reject_tool_construction(self):
+            raise AssertionError("Tool validation must not run for a projection signature")
 
+    class SignedToolset(ToolsetBase):
+        @classes
+        def Tools(cls):
+            return [SignedTool]
 
-def test_harness_builds_projections_without_deps():
-    harness_instance = harness()
-
-    projections = harness_instance.projections
-
-    assert projections
-    assert "deps" not in harness_instance.__dict__
-
-
-def test_files_write_projection_is_a_diff_without_default_tool_names():
-    harness_instance = harness()
-    write_projection = next(
-        projection
-        for projection in harness_instance.projections
-        if isinstance(projection, HarnessFileSystemProjectionMap)
-        and "Files-Write" in projection.write_tool_names
+    projection = BaseProjection(
+        tool_cls=SignedTool,
+        toolset_cls=SignedToolset,
+        raw_input={"value": "7", "path": "relative.txt"},
     )
 
-    assert write_projection.read_tool_names == frozenset()
-    assert write_projection.edit_tool_names == frozenset()
-    assert write_projection.search_tool_names == frozenset()
+    signature = projection.sig
+
+    assert SignedTool.sig is PreviewSignature
+    assert signature.value == 7
+    assert signature.path == Path("relative.txt")
+    assert not signature.path.is_absolute()
+    assert PreviewSignature.post_init_values == [7]
+
+
+def test_missing_or_invalid_signatures_do_not_break_projection_generation():
+    class PlainTool(Tool):
+        pass
+
+    class InvalidSignature(Signature):
+        value: int
+
+    class InvalidTool(InvalidSignature, Tool):
+        pass
+
+    class ProjectionTestToolset(ToolsetBase):
+        @classes
+        def Tools(cls):
+            return [PlainTool, InvalidTool]
+
+    plain_input = {"unchanged": True}
+    plain_projection = BaseProjection(
+        tool_cls=PlainTool,
+        toolset_cls=ProjectionTestToolset,
+        raw_input=plain_input,
+    )
+    invalid_input = {"value": "not-an-integer"}
+    invalid_projection = BaseProjection(
+        tool_cls=InvalidTool,
+        toolset_cls=ProjectionTestToolset,
+        raw_input=invalid_input,
+    )
+
+    assert PlainTool.sig is None
+    assert plain_projection.sig is None
+    assert plain_projection.raw_input == plain_input
+    assert invalid_projection.sig is None
+    assert invalid_projection.raw_input == invalid_input
+    assert ProjectionTestToolset.project_start(
+        ProjectionTestToolset.get_name(PlainTool),
+        raw_input={"unchanged": True},
+    ).title == ProjectionTestToolset.get_name(PlainTool)
+    assert ProjectionTestToolset.project_start(
+        ProjectionTestToolset.get_name(InvalidTool),
+        raw_input=invalid_input,
+    ).title == ProjectionTestToolset.get_name(InvalidTool)
+
+
+def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
+    harness_instance = harness()
+
+    maps = harness_instance.maps
+
+    assert maps
+    assert Files in maps
+    assert "deps" not in harness_instance.__dict__
+    assert harness_instance.adapter_config.projection_maps == maps
     assert harness_instance.adapter_config.tool_classifier.classify("Files-Write") == "edit"
 
-    projection = compose_projection_maps(harness_instance.projections).project_start(
+    projection_map = compose_projection_maps(maps)
+    write_projection = projection_map.project_start(
         "Files-Write",
         raw_input={"path": "bad.py", "content": "bad"},
     )
-
-    assert projection.content == [
-        FileEditToolCallContent(
-            type="diff",
-            path="bad.py",
-            old_text="",
-            new_text="bad",
-        )
-    ]
-
-
-def test_shell_projection_displays_script_command():
-    harness_instance = harness()
-    shell_toolset = harness_instance.deps.toolsets.all.cls[Shell]
-    projection_map = compose_projection_maps(harness_instance.projections)
-
-    projection = projection_map.project_start(
-        shell_toolset.tool_name(Run),
+    shell_projection = projection_map.project_start(
+        Shell.get_name(Run),
         raw_input={"script": "echo hello"},
     )
 
-    assert projection is not None
-    assert projection.content[0].content.text == "```bash\necho hello\n```"
+    assert write_projection.title == "Files-Write"
+    assert write_projection.content is None
+    assert shell_projection.title == "Shell-Run"
+    assert shell_projection.content is None
 
 
 def test_shell_validation_uses_agent_output():

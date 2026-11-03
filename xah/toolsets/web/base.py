@@ -100,7 +100,7 @@ class WebTool(Tool):
             yield result
 
     def fail(self, error: Exception) -> Never:
-        tool_name = self.toolset.tool_name(type(self))
+        tool_name = self.toolset.get_name(type(self))
         logger.warning(f"{tool_name} failed: {error}")
         message = f"The web request failed: {error}. The web service may be temporarily unavailable."
         raise ToolFailed(message) from error

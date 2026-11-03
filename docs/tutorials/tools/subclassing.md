@@ -13,38 +13,42 @@ The next exercise launches a harness that uses this subclass.
 
 ## Customize tool-call presentation
 
-By default, `xah` formats tool input and output for the ACP client. A tool can
-replace that presentation by returning a custom `Projection` class:
+Each tool selects projection classes through `Tool.projections`. The default is
+Xah's base `Projection`, which supplies a concise tool-name title and reports
+progress status. ACP passes call data to a short-lived projection instance at
+construction; `start()` and `progress()` take no call-specific arguments.
 
 ```python
 from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.projection import Projection
-from xah import Kinds, Tool
+from xah import Tool
 
 
 class SearchProjection(Projection):
-    def start(self, *, raw_input, cwd):
-        return AcpToolProjection(title=f"Searching for {raw_input['query']}")
+    def start(self):
+        return AcpToolProjection(title=f"Searching for {self.raw_input['query']}")
 
 
 class SearchTool(Tool):
-    KIND = Kinds.SEARCH
-
     @ccp
-    def Projection(cls) -> type[Projection]:
-        return SearchProjection
+    def projections(cls) -> list[type[Projection]]:
+        return [SearchProjection]
 ```
 
-`Tool.KIND` uses Xah's `Kinds` enum and defaults to `Kinds.OTHER`. Set it to the
-kind that best matches the tool's semantics. Current tools that execute actions
-use `Kinds.OTHER`; `Kinds.EXECUTE` is available for ACP compatibility. Clients
-such as Zed use the kind to choose how to present a tool call. In particular,
-Zed shows ordinary tool content for `read` and `search` calls. Xah sends
-`rawInput` and `rawOutput` separately and keeps the default title concise.
+The optional `self.sig` value is available when the tool has a dedicated
+`Signature` model and the call input validates against it. Otherwise it is
+`None`; `self.raw_input` remains available either way. Signatures provide a
+separate home for argument fields and metadata, but current production tools do
+not yet declare them.
 
-Override `start()` to customize the initial display and `progress()` to
-customize updates as the tool runs. When overriding either method, include the
-content you want the client to display. The default `Projection` implementation
-provides both methods and can be subclassed when only part of the presentation
-needs to change.
+`Tool.KIND` uses Xah's `Kinds` enum and defaults to `Kinds.OTHER`. Set it to the
+kind that best matches the tool's semantics. Clients such as Zed use this kind
+to choose how to present a tool call.
+
+Xah's first-pass ACP maps intentionally provide only the minimal base
+presentation. They no longer register pydantic-acp's filesystem and Bash maps,
+so their rich diff, search-tree, read-preview, and command rendering is not
+included. Focused Xah projection subclasses for those presentations are a
+later phase. Raw input and output are still carried as projection context for
+future renderers.

@@ -43,7 +43,7 @@ class Terminals(Toolset):
 
             - `{self.name}` tools manage the processes themselves, including stopping them early.
             - `{Files.name}` tools monitor output tail, search output, and inspect output files.
-            - `{Utils.name}` tools to wait for output. Do not spam the `{Status.local_name}` tool repeatedly.
+            - `{Utils.name}` tools to wait for output. Do not spam the `{Status.suffix}` tool repeatedly.
         """)
         return [InstructionPart(content=text, dynamic=True)]
 

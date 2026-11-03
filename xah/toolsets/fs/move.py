@@ -1,11 +1,9 @@
-from typing import Annotated, ClassVar
+from typing import Annotated
 
-from cached_classproperty import cached_classproperty
 from pydantic import Field, model_validator
 from pydantic_ai import ModelRetry
 
 from corio import Path
-from xah.constants import PROJECTION_WRITE_TOOL_NAMES
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 
@@ -20,8 +18,6 @@ class Move(Tool):
     )
     target: Annotated[Path, Permissions(Permissions.Write)] = Field(description="Destination path.")
     is_copy: bool = Field(default=False, description="Copy the source instead of moving it.")
-
-    PROJECTIONS: ClassVar[str] = PROJECTION_WRITE_TOOL_NAMES
 
     @model_validator(mode="after")
     def resolve_move_source(self):

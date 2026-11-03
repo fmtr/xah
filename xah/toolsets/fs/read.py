@@ -5,7 +5,6 @@ from pydantic_ai import ModelRetry
 
 from corio import dm, strings
 from corio.function import cp
-from xah.constants import PROJECTION_READ_TOOL_NAMES
 from xah.toolsets.base.tool import Kinds
 from xah.toolsets.fs.file import FileTool
 
@@ -56,7 +55,6 @@ class Read(FileTool):
     MAX_LINE_LENGTH: ClassVar[int] = 20_000
     MAX_OUTPUT_LENGTH: ClassVar[int] = 50_000
     EXTERNALIZE_OUTPUT: ClassVar[bool] = False
-    PROJECTIONS: ClassVar[str] = PROJECTION_READ_TOOL_NAMES
 
     async def run(self) -> str:
         with self.path.open(errors="replace") as file:

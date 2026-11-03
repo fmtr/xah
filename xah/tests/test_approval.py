@@ -45,11 +45,11 @@ class ApprovalToolset(Toolset):
 
 
 class ReplacementWarning(ApprovalWarning):
-    NAME = ApprovalWarning.local_name
+    NAME = ApprovalWarning.suffix
 
 
 class ReplacementApprovalTool(ApprovalTool):
-    NAME = ApprovalTool.local_name
+    NAME = ApprovalTool.suffix
 
     @classes
     def Validators(cls):
@@ -144,7 +144,7 @@ def test_local_approval_wrapper_serializes_validator_messages():
 
     async def call():
         tools = await toolset.wrapper.get_tools(ctx)
-        name = toolset.tool_name(ApprovalTool)
+        name = toolset.get_name(ApprovalTool)
         return await toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name])
 
     with pytest.raises(ApprovalRequired) as error:
@@ -195,7 +195,7 @@ def test_approved_call_reuses_tool_and_validator_instances():
     toolset = TrackingToolset()
     ctx = context(toolset)
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
-    name = toolset.tool_name(TrackingTool)
+    name = toolset.get_name(TrackingTool)
     assert "id" not in TrackingTool.model_json_schema()["properties"]
 
     with pytest.raises(ApprovalRequired):
@@ -286,7 +286,7 @@ def test_toolset_indexes_instances_by_call_id_when_tool_has_domain_id():
     toolset = DomainIdToolset()
     ctx = context(toolset, approved=True)
     tools = asyncio.run(toolset.get_tools(ctx))
-    name = toolset.tool_name(DomainIdTool)
+    name = toolset.get_name(DomainIdTool)
 
     result = asyncio.run(
         toolset.call_tool(name, {"value": "result"}, ctx, tools[name])
@@ -310,7 +310,7 @@ def test_auto_policy_turns_warnings_into_model_retry():
     toolset.options.cls[options.Policy].current_value = options.Policies.AUTO
     ctx = context(toolset)
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
-    name = toolset.tool_name(ApprovalTool)
+    name = toolset.get_name(ApprovalTool)
 
     with pytest.raises(ModelRetry, match="Approval required"):
         asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
@@ -321,7 +321,7 @@ def test_full_policy_runs_and_reports_warnings():
     toolset.options.cls[options.Policy].current_value = options.Policies.FULL
     ctx = context(toolset)
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
-    name = toolset.tool_name(ApprovalTool)
+    name = toolset.get_name(ApprovalTool)
 
     result = asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
 
