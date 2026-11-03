@@ -13,7 +13,7 @@ from unittest.mock import patch
 import humanize
 import pytest
 from cached_classproperty import cached_classproperty
-from corio import Path, dt, function
+from corio import Path, dt
 from pydantic import Field, model_validator
 from corio.iterator import ilist
 
@@ -181,11 +181,7 @@ def test_optional_toolsets_have_semantic_kinds():
     from xah.toolsets.web.toolset import Web
 
     toolsets = [Knowledgebase, Parent, Subagent, Web]
-    maps = [
-        projection_map
-        for toolset_type in toolsets
-        for projection_map in toolset_type.maps
-    ]
+    maps = toolsets
     classifier = HarnessProjectionAwareToolClassifier(
         base_classifier=DefaultToolClassifier(),
         projection_maps=maps,
@@ -249,7 +245,7 @@ def test_toolset_classes_compose_as_projection_maps():
             return [PreviewTool]
 
     tool_name = PreviewToolset.get_name(PreviewTool)
-    projection_maps = PreviewToolset.maps
+    projection_maps = [PreviewToolset]
     projection_map = compose_projection_maps(projection_maps)
     classifier = HarnessProjectionAwareToolClassifier(
         base_classifier=DefaultToolClassifier(),
@@ -267,6 +263,7 @@ def test_toolset_classes_compose_as_projection_maps():
     )
 
     assert projection_maps == [PreviewToolset]
+    assert PreviewToolset.Projections == [BaseProjection]
     assert start.title == tool_name
     assert start.content is None
     assert classifier.classify(tool_name) == "other"
@@ -284,27 +281,27 @@ def test_custom_projection_dispatch_uses_the_selected_class():
     class CustomTool(Tool):
         KIND = Kinds.SEARCH
 
-        @function.ccp
-        def projections(cls) -> list[type[BaseProjection]]:
-            return [CustomProjection]
-
     class CustomToolset(ToolsetBase):
         @classes
         def Tools(cls):
             return [CustomTool]
 
+        @classes
+        def Projections(cls):
+            return [CustomProjection]
+
     tool_name = CustomToolset.get_name(CustomTool)
-    projection_map = compose_projection_maps(CustomToolset.maps)
+    projection_map = compose_projection_maps([CustomToolset])
     classifier = HarnessProjectionAwareToolClassifier(
         base_classifier=DefaultToolClassifier(),
-        projection_maps=CustomToolset.maps,
+        projection_maps=[CustomToolset],
     )
 
     start = projection_map.project_start(tool_name, raw_input={"value": 1})
 
     assert start.title == "custom projection"
-    assert CustomToolset.kind_for(tool_name) == Kinds.SEARCH
-    assert CustomToolset.kind_for("Foreign-CustomTool") is None
+    assert CustomToolset.get_tool(tool_name).KIND == Kinds.SEARCH
+    assert CustomToolset.get_tool("Foreign-CustomTool", None) is None
     assert classifier.classify(tool_name) == "search"
     assert classifier.classify("External-Tool") == DefaultToolClassifier().classify("External-Tool")
 

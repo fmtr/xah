@@ -41,10 +41,10 @@ DepsT = TypeVar("DepsT", bound=HarnessDeps)
 
 class HarnessProjectionAwareToolClassifier(ProjectionAwareToolClassifier):
     def _projection_kind(self, tool_name: str) -> str | None:
-        for projection_map in self.projection_maps:
-            kind = projection_map.kind_for(tool_name)
-            if kind is not None:
-                return kind.value
+        for toolset in self.projection_maps:
+            tool_class = toolset.get_tool(tool_name, None)
+            if tool_class is not None:
+                return tool_class.KIND.value
         return super()._projection_kind(tool_name)
 
 
@@ -450,10 +450,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
 
     @cached_property
     def maps(self):
-        maps = []
-        for toolset_type in self.Toolsets:
-            maps.extend(toolset_type.maps)
-        return ilist(maps)
+        return ilist(self.Toolsets)
 
     @cached_property
     def agent_source(self):

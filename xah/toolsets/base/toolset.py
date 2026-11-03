@@ -10,7 +10,6 @@ from pydantic_ai.exceptions import UserError
 from pydantic_ai.messages import InstructionPart, SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
 from acp.schema import ToolCallStatus
-from pydantic_acp import ProjectionMap
 from pydantic_acp.projection import ToolProjection
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
@@ -25,7 +24,7 @@ from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
 from xah.toolsets.base.projection import Projection
-from xah.toolsets.base.tool import Kinds, Tool, ToolState, Validation
+from xah.toolsets.base.tool import Tool, ToolState, Validation
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
@@ -85,6 +84,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     def Tools(cls) -> list[type[Tool]]:
         return []
 
+    @classes
+    def Projections(cls) -> list[type[Projection]]:
+        return [Projection]
+
     @cp
     def states(self) -> dict[tuple[type[Tool], type[Tool]], ToolState]:
         state_classes = []
@@ -106,10 +109,6 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         state_class: type[Tool],
     ) -> ToolState:
         return self.states[(owner_class, state_class)]
-
-    @ccp
-    def maps(cls) -> list[ProjectionMap]:
-        return [cls]
 
     @classmethod
     def get_name(cls, tool_class: type[Tool]) -> str:
@@ -135,13 +134,6 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         return cls.Tools.suffix.get(suffix, default)
 
     @classmethod
-    def kind_for(cls, tool_name: str) -> Kinds | None:
-        tool_class = cls.get_tool(tool_name, None)
-        if tool_class is None:
-            return None
-        return tool_class.KIND
-
-    @classmethod
     def project_start(
         cls,
         tool_name: str,
@@ -153,7 +145,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         if tool_class is None:
             return None
 
-        projection_class = tool_class.projections[0]
+        projection_class = cls.Projections[0]
         projection = projection_class(
             tool_cls=tool_class,
             toolset_cls=cls,
@@ -177,7 +169,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         if tool_class is None:
             return None
 
-        projection_class = tool_class.projections[0]
+        projection_class = cls.Projections[0]
         projection = projection_class(
             tool_cls=tool_class,
             toolset_cls=cls,

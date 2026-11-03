@@ -18,7 +18,6 @@ from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import classes
 from xah.options.path import PathCwd
-from xah.toolsets.base.projection import Projection
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -91,10 +90,6 @@ class Tool(dm.Base):
             if issubclass(base, Signature):
                 return base
         return None
-
-    @ccp
-    def projections(cls) -> list[type[Projection]]:
-        return [Projection]
 
     state: SkipJsonSchema[InstanceOf[ToolState]] | None = Field(
         default=None,

@@ -13,16 +13,17 @@ The next exercise launches a harness that uses this subclass.
 
 ## Customize tool-call presentation
 
-Each tool selects projection classes through `Tool.projections`. The default is
-Xah's base `Projection`, which supplies a concise tool-name title and reports
-progress status. ACP passes call data to a short-lived projection instance at
-construction; `start()` and `progress()` take no call-specific arguments.
+Each toolset selects projection classes through `Toolset.Projections`. The
+default is Xah's base `Projection`, which supplies a concise tool-name title
+and reports progress status. ACP passes call data to a short-lived projection
+instance at construction; `start()` and `progress()` take no call-specific
+arguments.
 
 ```python
-from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.class_collections import classes
 from xah.toolsets.base.projection import Projection
-from xah import Tool
+from xah import Tool, Toolset
 
 
 class SearchProjection(Projection):
@@ -31,8 +32,16 @@ class SearchProjection(Projection):
 
 
 class SearchTool(Tool):
-    @ccp
-    def projections(cls) -> list[type[Projection]]:
+    pass
+
+
+class SearchToolset(Toolset):
+    @classes
+    def Tools(cls):
+        return [SearchTool]
+
+    @classes
+    def Projections(cls) -> list[type[Projection]]:
         return [SearchProjection]
 ```
 
