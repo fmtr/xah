@@ -389,6 +389,8 @@
       
         
       
+        
+      
     
     
     
@@ -528,6 +530,34 @@
     
   
     0.0.11
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../changelog/0.0.12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.0.12
   
 
     
@@ -1306,37 +1336,49 @@
 </ol>
 <p>The next exercise launches a harness that uses this subclass.</p>
 <h2 id="customize-tool-call-presentation">Customize tool-call presentation</h2>
-<p>By default, <code>xah</code> formats tool input and output for the ACP client. A tool can
-replace that presentation by returning a custom <code>Projection</code> class:</p>
-<div class="language-python highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">corio.function</span><span class="w"> </span><span class="kn">import</span> <span class="n">ccp</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic_acp.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolProjection</span> <span class="k">as</span> <span class="n">AcpToolProjection</span>
+<p>Each toolset selects projection classes through <code>Toolset.Projections</code>. The
+default is Xah's base <code>Projection</code>, which supplies a concise tool-name title
+and reports progress status. ACP passes call data to a short-lived projection
+instance at construction; <code>start()</code> and <code>progress()</code> take no call-specific
+arguments.</p>
+<div class="language-python highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic_acp.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolProjection</span> <span class="k">as</span> <span class="n">AcpToolProjection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xah.class_collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">classes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">Projection</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xah</span><span class="w"> </span><span class="kn">import</span> <span class="n">Kinds</span><span class="p">,</span> <span class="n">Tool</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xah</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tool</span><span class="p">,</span> <span class="n">Toolset</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">SearchProjection</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">raw_input</span><span class="p">,</span> <span class="n">cwd</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">AcpToolProjection</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Searching for </span><span class="si">{</span><span class="n">raw_input</span><span class="p">[</span><span class="s1">'query'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">AcpToolProjection</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Searching for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_input</span><span class="p">[</span><span class="s1">'query'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">SearchTool</span><span class="p">(</span><span class="n">Tool</span><span class="p">):</span>
-    <span class="n">KIND</span> <span class="o">=</span> <span class="n">Kinds</span><span class="o">.</span><span class="n">SEARCH</span>
+    <span class="k">pass</span>
 
-    <span class="nd">@ccp</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">Projection</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">Projection</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="n">SearchProjection</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchToolset</span><span class="p">(</span><span class="n">Toolset</span><span class="p">):</span>
+    <span class="nd">@classes</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Tools</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">SearchTool</span><span class="p">]</span>
+
+    <span class="nd">@classes</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Projections</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">type</span><span class="p">[</span><span class="n">Projection</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">SearchProjection</span><span class="p">]</span>
 </code></pre></div>
+<p>The optional <code>self.sig</code> value is available when the tool has a dedicated
+<code>Signature</code> model and the call input validates against it. Otherwise it is
+<code>None</code>; <code>self.raw_input</code> remains available either way. Signatures provide a
+separate home for argument fields and metadata, but current production tools do
+not yet declare them.</p>
 <p><code>Tool.KIND</code> uses Xah's <code>Kinds</code> enum and defaults to <code>Kinds.OTHER</code>. Set it to the
-kind that best matches the tool's semantics. Current tools that execute actions
-use <code>Kinds.OTHER</code>; <code>Kinds.EXECUTE</code> is available for ACP compatibility. Clients
-such as Zed use the kind to choose how to present a tool call. In particular,
-Zed shows ordinary tool content for <code>read</code> and <code>search</code> calls. Xah sends
-<code>rawInput</code> and <code>rawOutput</code> separately and keeps the default title concise.</p>
-<p>Override <code>start()</code> to customize the initial display and <code>progress()</code> to
-customize updates as the tool runs. When overriding either method, include the
-content you want the client to display. The default <code>Projection</code> implementation
-provides both methods and can be subclassed when only part of the presentation
-needs to change.</p>
+kind that best matches the tool's semantics. Clients such as Zed use this kind
+to choose how to present a tool call.</p>
+<p>Xah's first-pass ACP maps intentionally provide only the minimal base
+presentation. They no longer register pydantic-acp's filesystem and Bash maps,
+so their rich diff, search-tree, read-preview, and command rendering is not
+included. Focused Xah projection subclasses for those presentations are a
+later phase. Raw input and output are still carried as projection context for
+future renderers.</p>
 
 
 
