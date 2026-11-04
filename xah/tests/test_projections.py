@@ -89,3 +89,19 @@ def test_write_projection_uses_signature_content():
     )
 
     assert projection.new_text == "new content"
+
+
+def test_edit_projection_uses_signature_texts():
+    projection = Edit.Projection(
+        tool_cls=Edit,
+        toolset_cls=type("Toolset", (), {"get_name": staticmethod(lambda _: "Edit")}),
+        raw_input={
+            "path": "file.txt",
+            "old_text": "old line",
+            "new_text": "new line",
+        },
+        cwd=".",
+    )
+
+    assert projection.old_text == "old line"
+    assert projection.new_text == "new line"

@@ -14,6 +14,10 @@ from xah.toolsets.fs.similarity import SimilarityValidator
 
 class Projection(FileEditProjection):
     @cp
+    def old_text(self) -> str:
+        return self.sig.old_text
+
+    @cp
     def new_text(self) -> str:
         return self.sig.new_text
 
