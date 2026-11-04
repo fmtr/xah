@@ -4,20 +4,35 @@ from xah.class_collections import classes
 from pydantic import Field
 
 from corio import Path
-from xah.toolsets.base.tool import Kinds, Tool
+from corio.function import ccp, cp
+from xah.class_collections import classes
+from xah.toolsets.base.projection import FileEditProjection
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
-class Write(Tool):
-    """Write complete content to a file."""
+class Projection(FileEditProjection):
+    @cp
+    def new_text(self) -> str:
+        return self.sig.content
 
-    KIND = Kinds.EDIT
 
+class Signature(SignatureBase):
     path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="Destination path relative to the working directory.",
     )
     content: str = Field(description="Complete file content to write.")
+
+
+class Write(Tool, Signature):
+    """Write complete content to a file."""
+
+    KIND = Kinds.EDIT
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     @classes
     def Validators(cls):

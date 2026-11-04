@@ -19,8 +19,11 @@ from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.history import ResearchHistory
 from xah.toolsets.kb.toolset import Knowledgebase
 
-from xah.toolsets.base.tool import Kinds
-from xah.toolsets.web.base import WebTool
+from corio.function import ccp
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.projection import Status
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
+from xah.toolsets.web.base import WebProjection, WebTool
 from xah.toolsets.web.search import Search
 
 
@@ -145,23 +148,33 @@ class HarnessResearch(Harness):
         return [Web]
 
 
-class Research(WebTool):
+class Projection(WebProjection):
+    def start(self):
+        return AcpToolProjection(
+            content=[self.content(f"Depth: {self.sig.depth}\n\n{self.sig.prompt}")],
+            title=f"Research {self.preview(self.sig.prompt, limit=80)}",
+        )
+
+
+class Signature(SignatureBase):
+    depth: Depth = Field(description=Depth.descriptions)
+    prompt: str = Field(description="Research request, including detailed instructions for what to investigate.")
+    id: str | None = Field(
+        default=None,
+        description="Collection ID. Leave empty for entirely new research, or provide an existing ID to extend existing research.",
+    )
+
+
+class Research(WebTool, Signature):
     """Search, fetch, and index web pages for the user's research request."""
 
     KIND = Kinds.SEARCH
 
     FETCH_TIMEOUT: ClassVar[int] = 60
 
-    depth: Depth = Field(description=Depth.descriptions)
-
-    prompt: str = Field(
-        description="Research request, including detailed instructions for what to investigate."
-    )
-
-    id: str | None = Field(
-        default=None,
-        description="Collection ID. Leave empty for entirely new research, or provide an existing ID to extend existing research.",
-    )
+    @ccp
+    def Projection(cls):
+        return Projection
 
     def model_post_init(self, __context) -> None:
         if self.id is None:

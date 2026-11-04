@@ -5,16 +5,20 @@ from xah.class_collections import classes
 from pydantic import Field
 
 from corio import Path, strings
-from xah.toolsets.base.tool import Kinds, Tool
+from corio.function import ccp, cp
+from xah.toolsets.base.projection import FileEditProjection
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
-class Edit(Tool):
-    """Edit a file by exact string replacement."""
+class Projection(FileEditProjection):
+    @cp
+    def new_text(self) -> str:
+        return self.sig.new_text
 
-    KIND = Kinds.EDIT
 
+class Signature(SignatureBase):
     path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="File path relative to the working directory.",
     )
@@ -22,6 +26,15 @@ class Edit(Tool):
     new_text: str = Field(description="Replacement text.")
     replace_all: bool = Field(default=False, description="Replace every exact occurrence.")
 
+
+class Edit(Tool, Signature):
+    """Edit a file by exact string replacement."""
+
+    KIND = Kinds.EDIT
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     @classes
     def Validators(cls):

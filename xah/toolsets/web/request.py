@@ -9,8 +9,11 @@ import httpx
 from pydantic import Field
 
 from corio import dm, https
-from xah.toolsets.base.tool import Kinds
-from xah.toolsets.web.base import WebTool
+from corio.function import ccp
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.projection import Status
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
+from xah.toolsets.web.base import WebProjection, WebTool
 
 
 type JsonValue = None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
@@ -57,11 +60,7 @@ class Response(dm.Base):
     body: JsonValue = Field(description="The response body as text or JSON data.")
 
 
-class RequestBase(WebTool):
-    """Shared request fields and execution for HTTP API tools."""
-
-    KIND = Kinds.FETCH
-
+class Signature(SignatureBase):
     method: Annotated[
         Method,
         Field(description="The HTTP method to use."),
@@ -86,6 +85,12 @@ class RequestBase(WebTool):
         bool,
         Field(description="Whether to follow HTTP redirects."),
     ] = True
+
+
+class RequestBase(WebTool, Signature):
+    """Shared request fields and execution for HTTP API tools."""
+
+    KIND = Kinds.FETCH
 
     @property
     def request_url(self) -> str:
@@ -151,7 +156,36 @@ class RequestBase(WebTool):
         )
 
 
-class Request(RequestBase):
+class RequestProjection(WebProjection):
+    @property
+    def url(self) -> str:
+        return self.sig.url
+
+    def start(self):
+        return AcpToolProjection(
+            content=[self.content(f"{self.sig.method} {self.url}")],
+            title=f"{self.sig.method} {self.preview(self.url, limit=80)}",
+        )
+
+
+class EndpointRequestProjection(RequestProjection):
+    """Project requests that expose a relative endpoint instead of a URL."""
+
+    @property
+    def url(self) -> str:
+        return self.sig.endpoint
+
+
+class Projection(RequestProjection):
+    """Project requests addressed by an absolute URL."""
+
+
+class RequestSignature(Signature):
+    url: str = Field(description="The URL to request.")
+    headers: dict[str, str] = Field(default_factory=dict, description="HTTP request headers.")
+
+
+class Request(RequestSignature, RequestBase):
     """
 
     Make an HTTP request for API calls, testing, and basic un-rendered web or
@@ -160,11 +194,9 @@ class Request(RequestBase):
 
     """
 
-    url: Annotated[str, Field(description="The URL to request.")]
-    headers: Annotated[
-        dict[str, str],
-        Field(description="HTTP request headers."),
-    ] = Field(default_factory=dict)
+    @ccp
+    def Projection(cls):
+        return Projection
 
     @property
     def request_url(self) -> str:

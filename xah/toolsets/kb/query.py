@@ -5,16 +5,19 @@ from qdrant_client.http import models
 from corio import strings
 from corio.db.search.document import Document
 from xah.class_collections import classes
-from xah.toolsets.base.tool import Kinds, Tool
+from corio.function import ccp
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
+from xah.toolsets.kb.projection import KnowledgebaseProjection
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.validators import CollectionValidator
 
 
-class Query(Tool):
-    """Run a text query against a knowledgebase document type."""
+class Projection(KnowledgebaseProjection):
+    def title(self) -> str:
+        return f'Searching {self.sig.collection_id} for "{self.sig.query}"'
 
-    KIND = Kinds.SEARCH
 
+class Signature(SignatureBase):
     query: str = Field(
         description=strings.trim("""
         Text query to run against the document type.
@@ -23,6 +26,16 @@ class Query(Tool):
         """)
     )
     collection_id: str = Field(description="Collection ID to search.")
+
+
+class Query(Tool, Signature):
+    """Run a text query against a knowledgebase document type."""
+
+    KIND = Kinds.SEARCH
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     @classes
     def Validators(cls):

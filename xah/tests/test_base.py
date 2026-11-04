@@ -263,7 +263,7 @@ def test_toolset_classes_compose_as_projection_maps():
     )
 
     assert projection_maps == [PreviewToolset]
-    assert PreviewToolset.Projections == [BaseProjection]
+    assert PreviewTool.Projection is BaseProjection
     assert start.title == tool_name
     assert start.content is None
     assert classifier.classify(tool_name) == "other"
@@ -281,14 +281,12 @@ def test_custom_projection_dispatch_uses_the_selected_class():
     class CustomTool(Tool):
         KIND = Kinds.SEARCH
 
+        Projection: ClassVar = CustomProjection
+
     class CustomToolset(ToolsetBase):
         @classes
         def Tools(cls):
             return [CustomTool]
-
-        @classes
-        def Projections(cls):
-            return [CustomProjection]
 
     tool_name = CustomToolset.get_name(CustomTool)
     projection_map = compose_projection_maps([CustomToolset])
@@ -371,7 +369,8 @@ def test_missing_or_invalid_signatures_do_not_break_projection_generation():
     assert PlainTool.sig is None
     assert plain_projection.sig is None
     assert plain_projection.raw_input == plain_input
-    assert invalid_projection.sig is None
+    with pytest.raises(ValueError):
+        invalid_projection.sig
     assert invalid_projection.raw_input == invalid_input
     assert ProjectionTestToolset.project_start(
         ProjectionTestToolset.get_name(PlainTool),
@@ -404,9 +403,9 @@ def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
         raw_input={"script": "echo hello"},
     )
 
-    assert write_projection.title == "Files-Write"
-    assert write_projection.content is None
-    assert shell_projection.title == "Shell-Run"
+    assert write_projection.title is None
+    assert write_projection.content
+    assert shell_projection.title == "Execute echo hello"
     assert shell_projection.content is None
 
 

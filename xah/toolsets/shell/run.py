@@ -6,11 +6,13 @@ from pydantic import Field
 from pydantic_deep.features.periodic_reminder.capability import build_compact_transcript
 
 from corio import Constants, dm, strings
+from corio.function import ccp
 from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import classes
 from xah.harness.base import Harness
 from xah.options.base import Policy
-from xah.toolsets.base.tool import ToolState, Validation
+from xah.toolsets.base.projection import Projection as ProjectionBase
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, ToolState, Validation
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files as FilesBase
@@ -83,10 +85,21 @@ class HarnessTerminalAdversary(Harness):
         return [Files]
 
 
-class Run(TerminalTool):
+class Signature(SignatureBase):
+    script: str = Field(description="Shell script to execute in the working directory.")
+
+
+class Projection(ProjectionBase):
+    def title(self) -> str:
+        return f"Execute {self.preview(self.sig.script, limit=80)}"
+
+
+class Run(TerminalTool, Signature):
     """Run a shell command in the working directory."""
 
-    script: str = Field(description="Shell script to execute in the working directory.")
+    @ccp
+    def Projection(cls):
+        return Projection
 
     @classes
     def Validators(cls):

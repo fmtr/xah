@@ -18,6 +18,7 @@ from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import classes
 from xah.options.path import PathCwd
+from xah.toolsets.base.projection import Projection
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -124,6 +125,10 @@ class Tool(dm.Base):
     @classes
     def Validators(cls) -> list[type[Tool]]:
         return []
+
+    @ccp
+    def Projection(cls) -> type[Projection]:
+        return Projection
 
     @cp
     def validators(self) -> ilist[Self]:

@@ -1,13 +1,17 @@
 import asyncio
 from functools import cached_property
-from typing import Annotated, ClassVar
+from typing import Annotated
 
 from cached_classproperty import cached_classproperty
 from pydantic import Field
 from pydantic_ai import ModelRetry
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
 from corio import Path, strings
-from xah.toolsets.base.tool import Kinds, Tool
+from corio.function import ccp
+from xah.class_collections import classes
+from xah.toolsets.base.projection import Projection as ProjectionBase
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -101,11 +105,26 @@ class SearcherContent(SearcherBase):
         return strings.join(groups, sep="\n-\n")
 
 
-class Search(Tool):
-    """Search for files or file contents."""
+class Projection(ProjectionBase):
+    def title(self) -> str:
+        path = self.sig.path
+        pattern = self.sig.glob or self.sig.regex
+        if path and pattern:
+            return f"Search {path} for {self.preview(pattern, limit=80)}"
+        if pattern:
+            return f"Search for {self.preview(pattern, limit=80)}"
+        if path:
+            return f"List {path}"
+        return "Search files"
 
-    KIND = Kinds.SEARCH
+    def progress(self):
+        return AcpToolProjection(
+            content=[self.content(self.output_text)],
+            status=self.status,
+        )
 
+
+class Signature(SignatureBase):
     glob: str | None = Field(default=None, description="Glob to filter search paths/filenames.")
     regex: str | None = Field(default=None, description="Regex to search **inside** files. Leave empty to search only paths/filenames.")
     path: Annotated[Path | None, Permissions(Permissions.Read)] = Field(
@@ -113,6 +132,15 @@ class Search(Tool):
         description="Directory or file to search.",
     )
 
+
+class Search(Tool, Signature):
+    """Search for files or file contents."""
+
+    KIND = Kinds.SEARCH
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     async def run(self) -> str:
         Searcher=SearcherFiles

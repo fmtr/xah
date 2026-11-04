@@ -1,12 +1,17 @@
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
+from acp.schema import FileEditToolCallContent
 from pydantic import Field
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
 
-from corio import dm, strings
-from corio.function import cp
-from xah.toolsets.base.tool import Kinds
+from corio import Path, dm, strings
+from corio.function import ccp, cp
+from xah.class_collections import classes
+from xah.toolsets.base.projection import FileProjection, Status
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
 from xah.toolsets.fs.file import FileTool
+from xah.toolsets.fs.permissions import Permissions
 
 
 class Line(dm.Base):
@@ -36,11 +41,28 @@ class Line(dm.Base):
         return self.truncation.was_truncated
 
 
-class Read(FileTool):
-    """Read file content with line numbers."""
+class Projection(FileProjection):
+    def title(self) -> str:
+        return f"Read {self.preview(self.path, limit=80)}"
 
-    KIND = Kinds.READ
+    def progress(self) -> object:
+        if self.status != Status.COMPLETED:
+            return None
+        return AcpToolProjection(
+            content=[FileEditToolCallContent(
+                type="diff",
+                path=self.path,
+                old_text="",
+                new_text=self.output_text,
+            )],
+            locations=self.locations,
+        )
 
+
+class Signature(SignatureBase):
+    path: Annotated[Path, Permissions(Permissions.Read)] = Field(
+        description="File path relative to the working directory.",
+    )
     offset: int = Field(
         default=0,
         description="Zero-based line offset. To read the tail, use negative values, e.g. -10 returns the last 10 lines.",
@@ -51,6 +73,16 @@ class Read(FileTool):
         le=500,
         description="Maximum number of lines to return.",
     )
+
+
+class Read(FileTool, Signature):
+    """Read file content with line numbers."""
+
+    KIND = Kinds.READ
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     MAX_LINE_LENGTH: ClassVar[int] = 20_000
     MAX_OUTPUT_LENGTH: ClassVar[int] = 50_000

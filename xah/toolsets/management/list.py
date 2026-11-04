@@ -1,13 +1,28 @@
 from corio import strings
 from corio.function import ccp
-from xah.toolsets.base.tool import Kinds, Tool, ToolState
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.projection import Projection as ProjectionBase
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool, ToolState
 from xah.toolsets.base.toolset import ToolsetInfo
 
 
-class List(Tool):
+class Projection(ProjectionBase):
+    def start(self):
+        return AcpToolProjection(title="List toolsets")
+
+
+class Signature(SignatureBase):
+    """No arguments are required to list toolsets."""
+
+
+class List(Tool, Signature):
     """List available toolsets and their activation state."""
 
     KIND = Kinds.READ
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     @ccp
     def State(cls) -> type[ToolState]:

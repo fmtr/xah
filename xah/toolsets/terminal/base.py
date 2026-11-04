@@ -5,11 +5,12 @@ from typing import ClassVar
 from pydantic import Field
 
 from corio import Path, strings
-from corio.function import cp
+from corio.function import ccp, cp
 from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
 
-from xah.toolsets.base.tool import Kinds, Tool
+from xah.toolsets.base.projection import Projection as ProjectionBase
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
 
 from xah.toolsets.terminal.terminal import Terminal
 
@@ -59,8 +60,16 @@ class TerminalToolBase(Tool):
         )
 
 
+class Projection(ProjectionBase):
+    pass
+
+
 class TerminalTool(TerminalToolBase):
     """Run a DSL subprocess expression as a managed background terminal."""
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     QUICK_COMPLETION_TIMEOUT: ClassVar[int] = 5
     OUTPUT_MAX_CHARS: ClassVar[int] = 8 * 1024
@@ -126,8 +135,16 @@ class TerminalTool(TerminalToolBase):
         return terminal.tail(length=terminal.output_size)
 
 
-class TerminalManagementTool(TerminalToolBase):
+class ManagementSignature(SignatureBase):
+    terminal_id: str
+
+
+class TerminalManagementTool(TerminalToolBase, ManagementSignature):
     """Operate on an existing managed terminal."""
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     EVENT: ClassVar[str]
     terminal_id: str = Field(description="Identifier of the background terminal.")

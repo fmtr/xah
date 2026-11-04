@@ -23,7 +23,6 @@ from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.projection import Projection
 from xah.toolsets.base.tool import Tool, ToolState, Validation
 
 
@@ -84,10 +83,6 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     def Tools(cls) -> list[type[Tool]]:
         return []
 
-    @classes
-    def Projections(cls) -> list[type[Projection]]:
-        return [Projection]
-
     @cp
     def states(self) -> dict[tuple[type[Tool], type[Tool]], ToolState]:
         state_classes = []
@@ -145,7 +140,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         if tool_class is None:
             return None
 
-        projection_class = cls.Projections[0]
+        projection_class = tool_class.Projection
         projection = projection_class(
             tool_cls=tool_class,
             toolset_cls=cls,
@@ -169,7 +164,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         if tool_class is None:
             return None
 
-        projection_class = cls.Projections[0]
+        projection_class = tool_class.Projection
         projection = projection_class(
             tool_cls=tool_class,
             toolset_cls=cls,

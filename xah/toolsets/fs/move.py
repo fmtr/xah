@@ -4,20 +4,35 @@ from pydantic import Field, model_validator
 from pydantic_ai import ModelRetry
 
 from corio import Path
-from xah.toolsets.base.tool import Kinds, Tool
+from corio.function import ccp
+from xah.class_collections import classes
+from xah.toolsets.base.projection import NoFileProjection
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
 from xah.toolsets.fs.permissions import Permissions
 
 
-class Move(Tool):
+class Projection(NoFileProjection):
+    pass
+
+
+class Signature(SignatureBase):
+    source: Annotated[Path, Permissions(Permissions.Read)] = Field(
+        description="Existing file or directory to move or copy.",
+    )
+    target: Annotated[Path, Permissions(Permissions.Write)] = Field(
+        description="Destination path.",
+    )
+    is_copy: bool = Field(default=False, description="Copy the source instead of moving it.")
+
+
+class Move(Tool, Signature):
     """Move or copy a file or directory."""
 
     KIND = Kinds.MOVE
 
-    source: Annotated[Path, Permissions(Permissions.Read)] = Field(
-        description="Existing file or directory to move or copy.",
-    )
-    target: Annotated[Path, Permissions(Permissions.Write)] = Field(description="Destination path.")
-    is_copy: bool = Field(default=False, description="Copy the source instead of moving it.")
+    @ccp
+    def Projection(cls):
+        return Projection
 
     @model_validator(mode="after")
     def resolve_move_source(self):

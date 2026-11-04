@@ -1,25 +1,26 @@
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import Field
 from pydantic_ai import ModelRetry
 
-from corio import strings
-from xah.toolsets.base.tool import Kinds
+from corio import Path, strings
+from corio.function import ccp
+from xah.class_collections import classes
+from xah.toolsets.fs.read import Projection as ReadProjection
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
 from xah.toolsets.fs.file import FileTool
+from xah.toolsets.fs.permissions import Permissions
 
 
 
-class ReadLine(FileTool):
-    """
+class Projection(ReadProjection):
+    pass
 
-    Read a bounded character range from a single line in a file.
 
-    Only to be used in niche cases where a single, very long line contains important content, but truncated by other tools.
-
-    """
-
-    KIND = Kinds.READ
-
+class Signature(SignatureBase):
+    path: Annotated[Path, Permissions(Permissions.Read)] = Field(
+        description="File path relative to the working directory.",
+    )
     line_number: int = Field(
         ge=1,
         description="One-based line number to read.",
@@ -35,6 +36,22 @@ class ReadLine(FileTool):
         le=20_000,
         description="Maximum number of characters to return.",
     )
+
+
+class ReadLine(FileTool, Signature):
+    """
+
+    Read a bounded character range from a single line in a file.
+
+    Only to be used in niche cases where a single, very long line contains important content, but truncated by other tools.
+
+    """
+
+    KIND = Kinds.READ
+
+    @ccp
+    def Projection(cls):
+        return Projection
 
     EXTERNALIZE_OUTPUT: ClassVar[bool] = False
 

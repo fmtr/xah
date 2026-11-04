@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Any
 
-from acp.schema import ToolCallStatus
-from pydantic import ValidationError
+from acp.schema import (
+    ContentToolCallContent,
+    FileEditToolCallContent,
+    TextContentBlock,
+    ToolCallLocation,
+    ToolCallStatus,
+)
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
-from corio import Path
+from corio import Path, strings
 from corio.function import cp
 
 if TYPE_CHECKING:
@@ -14,9 +20,14 @@ if TYPE_CHECKING:
     from xah.toolsets.base.toolset import Toolset
 
 
-class Projection:
-    """Provide a concise default title for one tool call."""
+class Status(StrEnum):
+    IN_PROGRESS = auto()
+    COMPLETED = auto()
+    FAILED = auto()
+    CANCELLED = auto()
 
+
+class Projection:
     def __init__(
         self,
         *,
@@ -45,17 +56,83 @@ class Projection:
         signature_class = self.tool_cls.sig
         if signature_class is None:
             return None
-
-        try:
-            return signature_class.model_validate(self.raw_input)
-        except ValidationError:
-            return None
+        return signature_class.model_validate(self.raw_input)
 
     def title(self) -> str:
         return self.tool_name
 
-    def start(self) -> AcpToolProjection:
+    def content(self, text: str) -> ContentToolCallContent:
+        return ContentToolCallContent(
+            type="content",
+            content=TextContentBlock(type="text", text=text),
+        )
+
+    @staticmethod
+    def code_block(text: str, *, language: str | None = None) -> str:
+        fence = f"```{language or ''}"
+        return f"{fence}\n{text}\n```"
+
+    @staticmethod
+    def preview(text: str, *, limit: int) -> str:
+        return strings.truncate_mid(text, limit, flatten_text=True)
+
+    @cp
+    def output_text(self) -> str:
+        if isinstance(self.raw_output, str):
+            return self.raw_output
+        return self.serialized_output or str(self.raw_output)
+
+    def start(self) -> AcpToolProjection | None:
         return AcpToolProjection(title=self.title())
 
-    def progress(self) -> AcpToolProjection:
+    def progress(self) -> AcpToolProjection | None:
         return AcpToolProjection(title=self.title(), status=self.status)
+
+
+class FileProjection(Projection):
+    @cp
+    def path(self) -> str:
+        return str(self.sig.path)
+
+    @cp
+    def locations(self) -> list[ToolCallLocation]:
+        return [ToolCallLocation(path=self.path)]
+
+
+class FileEditProjection(FileProjection):
+    @cp
+    def old_text(self) -> str:
+        path = Path(self.path)
+        if not path.is_absolute() and self.cwd is not None:
+            path = self.cwd / path
+        if not path.is_file():
+            return ""
+        return path.read_text(encoding="utf-8", errors="replace")
+
+    @cp
+    def new_text(self) -> str:
+        return self.sig.content
+
+    def start(self) -> AcpToolProjection:
+        return AcpToolProjection(
+            content=[FileEditToolCallContent(
+                type="diff",
+                path=self.path,
+                old_text=self.old_text,
+                new_text=self.new_text,
+            )],
+            locations=self.locations,
+        )
+
+    def progress(self) -> AcpToolProjection | None:
+        if self.status != Status.COMPLETED:
+            return None
+        return self.start()
+
+
+class NoFileProjection(Projection):
+    def start(self) -> None:
+        return None
+
+    def progress(self) -> None:
+        return None

@@ -2,15 +2,17 @@ from types import SimpleNamespace
 
 import pytest
 from corio.iterator import ilist
-from xah.options import base as options
+from pydantic_acp import SlashCommandRequest
 
 from xah.commands.policy import Policy
+from xah.options import base as options
 
 
 def make_deps(*names):
     toolsets = ilist(
         SimpleNamespace(
             name=name,
+            POLICY=options.Policies.APPROVAL,
             options=SimpleNamespace(
                 cls={
                     options.Policy: options.Policy.from_value(name),
@@ -24,7 +26,7 @@ def make_deps(*names):
 
 @pytest.mark.asyncio
 async def test_policy_lists_toolset_policies():
-    command = Policy(deps=make_deps("Files", "Python"))
+    command = Policy(deps=make_deps("Files", "Python"), reset=None)
 
     result = await command.run()
 
@@ -35,7 +37,7 @@ async def test_policy_lists_toolset_policies():
 async def test_policy_gets_toolset_policy():
     deps = make_deps("Files")
     deps.toolsets.all.name["Files"].options.cls[options.Policy].current_value = options.Policies.AUTO
-    command = Policy(deps=deps, name="Files")
+    command = Policy(deps=deps, name="Files", reset=None)
 
     result = await command.run()
 
@@ -45,9 +47,31 @@ async def test_policy_gets_toolset_policy():
 @pytest.mark.asyncio
 async def test_policy_sets_toolset_policy():
     deps = make_deps("Files")
-    command = Policy(deps=deps, name="Files", value=options.Policies.FULL)
+    command = Policy(deps=deps, name="Files", value=options.Policies.FULL, reset=None)
 
     result = await command.run()
 
     assert result.text == "Set Files policy to full."
     assert deps.toolsets.all.name["Files"].options.cls[options.Policy].value == options.Policies.FULL
+
+
+@pytest.mark.asyncio
+async def test_policy_reset_restores_toolset_defaults():
+    deps = make_deps("Files", "Python")
+    deps.toolsets.all.name["Files"].POLICY = options.Policies.FULL
+    deps.toolsets.all.name["Python"].POLICY = options.Policies.AUTO
+    for toolset in deps.toolsets.all:
+        toolset.options.cls[options.Policy].current_value = options.Policies.DISABLED
+
+    request = SlashCommandRequest(
+        name="policy",
+        argument="reset",
+        raw_prompt="/policy reset",
+        session=object(),
+        agent=object(),
+    )
+    result = await Policy(request=request, deps=deps).run()
+
+    assert result.text == "Reset all toolset policies to their defaults."
+    assert deps.toolsets.all.name["Files"].options.cls[options.Policy].value == options.Policies.FULL
+    assert deps.toolsets.all.name["Python"].options.cls[options.Policy].value == options.Policies.AUTO

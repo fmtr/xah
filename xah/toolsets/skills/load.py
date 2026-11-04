@@ -5,15 +5,28 @@ from pydantic_ai import ModelRetry
 
 from corio import strings
 from corio.iterator import IterDiffer
-from xah.toolsets.base.tool import Kinds, Tool
+from corio.function import ccp
+from xah.toolsets.base.projection import Projection as ProjectionBase
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
 
 
-class Load(Tool):
+class Projection(ProjectionBase):
+    def title(self) -> str:
+        return strings.join_natural(self.sig.skill_ids)
+
+
+class Signature(SignatureBase):
+    skill_ids: list[str] = Field(description="Full list of relevant skill IDs to load in one call.")
+
+
+class Load(Tool, Signature):
     """Load the full text for one or more skills."""
 
     KIND = Kinds.READ
 
-    skill_ids: list[str] = Field(description="Full list of relevant skill IDs to load in one call.")
+    @ccp
+    def Projection(cls):
+        return Projection
 
     @classes
     def Validators(cls):

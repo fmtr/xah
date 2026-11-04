@@ -1,15 +1,32 @@
 from pydantic import Field
 
-from xah.toolsets.base.tool import Kinds
-from xah.toolsets.web.base import WebTool
+from corio.function import ccp
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
+from xah.toolsets.web.base import WebProjection, WebTool
 
 
-class Search(WebTool):
+class Projection(WebProjection):
+    def start(self):
+        query = self.sig.query
+        return AcpToolProjection(
+            content=[self.content(f"Query: {query}")],
+            title=f"Search web for {self.preview(query, limit=80)}",
+        )
+
+
+class Signature(SignatureBase):
+    query: str = Field(description="Web search query.")
+
+
+class Search(WebTool, Signature):
     """Search the web and return relevant sources and an answer."""
 
     KIND = Kinds.SEARCH
 
-    query: str = Field(description="Web search query.")
+    @ccp
+    def Projection(cls):
+        return Projection
 
     async def run(self) -> dict:
         try:
