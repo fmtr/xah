@@ -18,6 +18,7 @@ def test_path_defaults_and_directories(tmp_path):
     assert path.agents_dir == ".agents"
     assert path.agents_name == "AGENTS.md"
     assert path.skills_dir == "skills"
+    assert path.secrets == ["**/.env"]
     assert path.agents == home / ".agents"
     assert path.skills == home / ".agents" / "skills"
     assert path.sessions == home / "sessions"

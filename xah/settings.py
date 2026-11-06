@@ -21,6 +21,7 @@ class PathAgent(dm.Base):
     agents_name: str = "AGENTS.md"
     skills_dir: str = "skills"
     agents: Path | None = None
+    secrets: list[str] = ["**/.env"]
 
     def model_post_init(self, __context):
         self.home = (self.home or Path(f"~/.{paths.name}")).expanduser()

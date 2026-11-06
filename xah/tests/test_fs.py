@@ -27,6 +27,7 @@ def context(tmp_path):
     deps = SimpleNamespace(
         toolsets=ilist([toolset]),
         approval_bridge=None,
+        settings=SimpleNamespace(path=SimpleNamespace(secrets=["**/.env"])),
         options=ilist([
             PathCwd.from_cwd(cwd=cwd, description="Working directory."),
             PathRead.from_cwd(cwd=cwd, description="Read path."),
@@ -97,7 +98,7 @@ def test_permission_failure_occurs_during_model_validation(tmp_path):
         make(Write, ctx, path="../escape.txt", content="no")
 
 
-def test_env_file_does_not_add_permission_validation_messages(tmp_path):
+def test_env_file_requires_approval(tmp_path):
     Path(tmp_path / ".env").write_text("KEY=value\n")
     ctx = context(tmp_path)
     tool = make(Read, ctx, path=".env")
@@ -105,7 +106,10 @@ def test_env_file_does_not_add_permission_validation_messages(tmp_path):
 
     asyncio.run(tool.validate())
 
-    assert tool.validation.messages == Messages()
+    assert tool.validation.approval
+    assert tool.validation.messages.approval == [
+        f'Accessing secrets file: "{Path(tmp_path / ".env").resolve()}"'
+    ]
 
 
 def test_read_edit_move_search_and_remove(tmp_path):
