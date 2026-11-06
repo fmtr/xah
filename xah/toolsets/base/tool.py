@@ -6,6 +6,7 @@ from typing import ClassVar, Self
 
 from cached_classproperty import cached_classproperty
 from pydantic import Field, InstanceOf, model_validator
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic.json_schema import SkipJsonSchema
 
 from pydantic_ai import RunContext
@@ -18,7 +19,7 @@ from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import classes
 from xah.options.path import PathCwd
-from xah.toolsets.base.projection import Projection
+from xah.toolsets.base.output import ProjectionSupport
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -35,8 +36,9 @@ class Kinds(StrEnum):
     OTHER = auto()
 
 
-class Signature(dm.Base):
-    pass
+class Input(ProjectionSupport, dm.Base):
+    def get_projection(self, request):
+        return AcpToolProjection(title=request.tool_name)
 
 
 class ToolState(dm.Base):
@@ -84,11 +86,11 @@ class Tool(dm.Base):
         return ToolState
 
     @ccp
-    def sig(cls) -> type[Signature] | None:
+    def input(cls) -> type[Input] | None:
         for base in cls.__mro__:
-            if base is Signature or issubclass(base, Tool):
+            if base is Input or issubclass(base, Tool):
                 continue
-            if issubclass(base, Signature):
+            if issubclass(base, Input):
                 return base
         return None
 
@@ -125,10 +127,6 @@ class Tool(dm.Base):
     @classes
     def Validators(cls) -> list[type[Tool]]:
         return []
-
-    @ccp
-    def Projection(cls) -> type[Projection]:
-        return Projection
 
     @cp
     def validators(self) -> ilist[Self]:

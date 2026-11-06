@@ -4,16 +4,15 @@ from functools import cached_property
 from typing import Any, ClassVar, Generic, TypedDict, TypeVar
 
 from cached_classproperty import cached_classproperty
-from pydantic import BaseModel, ValidationError, ConfigDict
+from pydantic import ValidationError, ConfigDict
 from pydantic_ai import ModelRetry, RunContext, Tool as PydanticTool, ToolFailed
 from pydantic_ai.exceptions import UserError
 from pydantic_ai.messages import InstructionPart, SystemPromptPart
 from pydantic_ai.tools import ToolDefinition
 from acp.schema import ToolCallStatus
-from pydantic_acp.projection import ToolProjection
 from pydantic_ai.toolsets import FunctionToolset, ToolsetTool
 
-from corio import Path, jsn, strings
+from corio import Path, strings
 from corio.function import ccp, cp
 from corio.iterator import ilist
 from corio.tools import Empty
@@ -23,7 +22,8 @@ from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.tool import Tool, ToolState, Validation
+from xah.toolsets.base.output import InvalidInputOutput, Output, ProjectionRequest
+from xah.toolsets.base.tool import Input, Tool, ToolState, Validation
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
@@ -135,19 +135,23 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         *,
         cwd: Path | None = None,
         raw_input: Any = None,
-    ) -> ToolProjection | None:
+    ):
         tool_class = cls.get_tool(tool_name, None)
         if tool_class is None:
             return None
 
-        projection_class = tool_class.Projection
-        projection = projection_class(
+        request = ProjectionRequest(
             tool_cls=tool_class,
             toolset_cls=cls,
             raw_input=raw_input,
             cwd=cwd,
         )
-        return projection.start()
+        input_class = tool_class.input or Input
+        try:
+            request.input = input_class.model_validate(raw_input)
+        except ValidationError:
+            return InvalidInputOutput().get_projection(request)
+        return request.input.get_projection(request)
 
     @classmethod
     def project_progress(
@@ -159,22 +163,24 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         raw_output: Any = None,
         serialized_output: str,
         status: ToolCallStatus,
-    ) -> ToolProjection | None:
+    ):
         tool_class = cls.get_tool(tool_name, None)
         if tool_class is None:
             return None
 
-        projection_class = tool_class.Projection
-        projection = projection_class(
+        input_class = tool_class.input or Input
+        input = input_class.model_validate(raw_input)
+        output = Output.from_result(raw_output)
+        request = ProjectionRequest(
             tool_cls=tool_class,
             toolset_cls=cls,
             raw_input=raw_input,
+            input=input,
             cwd=cwd,
-            raw_output=raw_output,
             serialized_output=serialized_output,
             status=status,
         )
-        return projection.progress()
+        return output.get_projection(request)
 
     def __init__(self, activated: bool = True, **kwargs):
         del kwargs
@@ -312,45 +318,6 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         finally:
             self.instances.remove(instance)
 
-    @staticmethod
-    def serialize_output(result: Any) -> Any:
-        if isinstance(result, BaseModel):
-            return result.model_dump(mode="json")
-
-        if isinstance(result, list):
-            return [Toolset.serialize_output(item) for item in result]
-
-        if isinstance(result, dict):
-            return {key: Toolset.serialize_output(value) for key, value in result.items()}
-
-        return result
-
-    def externalize_output(self, instance: Tool, result: Any) -> Any:
-        if not instance.EXTERNALIZE_OUTPUT:
-            return result
-
-        if isinstance(result, str):
-            suffix = "txt"
-            serialized = result
-        else:
-            suffix = "json"
-            data = self.serialize_output(result)
-            serialized = jsn.to_json(data)
-
-        if len(serialized) <= self.MAX_INLINE_OUTPUT_LENGTH:
-            return result
-
-        settings = instance.ctx.deps.settings
-        directory = instance.ctx.deps.cwd_default / settings.path.home.name / "artifacts"
-        directory.mkdirf()
-        artifact = directory / f"{instance.call_id}.{suffix}"
-        artifact.write_text(serialized)
-
-        return strings.trim(f"""
-            Tool produced too much output.
-            Use regular file tools to inspect the full output: {artifact}
-        """)
-
     async def call_tool(
         self,
         name: str,
@@ -379,4 +346,5 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                 )
             )
 
-        return self.externalize_output(instance, run_result)
+        output = Output.from_result(run_result)
+        return output.externalize(instance)
