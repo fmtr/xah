@@ -143,20 +143,34 @@ def test_feedback_logs_messages_without_active_run(monkeypatch):
     assert Toolset.feedback(ctx, "late feedback") is None
     assert len(logged) == 1
     assert logged[0].startswith(
-        "Toolset feedback could not be enqueued because no agent run is active: [HARNESS FEEDBACK]"
+        "Toolset feedback could not be enqueued: [HARNESS FEEDBACK]"
     )
     assert "late feedback" in logged[0]
 
 
-def test_feedback_propagates_unrelated_user_errors():
+def test_feedback_logs_unrelated_user_errors_without_failing_the_run(monkeypatch):
+    logged_errors = []
+    logged_warnings = []
     error = UserError("invalid feedback")
 
     def enqueue(_message):
         raise error
 
+    monkeypatch.setattr(
+        "xah.toolsets.base.toolset.logger.error",
+        lambda message, **kwargs: logged_errors.append((message, kwargs)),
+    )
+    monkeypatch.setattr(
+        "xah.toolsets.base.toolset.logger.warning",
+        lambda message: logged_warnings.append(message),
+    )
+
     ctx = SimpleNamespace(enqueue=enqueue, pending_messages=[])
+    assert Toolset.feedback(ctx, "bad feedback") is None
 
-    with pytest.raises(UserError) as raised:
-        Toolset.feedback(ctx, "bad feedback")
-
-    assert raised.value is error
+    assert logged_errors == [
+        ("Toolset feedback enqueue failed: invalid feedback", {"_exc_info": True})
+    ]
+    assert logged_warnings == [
+        "Toolset feedback could not be enqueued: [HARNESS FEEDBACK]\n\nbad feedback"
+    ]

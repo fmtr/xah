@@ -191,11 +191,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
         try:
             return ctx.enqueue(message)
-        except UserError:
-            if ctx.pending_messages is not None:
-                raise
+        except UserError as error:
+            logger.error(f"Toolset feedback enqueue failed: {error}", _exc_info=True)
             logger.warning(
-                f"Toolset feedback could not be enqueued because no agent run is active: {message.content}"
+                f"Toolset feedback could not be enqueued: {message.content}"
             )
 
     async def raise_errors(self, method, *args):
