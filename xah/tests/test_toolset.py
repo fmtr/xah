@@ -128,7 +128,7 @@ async def test_management_list_feedbacks_after_first_call_and_resets_after_compr
     assert await tool.run() == first_result
 
 
-def test_feedback_logs_messages_after_run_completion(monkeypatch):
+def test_feedback_logs_messages_without_active_run(monkeypatch):
     logged = []
 
     def enqueue(_message):
@@ -139,9 +139,24 @@ def test_feedback_logs_messages_after_run_completion(monkeypatch):
         lambda message: logged.append(message),
     )
 
-    assert Toolset.feedback(SimpleNamespace(enqueue=enqueue), "late feedback") is None
+    ctx = SimpleNamespace(enqueue=enqueue, pending_messages=None)
+    assert Toolset.feedback(ctx, "late feedback") is None
     assert len(logged) == 1
     assert logged[0].startswith(
-        "Toolset feedback occurred after the agent run completed: [HARNESS FEEDBACK]"
+        "Toolset feedback could not be enqueued because no agent run is active: [HARNESS FEEDBACK]"
     )
     assert "late feedback" in logged[0]
+
+
+def test_feedback_propagates_unrelated_user_errors():
+    error = UserError("invalid feedback")
+
+    def enqueue(_message):
+        raise error
+
+    ctx = SimpleNamespace(enqueue=enqueue, pending_messages=[])
+
+    with pytest.raises(UserError) as raised:
+        Toolset.feedback(ctx, "bad feedback")
+
+    assert raised.value is error
