@@ -1,0 +1,2 @@
+- Require approval before accessing files matched by the configured secret globs.
+- Allow projects to configure additional secret file patterns through `PathAgent.secrets`.
