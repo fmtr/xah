@@ -399,6 +399,8 @@
       
         
       
+        
+      
     
     
     
@@ -678,6 +680,34 @@
     
   
     0.0.16
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../changelog/0.0.17/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.0.17
   
 
     
@@ -1456,49 +1486,57 @@
 </ol>
 <p>The next exercise launches a harness that uses this subclass.</p>
 <h2 id="customize-tool-call-presentation">Customize tool-call presentation</h2>
-<p>Each toolset selects projection classes through <code>Toolset.Projections</code>. The
-default is Xah's base <code>Projection</code>, which supplies a concise tool-name title
-and reports progress status. ACP passes call data to a short-lived projection
-instance at construction; <code>start()</code> and <code>progress()</code> take no call-specific
-arguments.</p>
-<div class="language-python highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic_acp.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolProjection</span> <span class="k">as</span> <span class="n">AcpToolProjection</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xah.class_collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">classes</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">Projection</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xah</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tool</span><span class="p">,</span> <span class="n">Toolset</span>
+<p>Define a tool's input by subclassing <code>Input</code> and its structured result by
+subclassing <code>Output</code>. Their <code>projection</code> properties control the ACP
+presentation. Xah attaches runtime projection context to <code>self.request</code> before
+reading either property.</p>
+<div class="language-python highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic_acp.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolProjection</span> <span class="k">as</span> <span class="n">AcpToolProjection</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.input</span><span class="w"> </span><span class="kn">import</span> <span class="n">Input</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.output</span><span class="w"> </span><span class="kn">import</span> <span class="n">Output</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xah.toolsets.base.tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tool</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">SearchProjection</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">AcpToolProjection</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Searching for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_input</span><span class="p">[</span><span class="s1">'query'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchInput</span><span class="p">(</span><span class="n">Input</span><span class="p">):</span>
+    <span class="n">query</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"Text to search for."</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">projection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">AcpToolProjection</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Search for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">SearchTool</span><span class="p">(</span><span class="n">Tool</span><span class="p">):</span>
-    <span class="k">pass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchOutput</span><span class="p">(</span><span class="n">Output</span><span class="p">):</span>
+    <span class="n">matches</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">agent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">matches</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">projection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">AcpToolProjection</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+        <span class="p">)</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">SearchToolset</span><span class="p">(</span><span class="n">Toolset</span><span class="p">):</span>
-    <span class="nd">@classes</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">Tools</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">SearchTool</span><span class="p">]</span>
-
-    <span class="nd">@classes</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">Projections</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">type</span><span class="p">[</span><span class="n">Projection</span><span class="p">]]:</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">SearchProjection</span><span class="p">]</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchTool</span><span class="p">(</span><span class="n">Tool</span><span class="p">,</span> <span class="n">SearchInput</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SearchOutput</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">SearchOutput</span><span class="p">(</span><span class="n">matches</span><span class="o">=</span><span class="p">[])</span>
 </code></pre></div>
-<p>The optional <code>self.sig</code> value is available when the tool has a dedicated
-<code>Signature</code> model and the call input validates against it. Otherwise it is
-<code>None</code>; <code>self.raw_input</code> remains available either way. Signatures provide a
-separate home for argument fields and metadata, but current production tools do
-not yet declare them.</p>
+<p>An input request provides the tool and toolset classes, raw input, working
+directory, and computed tool name. An output request also provides the
+validated <code>Input</code>, serialized output, and call status. This lets output
+projections use the original structured result even when <code>agent</code> returns a
+flattened value or Xah externalizes a large result for the model.</p>
+<p><code>Output.agent</code> returns the structured output object by default. Override it
+only when the model should receive another representation, such as a list or
+string. Override <code>Input.projection</code> or <code>Output.projection</code> to customize ACP;
+there are no <code>get_agent()</code> or <code>get_projection()</code> compatibility methods.</p>
 <p><code>Tool.KIND</code> uses Xah's <code>Kinds</code> enum and defaults to <code>Kinds.OTHER</code>. Set it to the
 kind that best matches the tool's semantics. Clients such as Zed use this kind
 to choose how to present a tool call.</p>
-<p>Xah's first-pass ACP maps intentionally provide only the minimal base
-presentation. They no longer register pydantic-acp's filesystem and Bash maps,
-so their rich diff, search-tree, read-preview, and command rendering is not
-included. Focused Xah projection subclasses for those presentations are a
-later phase. Raw input and output are still carried as projection context for
-future renderers.</p>
 
 
 
