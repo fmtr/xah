@@ -69,7 +69,7 @@ async def test_toolset_releases_tool_after_terminal_finishes(tmp_path, monkeypat
     terminal = terminals[0]
     tool_ref = weakref.ref(terminal.on_status.__self__)
 
-    assert result.get_agent().startswith(f"Terminal `{terminal.id}`")
+    assert result.startswith(f"Terminal `{terminal.id}`")
     assert not toolset.instances
     assert terminal.status.value == "running"
     assert tool_ref() is not None

@@ -170,7 +170,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
         input_class = tool_class.input or Input
         input = input_class.model_validate(raw_input)
-        output = Output.from_result(raw_output)
+        output: Output = raw_output
         request = ProjectionRequest(
             tool_cls=tool_class,
             toolset_cls=cls,
@@ -250,6 +250,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     @cached_property
     def instances(self) -> ilist[Tool]:
         return ilist()
+
+    @cached_property
+    def outputs(self) -> ilist[Output] | None:
+        return None
 
     @staticmethod
     def validation_error_message(error: ValidationError) -> str:
@@ -346,4 +350,8 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                 )
             )
 
-        return run_result
+        output = Output.from_result(run_result)
+        output.call_id = ctx.tool_call_id
+        if self.outputs is not None:
+            self.outputs.append(output)
+        return output.externalize(instance)

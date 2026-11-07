@@ -11,7 +11,7 @@ from pydantic_ai.usage import RunUsage
 from xah.toolsets.base.tool import ToolState
 from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.fs.toolset import Files
-from xah.toolsets.management.list import List
+from xah.toolsets.management.list import List, ListOutput
 from xah.toolsets.management.toolset import Management
 
 
@@ -86,16 +86,16 @@ async def test_management_list_result_stays_typed(tmp_path):
 
     result = await management.call_tool(name, {}, ctx, tools[name])
 
-    assert result.toolsets == [management.info, files.info]
+    assert result == [management.info, files.info]
     progress = type(management).project_progress(
         name,
         raw_input={},
-        raw_output=result,
+        raw_output=ListOutput(toolsets=result),
         serialized_output="[]",
         status="completed",
     )
 
-    assert progress.title == name
+    assert progress.title.startswith(f"{name} →")
     assert progress.status == "completed"
 
 

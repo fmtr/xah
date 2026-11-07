@@ -30,8 +30,15 @@ from xah.obs import logger
 
 from pydantic_acp.projection import (
     _is_output_tool,
-    build_tool_progress_update,
     build_tool_start_update,
+    build_compaction_updates,
+    compose_projection_maps,
+)
+
+from corio.iterator import ilist
+from xah.server.acp.projection import (
+    build_tool_progress_update,
+    build_tool_updates,
 )
 
 
@@ -46,6 +53,7 @@ class ThinkingPromptExecution(_PromptExecution):
         session: AcpSessionContext,
         output_type_override: object | None = None,
     ) -> PromptRunOutcome:
+        self.enable_output_capture(session)
         try:
             return await super().run_prompt(
                 agent=agent,
@@ -56,6 +64,38 @@ class ThinkingPromptExecution(_PromptExecution):
         except Exception:
             logger.error("ACP prompt execution failed", _exc_info=True)
             raise
+
+    def enable_output_capture(self, session: AcpSessionContext):
+        runtime = self._runtime._owner._agent_source.get_runtime(session)
+        for toolset in runtime.deps.toolsets.all:
+            if toolset.outputs is None:
+                toolset.outputs = ilist()
+
+    async def record_tool_updates(self, session, agent, messages):
+        if not self._runtime._owner._config.enable_generic_tool_projection:
+            return
+
+        runtime = self._runtime._owner._agent_source.get_runtime(session)
+        projection_map = compose_projection_maps(
+            self._runtime._owner._config.projection_maps
+        )
+        for update in build_tool_updates(
+            messages,
+            classifier=self._runtime._owner._tool_classifier,
+            cwd=session.cwd,
+            known_starts=self.known_tool_call_starts(session),
+            projection_map=projection_map,
+            serializer=self._runtime._owner._config.output_serializer,
+            toolsets=runtime.deps.toolsets,
+        ):
+            await self._runtime._record_update(session, update)
+        for update in build_compaction_updates(
+            messages,
+            known_starts=self.known_tool_call_starts(session),
+            skip_providers=self._skip_compaction_providers(),
+        ):
+            await self._runtime._record_update(session, update)
+        await self.record_bridge_updates(session, agent)
 
     async def _record_execution_updates(self, **kwargs):
         await super()._record_execution_updates(**kwargs)
@@ -121,6 +161,7 @@ class ThinkingPromptExecution(_PromptExecution):
                         continue
                 elif _is_output_tool(result_part.tool_name):
                     continue
+                runtime = self._runtime._owner._agent_source.get_runtime(session)
                 await self._runtime._record_update(
                     session,
                     build_tool_progress_update(
@@ -130,6 +171,7 @@ class ThinkingPromptExecution(_PromptExecution):
                         known_start=known_starts.get(result_part.tool_call_id),
                         projection_map=projection_map,
                         serializer=self._runtime._owner._config.output_serializer,
+                        toolsets=runtime.deps.toolsets,
                     ),
                 )
                 continue

@@ -9,9 +9,11 @@ from acp.schema import (
     TextContentBlock,
     ToolCallStatus,
 )
+from pydantic import Field
+from pydantic.json_schema import SkipJsonSchema
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
-from corio import Path, dm, jsn, strings
+from corio import Constants, Path, dm, jsn, strings
 
 if TYPE_CHECKING:
     from xah.toolsets.base.tool import Input, Tool
@@ -61,6 +63,8 @@ class ProjectionSupport:
 class Output(ProjectionSupport, dm.Base):
     """Base class for structured tool results and their projections."""
 
+    call_id: SkipJsonSchema[str | None] = Field(default=None, exclude=True)
+
     @classmethod
     def from_result(cls, result: Any) -> Output:
         if isinstance(result, str):
@@ -72,9 +76,12 @@ class Output(ProjectionSupport, dm.Base):
 
     def get_projection(self, request: ProjectionRequest) -> AcpToolProjection | None:
         content = None
+        title = request.tool_name
         if request.serialized_output:
+            preview = self.preview(request.serialized_output, limit=120)
+            title = f"{title} {Constants.ARROW_RIGHT} {preview}"
             content = [self.content_block(request.serialized_output)]
-        return AcpToolProjection(content=content, title=request.tool_name, status=request.status)
+        return AcpToolProjection(content=content, title=title, status=request.status)
 
     def serialize(self) -> Any:
         return self.model_dump(mode="json")
