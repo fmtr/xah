@@ -66,7 +66,7 @@ def test_description_does_not_inherit_function_toolset_docstring():
 
 
 @pytest.mark.asyncio
-async def test_management_list_result_can_be_externalized(tmp_path):
+async def test_management_list_result_stays_typed(tmp_path):
     settings = SimpleNamespace(path=SimpleNamespace(home=Path(".agent")))
     management = Management(settings=settings, cwd=Path(tmp_path))
     files = Files(settings=settings, cwd=Path(tmp_path))
@@ -86,8 +86,17 @@ async def test_management_list_result_can_be_externalized(tmp_path):
 
     result = await management.call_tool(name, {}, ctx, tools[name])
 
-    assert result == [management.info, files.info]
-    assert not (Path(tmp_path) / ".agent" / "artifacts" / "call-1.json").exists()
+    assert result.toolsets == [management.info, files.info]
+    progress = type(management).project_progress(
+        name,
+        raw_input={},
+        raw_output=result,
+        serialized_output="[]",
+        status="completed",
+    )
+
+    assert progress.title == name
+    assert progress.status == "completed"
 
 
 @pytest.mark.asyncio
@@ -116,7 +125,7 @@ async def test_management_list_feedbacks_after_first_call_and_resets_after_compr
 
     assert isinstance(tool.state, ToolState)
     assert tool.state.called
-    assert first_result == [management.info, files.info]
+    assert first_result.toolsets == [management.info, files.info]
     assert await tool.run() == first_result
     assert feedback == [
         "You have already listed the toolsets. These will not change during a given session."

@@ -8,7 +8,7 @@ from cached_classproperty import cached_classproperty
 from corio import strings
 from corio.enums import MapEnum
 from corio.db.search.client import Client
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
 from corio.function import cp
 from corio.hash import get_hash_readable
@@ -19,15 +19,14 @@ from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.history import ResearchHistory
 from xah.toolsets.kb.toolset import Knowledgebase
 
-from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.projection import Status
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
-from xah.toolsets.web.base import WebProjection, WebTool
+from xah.toolsets.base.output import Output
+from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.web.base import WebTool
 from xah.toolsets.web.search import Search
 
 
-class ResearchOutput(BaseModel):
+class ResearchOutput(Output):
     MSG_HTTPS: ClassVar[str] = "Each URL must start with https://"
 
     urls: list[str] = Field(description=f"Relevance-ranked URLs. {MSG_HTTPS}")
@@ -148,15 +147,7 @@ class HarnessResearch(Harness):
         return [Web]
 
 
-class Projection(WebProjection):
-    def start(self):
-        return AcpToolProjection(
-            content=[self.content(f"Depth: {self.sig.depth}\n\n{self.sig.prompt}")],
-            title=f"Research {self.preview(self.sig.prompt, limit=80)}",
-        )
-
-
-class Signature(SignatureBase):
+class Input(InputBase):
     depth: Depth = Field(description=Depth.descriptions)
     prompt: str = Field(description="Research request, including detailed instructions for what to investigate.")
     id: str | None = Field(
@@ -164,17 +155,19 @@ class Signature(SignatureBase):
         description="Collection ID. Leave empty for entirely new research, or provide an existing ID to extend existing research.",
     )
 
+    def get_projection(self, request):
+        return AcpToolProjection(
+            content=[self.content_block(f"Depth: {self.depth}\n\n{self.prompt}")],
+            title=f"Research {self.preview(self.prompt, limit=80)}",
+        )
 
-class Research(WebTool, Signature):
+
+class Research(WebTool, Input):
     """Search, fetch, and index web pages for the user's research request."""
 
     KIND = Kinds.SEARCH
 
     FETCH_TIMEOUT: ClassVar[int] = 60
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     def model_post_init(self, __context) -> None:
         if self.id is None:

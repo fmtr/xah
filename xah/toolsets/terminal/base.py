@@ -2,24 +2,31 @@ import asyncio
 from functools import cached_property
 from typing import ClassVar
 
+import humanize
 from pydantic import Field
+from acp.schema import ToolCallLocation
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
 from corio import Path, strings
-from corio.function import ccp, cp
+from corio.function import cp
 from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
 
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
+from xah.toolsets.base.output import Output
+from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
 
 from xah.toolsets.terminal.terminal import Terminal
 
 
-class TerminalToolBase(Tool):
-    """Base for tools that address a managed terminal."""
+class TerminalOutput(Output):
+    terminal: Terminal
+    cwd: Path
 
-    KIND = Kinds.OTHER
-
+    SUMMARY_MASK: ClassVar[str] = strings.trim("""
+        Terminal `{id}` running `{command}` for {runtime}.
+        Last output: {last_output} ago.
+        Status: `{status}`; exit code: `{exit_code}`.
+    """)
     MASK: ClassVar[str] = strings.trim("""
         {summary}
         Output is being written to: `{path}` ({size} bytes).
@@ -30,12 +37,64 @@ class TerminalToolBase(Tool):
         {tail}
         ```
 
-        The above is the tail only. Review the output file directly if you need to see more.
+        The above is the tail only. Review the output file directly if you need more.
     """)
+
+    @property
+    def path(self) -> Path:
+        return self.terminal.output_path.relative_to(self.cwd)
+
+    def get_agent(self) -> str:
+        terminal = self.terminal
+        command = strings.truncate_mid(str(terminal.expression), length=60)
+        runtime = humanize.precisedelta(terminal.runtime, format="%0.1f")
+        output_idle = humanize.precisedelta(terminal.output_idle, format="%0.1f")
+        summary = strings.Mask(self.SUMMARY_MASK).format(
+            id=terminal.id,
+            command=command,
+            cwd=terminal.cwd,
+            runtime=runtime,
+            status=terminal.status,
+            exit_code=terminal.exit_code,
+            last_output=output_idle,
+        )
+        return strings.Mask(self.MASK).format(
+            summary=summary,
+            path=self.path,
+            size=terminal.output_size,
+            tail=terminal.tail(),
+        )
+
+    def get_projection(self, request) -> AcpToolProjection:
+        content = self.content_block(self.get_agent())
+        return AcpToolProjection(
+            content=[content],
+            locations=[ToolCallLocation(path=str(self.path))],
+            title=f"Terminal {self.terminal.id}: {self.terminal.status}",
+            status=request.status,
+        )
+
+
+class TerminalStatuses(Output):
+    terminals: list[Terminal]
+    cwd: Path
+
+    def get_agent(self) -> list[str]:
+        return [TerminalOutput(terminal=terminal, cwd=self.cwd).get_agent() for terminal in self.terminals]
+
+
+class TerminalToolBase(Tool):
+    """Base for tools that address a managed terminal."""
+
+    KIND = Kinds.OTHER
 
     @cp
     def terminal(self) -> Terminal:
         return self.terminals.id[self.terminal_id]
+
+    @cp
+    def output(self) -> TerminalOutput:
+        return TerminalOutput(terminal=self.terminal, cwd=self.cwd)
 
     @cached_property
     def terminals(self):
@@ -43,33 +102,9 @@ class TerminalToolBase(Tool):
 
         return self.ctx.deps.toolsets.all.cls[Terminals].terminals
 
-    @property
-    def message(self) -> str:
-        from xah.options.path import PathCwd
-
-        terminal = self.terminal
-        cwd = self.ctx.deps.options.cls[PathCwd].value
-        path = terminal.output_path.relative_to(cwd)
-        return strings.Mask(self.MASK).format(
-            status=terminal.status,
-            id=terminal.id,
-            summary=terminal.summary,
-            path=path,
-            size=terminal.output_size,
-            tail=terminal.tail(),
-        )
-
-
-class Projection(ProjectionBase):
-    pass
-
 
 class TerminalTool(TerminalToolBase):
     """Run a DSL subprocess expression as a managed background terminal."""
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     QUICK_COMPLETION_TIMEOUT: ClassVar[int] = 5
     OUTPUT_MAX_CHARS: ClassVar[int] = 8 * 1024
@@ -90,7 +125,7 @@ class TerminalTool(TerminalToolBase):
         message = strings.trim(f"""
             Terminal has changed state:
 
-            {self.message}
+            {self.output.get_agent()}
         """)
         self.feedback(message)
         return message
@@ -107,7 +142,7 @@ class TerminalTool(TerminalToolBase):
         executable_name = Path(self.expression.name).name
         return directory / f"{executable_name}-{self.terminal_id}.log"
 
-    async def run(self) -> str:
+    async def run(self) -> TerminalOutput:
         terminal = Terminal(
             id=self.terminal_id,
             expression=self.expression,
@@ -126,25 +161,21 @@ class TerminalTool(TerminalToolBase):
             if not terminal.process.done():
                 self.activate_async_tools()
                 terminal.on_status = self.notify
-            return self.message
+            return self.output
 
         if terminal.output_size > self.OUTPUT_MAX_CHARS:
             self.activate_async_tools()
-            return self.message
+            return self.output
 
-        return terminal.tail(length=terminal.output_size)
+        return self.output
 
 
-class ManagementSignature(SignatureBase):
+class ManagementInput(InputBase):
     terminal_id: str
 
 
-class TerminalManagementTool(TerminalToolBase, ManagementSignature):
+class TerminalManagementTool(TerminalToolBase, ManagementInput):
     """Operate on an existing managed terminal."""
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     EVENT: ClassVar[str]
     terminal_id: str = Field(description="Identifier of the background terminal.")

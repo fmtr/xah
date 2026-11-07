@@ -6,28 +6,23 @@ from cached_classproperty import cached_classproperty
 from xah.class_collections import classes
 from pydantic import Field
 from corio.function import ccp
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Signature as SignatureBase
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.tool import Input as InputBase
 
 from corio.shell.dsl import arg, shell
 from xah.toolsets.terminal.base import TerminalTool
 
 
-class Projection(ProjectionBase):
-    def title(self):
-        return f"Run Python code: {self.preview(self.sig.code, limit=80)}"
-
-
-class Signature(SignatureBase):
+class Input(InputBase):
     code: str = Field(description="Short Python source fragment to execute directly.")
 
+    def get_projection(self, request):
+        title = f"Run Python code: {self.preview(self.code, limit=80)}"
+        return AcpToolProjection(title=title)
 
-class RunCode(TerminalTool, Signature):
+
+class RunCode(TerminalTool, Input):
     """Run a short Python source fragment directly, like `python -c`."""
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @classes
     def Validators(cls):

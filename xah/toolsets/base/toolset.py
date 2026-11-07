@@ -346,5 +346,4 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
                 )
             )
 
-        output = Output.from_result(run_result)
-        return output.externalize(instance)
+        return run_result

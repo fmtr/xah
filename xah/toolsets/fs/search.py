@@ -4,14 +4,14 @@ from typing import Annotated
 
 from cached_classproperty import cached_classproperty
 from pydantic import Field
-from pydantic_ai import ModelRetry
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from pydantic_ai import ModelRetry
 
 from corio import Path, strings
 from corio.function import ccp
 from xah.class_collections import classes
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
+from xah.toolsets.base.output import OutputString, ProjectionRequest
+from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -105,26 +105,45 @@ class SearcherContent(SearcherBase):
         return strings.join(groups, sep="\n-\n")
 
 
-class Projection(ProjectionBase):
-    def title(self) -> str:
-        path = self.sig.path
-        pattern = self.sig.glob or self.sig.regex
-        if path and pattern:
-            return f"Search {path} for {self.preview(pattern, limit=80)}"
-        if pattern:
-            return f"Search for {self.preview(pattern, limit=80)}"
-        if path:
-            return f"List {path}"
-        return "Search files"
-
-    def progress(self):
+class SearchOutput(OutputString):
+    def get_projection(self, request: ProjectionRequest):
+        input = request.input
+        pattern = input.glob or input.regex
+        if input.path and pattern:
+            title = f"Search {input.path} for {self.preview(pattern, limit=80)}"
+        elif pattern:
+            title = f"Search for {self.preview(pattern, limit=80)}"
+        elif input.path:
+            title = f"List {input.path}"
+        else:
+            title = "Search files"
         return AcpToolProjection(
-            content=[self.content(self.output_text)],
-            status=self.status,
+            content=[self.content_block(self.output)],
+            title=title,
+            status=request.status,
         )
 
 
-class Signature(SignatureBase):
+class Input(InputBase):
+    glob: str | None = Field(default=None, description="Glob to filter search paths/filenames.")
+    regex: str | None = Field(default=None, description="Regex to search **inside** files. Leave empty to search only paths/filenames.")
+    path: Annotated[Path | None, Permissions(Permissions.Read)] = Field(
+        default=None,
+        description="Directory or file to search.",
+    )
+
+    def get_projection(self, request):
+        pattern = self.glob or self.regex
+        if self.path and pattern:
+            title = f"Search {self.path} for {self.preview(pattern, limit=80)}"
+        elif pattern:
+            title = f"Search for {self.preview(pattern, limit=80)}"
+        elif self.path:
+            title = f"List {self.path}"
+        else:
+            title = "Search files"
+        return AcpToolProjection(title=title)
+
     glob: str | None = Field(default=None, description="Glob to filter search paths/filenames.")
     regex: str | None = Field(default=None, description="Regex to search **inside** files. Leave empty to search only paths/filenames.")
     path: Annotated[Path | None, Permissions(Permissions.Read)] = Field(
@@ -133,18 +152,14 @@ class Signature(SignatureBase):
     )
 
 
-class Search(Tool, Signature):
+class Search(Tool, Input):
     """Search for files or file contents."""
 
     KIND = Kinds.SEARCH
 
-    @ccp
-    def Projection(cls):
-        return Projection
-
-    async def run(self) -> str:
+    async def run(self) -> SearchOutput:
         Searcher=SearcherFiles
         if self.regex:
             Searcher=SearcherContent
         searcher = Searcher(self.path, self.regex, self.glob, self.feedback)
-        return await searcher.run()
+        return SearchOutput(output=await searcher.run())

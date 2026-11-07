@@ -32,8 +32,8 @@ from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
 from xah.options import base as options
-from xah.toolsets.base.projection import Projection as BaseProjection
-from xah.toolsets.base.tool import Kinds, Messages, Signature, Tool
+from xah.toolsets.base.output import InvalidInputOutput
+from xah.toolsets.base.tool import Input, Kinds, Messages, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.base.toolset import Toolset as ToolsetBase, ToolsetInfo
 from pydantic_acp import compose_projection_maps
@@ -235,153 +235,25 @@ def test_toolset_name_suffix_and_lookup():
         PreviewToolset.get_tool("Foreign-PreviewTool")
 
 
-def test_toolset_classes_compose_as_projection_maps():
-    class PreviewTool(Tool):
-        args: list[str]
-
-    class PreviewToolset(ToolsetBase):
-        @classes
-        def Tools(cls):
-            return [PreviewTool]
-
-    tool_name = PreviewToolset.get_name(PreviewTool)
-    projection_maps = [PreviewToolset]
-    projection_map = compose_projection_maps(projection_maps)
-    classifier = HarnessProjectionAwareToolClassifier(
-        base_classifier=DefaultToolClassifier(),
-        projection_maps=projection_maps,
-    )
-    raw_input = {"args": ["status", "--short"]}
-
-    start = projection_map.project_start(tool_name, raw_input=raw_input)
-    progress = projection_map.project_progress(
-        tool_name,
-        raw_input=raw_input,
-        raw_output={"state": "ok", "count": 3},
-        serialized_output='{"state": "ok", "count": 3}',
-        status="completed",
-    )
-
-    assert projection_maps == [PreviewToolset]
-    assert PreviewTool.Projection is BaseProjection
-    assert start.title == tool_name
-    assert start.content is None
-    assert classifier.classify(tool_name) == "other"
-    assert progress.status == "completed"
-    assert progress.title == tool_name
-    assert progress.content is None
-    assert PreviewToolset.project_start("Foreign-PreviewTool") is None
-
-
-def test_custom_projection_dispatch_uses_the_selected_class():
-    class CustomProjection(BaseProjection):
-        def start(self):
-            return ToolProjection(title="custom projection")
-
-    class CustomTool(Tool):
-        KIND = Kinds.SEARCH
-
-        Projection: ClassVar = CustomProjection
-
-    class CustomToolset(ToolsetBase):
-        @classes
-        def Tools(cls):
-            return [CustomTool]
-
-    tool_name = CustomToolset.get_name(CustomTool)
-    projection_map = compose_projection_maps([CustomToolset])
-    classifier = HarnessProjectionAwareToolClassifier(
-        base_classifier=DefaultToolClassifier(),
-        projection_maps=[CustomToolset],
-    )
-
-    start = projection_map.project_start(tool_name, raw_input={"value": 1})
-
-    assert start.title == "custom projection"
-    assert CustomToolset.get_tool(tool_name).KIND == Kinds.SEARCH
-    assert CustomToolset.get_tool("Foreign-CustomTool", None) is None
-    assert classifier.classify(tool_name) == "search"
-    assert classifier.classify("External-Tool") == DefaultToolClassifier().classify("External-Tool")
-
-
-def test_projection_signature_validates_without_constructing_the_tool():
-    class PreviewSignature(Signature):
-        value: int
-        path: Annotated[Path, Permissions(Permissions.Read)]
-        post_init_values: ClassVar[list[int]] = []
-
-        def model_post_init(self, context):
-            self.post_init_values.append(self.value)
-
-    class SignedTool(PreviewSignature, Tool):
-        @model_validator(mode="after")
-        def reject_tool_construction(self):
-            raise AssertionError("Tool validation must not run for a projection signature")
-
-    class SignedToolset(ToolsetBase):
-        @classes
-        def Tools(cls):
-            return [SignedTool]
-
-    projection = BaseProjection(
-        tool_cls=SignedTool,
-        toolset_cls=SignedToolset,
-        raw_input={"value": "7", "path": "relative.txt"},
-    )
-
-    signature = projection.sig
-
-    assert SignedTool.sig is PreviewSignature
-    assert signature.value == 7
-    assert signature.path == Path("relative.txt")
-    assert not signature.path.is_absolute()
-    assert PreviewSignature.post_init_values == [7]
-
-
-def test_missing_or_invalid_signatures_do_not_break_projection_generation():
-    class PlainTool(Tool):
-        pass
-
-    class InvalidSignature(Signature):
+def test_invalid_input_returns_fallback_projection():
+    class InvalidInput(Input):
         value: int
 
-    class InvalidTool(InvalidSignature, Tool):
+    class InvalidTool(Tool, InvalidInput):
         pass
 
-    class ProjectionTestToolset(ToolsetBase):
+    class InvalidToolset(ToolsetBase):
         @classes
         def Tools(cls):
-            return [PlainTool, InvalidTool]
+            return [InvalidTool]
 
-    plain_input = {"unchanged": True}
-    plain_projection = BaseProjection(
-        tool_cls=PlainTool,
-        toolset_cls=ProjectionTestToolset,
-        raw_input=plain_input,
-    )
-    invalid_input = {"value": "not-an-integer"}
-    invalid_projection = BaseProjection(
-        tool_cls=InvalidTool,
-        toolset_cls=ProjectionTestToolset,
-        raw_input=invalid_input,
+    projection = InvalidToolset.project_start(
+        InvalidToolset.get_name(InvalidTool),
+        raw_input={"value": "invalid"},
     )
 
-    assert PlainTool.sig is None
-    assert plain_projection.sig is None
-    assert plain_projection.raw_input == plain_input
-    with pytest.raises(ValueError):
-        invalid_projection.sig
-    assert invalid_projection.raw_input == invalid_input
-    assert ProjectionTestToolset.project_start(
-        ProjectionTestToolset.get_name(PlainTool),
-        raw_input={"unchanged": True},
-    ).title == ProjectionTestToolset.get_name(PlainTool)
-    assert ProjectionTestToolset.project_start(
-        ProjectionTestToolset.get_name(InvalidTool),
-        raw_input=invalid_input,
-    ).title == ProjectionTestToolset.get_name(InvalidTool)
-
-
+    assert projection.title == "[INVALID CALL]"
+    assert projection.content
 def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
     harness_instance = harness()
 
@@ -423,7 +295,6 @@ def test_shell_validation_uses_agent_output():
     ctx = RunContext(deps=deps, model=model, usage=RunUsage())
     tool_def = next(iter(toolset.tools.values())).tool_def
 
-    assert toolset.options.cls[options.Policy].value == options.Policies.REQUESTABLE
     toolset.options.cls[options.Policy].current_value = options.Policies.APPROVAL
 
     result = asyncio.run(toolset.validate(ctx, tool_def, {"script": "echo hello"}))
@@ -453,7 +324,7 @@ def test_terminal_run_appends_to_terminal_collection(tmp_path, monkeypatch):
 
     result = asyncio.run(tool.run())
 
-    assert result == "hello"
+    assert "hello" in result.get_agent()
     assert tool.terminals is terminals
     assert terminals[0].output_path.read_text() == "hello"
     assert terminals[0].output_size == 5
@@ -473,7 +344,6 @@ def test_policy_value_controls_toolset_visibility():
     deps = harness().deps
     shell = deps.toolsets.all.cls[Shell]
 
-    assert shell.options.cls[options.Policy].value == options.Policies.REQUESTABLE
     assert shell in deps.toolsets.permitted
 
     shell.options.cls[options.Policy].current_value = options.Policies.FULL
@@ -491,15 +361,6 @@ def test_todo_policy_controls_visibility():
 
     todo.options.cls[options.Policy].current_value = options.Policies.FULL
     assert todo in deps.toolsets.permitted
-
-
-def test_python_policy_has_one_value_representation():
-    deps = harness().deps
-    option = deps.toolsets.all.cls[Python].options.cls[options.Policy]
-
-    assert option.value == options.Policies.APPROVAL
-    assert [item.value for item in option.options] == [policy.value for policy in options.Policies]
-    assert [item.name for item in option.options] == [policy.value for policy in options.Policies]
 
 
 def test_select_enabled_can_be_overridden():
@@ -534,10 +395,11 @@ def test_subagent_clone_has_independent_options(tmp_path):
     deps = harness(Path(tmp_path)).deps
     clone = deps.clone_for_subagent()
 
+    deps.toolsets.all.cls[Python].options.cls[options.Policy].current_value = options.Policies.FULL
     clone.toolsets.all.cls[Python].options.cls[options.Policy].current_value = options.Policies.DISABLED
     clone.options.name["PathWrite"].current_value = "/"
 
-    assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.Policies.APPROVAL
+    assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.Policies.FULL
     assert deps.options.name["PathWrite"].current_value == "."
 
 

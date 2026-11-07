@@ -11,8 +11,8 @@ from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import classes
 from xah.harness.base import Harness
 from xah.options.base import Policy
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, ToolState, Validation
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.tool import Input as InputBase, Kinds, ToolState, Validation
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files as FilesBase
@@ -85,21 +85,16 @@ class HarnessTerminalAdversary(Harness):
         return [Files]
 
 
-class Signature(SignatureBase):
+class Input(InputBase):
     script: str = Field(description="Shell script to execute in the working directory.")
 
+    def get_projection(self, request):
+        title = f"Execute {self.preview(self.script, limit=80)}"
+        return AcpToolProjection(title=title)
 
-class Projection(ProjectionBase):
-    def title(self) -> str:
-        return f"Execute {self.preview(self.sig.script, limit=80)}"
 
-
-class Run(TerminalTool, Signature):
+class Run(TerminalTool, Input):
     """Run a shell command in the working directory."""
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @classes
     def Validators(cls):

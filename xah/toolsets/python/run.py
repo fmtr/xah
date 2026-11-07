@@ -5,28 +5,21 @@ from xah.class_collections import classes
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from corio import strings
-from corio.function import ccp
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Signature as SignatureBase
+from xah.toolsets.base.tool import Input as InputBase
 from corio.shell.dsl import shell
 from xah.toolsets.terminal.base import TerminalTool
 
 
-class Projection(ProjectionBase):
-    def title(self):
-        return f"Run Python {strings.join(self.sig.args, sep=' ')}"
-
-
-class Signature(SignatureBase):
+class Input(InputBase):
     args: list[str] = Field(description="Arguments to pass to Python as plain tokens.")
 
+    def get_projection(self, request):
+        title = f"Run Python {strings.join(self.args, sep=' ')}"
+        return AcpToolProjection(title=title)
 
-class Run(TerminalTool, Signature):
+
+class Run(TerminalTool, Input):
     """Run Python in the current project, with script paths relative to the working directory."""
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @classes
     def Validators(cls):

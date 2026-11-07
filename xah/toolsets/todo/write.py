@@ -2,35 +2,26 @@ from pydantic import Field
 
 from corio import strings
 from corio.iterator import ilist
-from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.todo.projection import TodoProjection
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
+from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
 from xah.toolsets.todo.item import TodoItem
 
 
-class Projection(TodoProjection):
-    def start(self):
-        count = len(self.sig.todos)
-        items=strings.suffix_plural(count, 'items')
+class Input(InputBase):
+    todos: list[TodoItem] = Field(description="Complete replacement todo list.")
+
+    def get_projection(self, request):
+        count = len(self.todos)
+        items = strings.suffix_plural(count, "items")
         return AcpToolProjection(
-            content=[self.content(f"Replace todo list with {items}")],
+            content=[self.content_block(f"Replace todo list with {items}")],
             title="Update todo list",
         )
 
-
-class Signature(SignatureBase):
-    todos: list[TodoItem] = Field(description="Complete replacement todo list.")
-
-
-class Write(Tool, Signature):
+class Write(Tool, Input):
     """Replace the full todo list, including initial status metadata."""
 
     KIND = Kinds.EDIT
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     async def run(self) -> str:
         self.toolset.items = ilist(self.todos)

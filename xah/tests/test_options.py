@@ -5,9 +5,6 @@ def test_policy_values_and_state():
     policy = options.Policy.from_value("Files")
 
     assert policy.id == "Files/Policy"
-    assert policy.value == options.Policy.Policies.APPROVAL
-    assert policy.enabled
-    assert policy.approval
     assert [choice.value for choice in policy.options] == options.Policy.VALUES
 
     policy.current_value = options.Policy.Policies.FULL

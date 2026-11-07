@@ -9,11 +9,10 @@ import httpx
 from pydantic import Field
 
 from corio import dm, https
-from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.projection import Status
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
-from xah.toolsets.web.base import WebProjection, WebTool
+from xah.toolsets.base.output import Output
+from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.web.base import WebTool
 
 
 type JsonValue = None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
@@ -52,7 +51,7 @@ class ContentType(StrEnum):
         return message.get_content_type()
 
 
-class Response(dm.Base):
+class Response(Output):
     """The useful parts of an HTTP response returned to the model."""
 
     status_code: int = Field(description="The HTTP response status code.")
@@ -60,7 +59,7 @@ class Response(dm.Base):
     body: JsonValue = Field(description="The response body as text or JSON data.")
 
 
-class Signature(SignatureBase):
+class Input(InputBase):
     method: Annotated[
         Method,
         Field(description="The HTTP method to use."),
@@ -87,7 +86,7 @@ class Signature(SignatureBase):
     ] = True
 
 
-class RequestBase(WebTool, Signature):
+class RequestBase(WebTool, Input):
     """Shared request fields and execution for HTTP API tools."""
 
     KIND = Kinds.FETCH
@@ -156,36 +155,34 @@ class RequestBase(WebTool, Signature):
         )
 
 
-class RequestProjection(WebProjection):
-    @property
-    def url(self) -> str:
-        return self.sig.url
+class RequestInput(Input):
+    url: str = Field(description="The URL to request.")
+    headers: dict[str, str] = Field(default_factory=dict, description="Request headers.")
 
-    def start(self):
+    def get_projection(self, request):
+        title = f"{self.method} {self.preview(self.url, limit=80)}"
         return AcpToolProjection(
-            content=[self.content(f"{self.sig.method} {self.url}")],
-            title=f"{self.sig.method} {self.preview(self.url, limit=80)}",
+            content=[self.content_block(f"{self.method} {self.url}")],
+            title=title,
         )
 
 
-class EndpointRequestProjection(RequestProjection):
-    """Project requests that expose a relative endpoint instead of a URL."""
+class EndpointInput(Input):
+    """Input base for requests addressed by a relative endpoint."""
 
-    @property
-    def url(self) -> str:
-        return self.sig.endpoint
+    endpoint: str
 
-
-class Projection(RequestProjection):
-    """Project requests addressed by an absolute URL."""
-
-
-class RequestSignature(Signature):
-    url: str = Field(description="The URL to request.")
-    headers: dict[str, str] = Field(default_factory=dict, description="HTTP request headers.")
+    def get_projection(self, request):
+        title = f"{self.method} {self.preview(self.endpoint, limit=80)}"
+        return AcpToolProjection(
+            content=[self.content_block(f"{self.method} {self.endpoint}")],
+            title=title,
+        )
 
 
-class Request(RequestSignature, RequestBase):
+
+
+class Request(RequestInput, RequestBase):
     """
 
     Make an HTTP request for API calls, testing, and basic un-rendered web or
@@ -193,10 +190,6 @@ class Request(RequestSignature, RequestBase):
     research; use the other web tools instead.
 
     """
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @property
     def request_url(self) -> str:

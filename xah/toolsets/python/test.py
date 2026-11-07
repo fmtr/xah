@@ -2,31 +2,25 @@ from functools import cached_property
 from typing import Literal
 
 from pydantic import Field
-from corio.function import ccp
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Signature as SignatureBase
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.tool import Input as InputBase
 
 from corio.shell.dsl import Expression, arg, shell
 from xah.toolsets.terminal.base import TerminalTool
 
 
-class Projection(ProjectionBase):
-    def title(self):
-        count = len(self.sig.tests)
-        return "Run test suite" if not count else f"Run {count} tests"
-
-
-class Signature(SignatureBase):
+class Input(InputBase):
     tests: list[str] = Field(default_factory=list, description="Test paths or pytest node IDs. Leave empty to run the complete suite.")
     verbosity: Literal["normal", "verbose", "quiet"] = Field(default="normal", description="Test output level.")
 
+    def get_projection(self, request):
+        count = len(self.tests)
+        title = "Run test suite" if not count else f"Run {count} tests"
+        return AcpToolProjection(title=title)
 
-class Test(TerminalTool, Signature):
+
+class Test(TerminalTool, Input):
     """Run the current repository's test suite."""
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @cached_property
     def expression(self) -> Expression:

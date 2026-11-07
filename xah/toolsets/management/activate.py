@@ -1,37 +1,30 @@
 from pydantic import Field
 from corio import strings
-from corio.function import ccp, cp
+from corio.function import cp
 from corio.iterator import IterDiffer, ilist
 from xah.class_collections import classes
 from xah.options.base import Policy
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
+from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
 from xah.toolsets.base.toolset import Toolset
 
 
-class Projection(ProjectionBase):
-    def start(self):
-        ids = strings.join_natural(self.sig.ids, mask=strings.MASK_QUOTE)
+class Input(InputBase):
+    ids: list[str] = Field(description="Toolset IDs.")
+    reason: str = Field(description="A very short reason to justify why the tool is needed, and why your goal cannot be achieved using existing tools.")
+
+    def get_projection(self, request):
+        ids = strings.join_natural(self.ids, mask=strings.MASK_QUOTE)
         return AcpToolProjection(
-            content=[self.content(f"Reason: {self.sig.reason}")],
+            content=[self.content_block(f"Reason: {self.reason}")],
             title=f"Activate {ids}",
         )
 
 
-class Signature(SignatureBase):
-    ids: list[str] = Field(description="Toolset IDs.")
-    reason: str = Field(description="A very short reason to justify why the tool is needed, and why your goal cannot be achieved using existing tools.")
-
-
-class Activate(Tool, Signature):
+class Activate(Tool, Input):
     """Activate toolsets by ID."""
 
     KIND = Kinds.SWITCH_MODE
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @classes
     def Validators(cls):

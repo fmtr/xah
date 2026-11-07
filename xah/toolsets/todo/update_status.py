@@ -4,33 +4,24 @@ from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
 
-from corio.function import ccp
-from xah.toolsets.todo.projection import TodoProjection
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
+from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
 from xah.toolsets.todo.constants import TodoStatus
 
 
-class Projection(TodoProjection):
-    def start(self):
-        return AcpToolProjection(
-            content=[self.content(f"Todo {self.sig.todo_id}: {self.sig.status}")],
-            title=f"Update todo {self.sig.todo_id}",
-        )
-
-
-class Signature(SignatureBase):
+class Input(InputBase):
     todo_id: str = Field(description="ID of the todo to update.")
     status: TodoStatus = Field(description="New todo status.")
 
+    def get_projection(self, request):
+        return AcpToolProjection(
+            content=[self.content_block(f"Todo {self.todo_id}: {self.status}")],
+            title=f"Update todo {self.todo_id}",
+        )
 
-class UpdateStatus(Tool, Signature):
+class UpdateStatus(Tool, Input):
     """Update one todo's status."""
 
     KIND = Kinds.EDIT
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @classes
     def Validators(cls):

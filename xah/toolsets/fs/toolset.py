@@ -8,7 +8,7 @@ from xah.toolsets.base.toolset import Toolset
 class Files(Toolset):
     """Filesystem reading, writing, editing, moving, and searching tools."""
 
-    POLICY = options.Policy.Policies.APPROVAL
+    POLICY = options.Policy.Policies.AUTO
 
     @classes
     def Tools(cls):

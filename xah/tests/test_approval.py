@@ -104,7 +104,7 @@ def test_externalize_output_serializes_pydantic_response(tmp_path):
     toolset.MAX_INLINE_OUTPUT_LENGTH = 0
     result = Response(status_code=200, headers={}, body={"ok": True})
 
-    output = toolset.externalize_output(instance, result)
+    output = result.externalize(instance)
 
     artifact = Path(tmp_path) / ".agent" / "artifacts" / "call-1.json"
     assert artifact.read_json() == result.model_dump(mode="json")

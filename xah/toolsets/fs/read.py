@@ -1,6 +1,6 @@
 from typing import Annotated, ClassVar
 
-from acp.schema import FileEditToolCallContent
+from acp.schema import FileEditToolCallContent, ToolCallLocation
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
@@ -8,10 +8,22 @@ from pydantic_ai import ModelRetry
 from corio import Path, dm, strings
 from corio.function import ccp, cp
 from xah.class_collections import classes
-from xah.toolsets.base.projection import FileProjection, Status
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
+from xah.toolsets.base.output import OutputString, ProjectionRequest
+from xah.toolsets.base.tool import Input as InputBase, Kinds
 from xah.toolsets.fs.file import FileTool
 from xah.toolsets.fs.permissions import Permissions
+
+
+class FileReadOutput(OutputString):
+
+    def get_projection(self, request: ProjectionRequest):
+        path = str(request.input.path)
+        return AcpToolProjection(
+            content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=self.output)],
+            locations=[ToolCallLocation(path=path)],
+            title=request.tool_name,
+            status=request.status,
+        )
 
 
 class Line(dm.Base):
@@ -41,25 +53,10 @@ class Line(dm.Base):
         return self.truncation.was_truncated
 
 
-class Projection(FileProjection):
-    def title(self) -> str:
-        return f"Read {self.preview(self.path, limit=80)}"
+class Input(InputBase):
+    def get_projection(self, request):
+        return AcpToolProjection(title=f"Read {self.preview(str(self.path), limit=80)}")
 
-    def progress(self) -> object:
-        if self.status != Status.COMPLETED:
-            return None
-        return AcpToolProjection(
-            content=[FileEditToolCallContent(
-                type="diff",
-                path=self.path,
-                old_text="",
-                new_text=self.output_text,
-            )],
-            locations=self.locations,
-        )
-
-
-class Signature(SignatureBase):
     path: Annotated[Path, Permissions(Permissions.Read)] = Field(
         description="File path relative to the working directory.",
     )
@@ -75,14 +72,10 @@ class Signature(SignatureBase):
     )
 
 
-class Read(FileTool, Signature):
+class Read(FileTool, Input):
     """Read file content with line numbers."""
 
     KIND = Kinds.READ
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     MAX_LINE_LENGTH: ClassVar[int] = 20_000
     MAX_OUTPUT_LENGTH: ClassVar[int] = 50_000
@@ -145,12 +138,12 @@ class Read(FileTool, Signature):
             line_count = strings.suffix_plural(omitted_line_count, "line")
             message = strings.Mask("Not all lines were shown because the file contains extremely long lines; {line_count} were omitted.").format(line_count=line_count)
             self.feedback(str(message))
-            return output
+            return FileReadOutput(output=output)
 
         remaining = total_line_count - (start_offset + self.limit)
         if remaining <= 0:
-            return output
+            return FileReadOutput(output=output)
 
         remaining_count = strings.suffix_plural(remaining, "line")
         self.feedback(f"The file contains {remaining_count} beyond the displayed range.")
-        return output
+        return FileReadOutput(output=output)

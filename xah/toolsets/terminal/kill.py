@@ -1,26 +1,19 @@
 from pydantic import Field
-from corio.function import ccp
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Signature as SignatureBase
-from xah.toolsets.terminal.base import TerminalManagementTool
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.tool import Input as InputBase
+from xah.toolsets.terminal.base import TerminalManagementTool, TerminalOutput
 
 
-class Projection(ProjectionBase):
-    def title(self):
-        return f"Kill terminal {self.sig.terminal_id}"
-
-
-class Signature(SignatureBase):
+class Input(InputBase):
     terminal_id: str = Field(description="Identifier of the background terminal.")
 
+    def get_projection(self, request):
+        return AcpToolProjection(title=f"Kill terminal {self.terminal_id}")
 
-class Kill(Signature, TerminalManagementTool):
+
+class Kill(Input, TerminalManagementTool):
     """Kill a background terminal process."""
 
-    @ccp
-    def Projection(cls):
-        return Projection
-
-    async def run(self) -> str:
-        status = await self.terminal.kill()
-        return f"Terminal `{self.terminal.id}` has status `{status}`."
+    async def run(self) -> TerminalOutput:
+        await self.terminal.kill()
+        return self.output

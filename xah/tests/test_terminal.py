@@ -9,6 +9,7 @@ from corio.shell.dsl import shell
 
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.shell.run import Run
+from xah.toolsets.terminal.base import TerminalOutput
 from xah.toolsets.terminal.terminal import Terminal, TerminalStatus
 
 
@@ -60,7 +61,7 @@ async def test_terminal_writes_output_to_file(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_terminal_summary_tracks_lifecycle(tmp_path):
+async def test_terminal_output_formats_lifecycle_for_agent(tmp_path):
     terminal = Terminal(
         id="test",
         on_status=lambda: "notified",
@@ -71,11 +72,12 @@ async def test_terminal_summary_tracks_lifecycle(tmp_path):
     )
 
     await terminal.start()
-    assert "running" in terminal.summary
-    assert "Last output:" in terminal.summary
+    output = TerminalOutput(terminal=terminal, cwd=Path("/tmp"))
+    assert "running" in output.get_agent()
+    assert "Last output:" in output.get_agent()
     await terminal.process
 
-    assert "completed" in terminal.summary
+    assert "completed" in output.get_agent()
     assert terminal.on_status is None
 
 

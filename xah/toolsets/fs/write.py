@@ -4,44 +4,55 @@ from xah.class_collections import classes
 from pydantic import Field
 
 from corio import Path
-from corio.function import ccp, cp
 from xah.class_collections import classes
-from xah.toolsets.base.projection import FileEditProjection
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
+from acp.schema import FileEditToolCallContent, ToolCallLocation
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.output import OutputString, ProjectionRequest
+from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
-class Projection(FileEditProjection):
-    @cp
-    def new_text(self) -> str:
-        return self.sig.content
+class FileWriteOutput(OutputString):
+    def get_projection(self, request: ProjectionRequest):
+        input = request.input
+        path = str(input.path)
+        return AcpToolProjection(
+            content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=input.content)],
+            locations=[ToolCallLocation(path=path)],
+            title=request.tool_name,
+            status=request.status,
+        )
 
 
-class Signature(SignatureBase):
+class Input(InputBase):
     path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="Destination path relative to the working directory.",
     )
     content: str = Field(description="Complete file content to write.")
 
+    def get_projection(self, request):
+        path = str(self.path)
+        return AcpToolProjection(
+            content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=self.content)],
+            locations=[ToolCallLocation(path=path)],
+        )
 
-class Write(Tool, Signature):
+class Write(Tool, Input):
     """Write complete content to a file."""
 
     KIND = Kinds.EDIT
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @classes
     def Validators(cls):
         return [WriteWarnings]
 
-    async def run(self) -> str:
+    async def run(self) -> FileWriteOutput:
         self.path.parent.mkdirf()
         self.path.write_text(self.content)
-        return f"Wrote {len(self.content.splitlines())} lines to {self.path}"
+        return FileWriteOutput(
+            output=f"Wrote {len(self.content.splitlines())} lines to {self.path}"
+        )
 
 
 class WriteWarnings(SimilarityValidator, Write):

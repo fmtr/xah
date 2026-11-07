@@ -5,24 +5,27 @@ from xah.class_collections import classes
 from pydantic import Field
 
 from corio import Path, strings
-from corio.function import ccp, cp
-from xah.toolsets.base.projection import FileEditProjection
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
+from acp.schema import FileEditToolCallContent, ToolCallLocation
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.output import OutputString, ProjectionRequest
+from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
-class Projection(FileEditProjection):
-    @cp
-    def old_text(self) -> str:
-        return self.sig.old_text
+class FileEditOutput(OutputString):
+    def get_projection(self, request: ProjectionRequest):
+        input = request.input
+        path = str(input.path)
+        return AcpToolProjection(
+            content=[FileEditToolCallContent(type="diff", path=path, old_text=input.old_text, new_text=input.new_text)],
+            locations=[ToolCallLocation(path=path)],
+            title=request.tool_name,
+            status=request.status,
+        )
 
-    @cp
-    def new_text(self) -> str:
-        return self.sig.new_text
 
-
-class Signature(SignatureBase):
+class Input(InputBase):
     path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="File path relative to the working directory.",
     )
@@ -30,15 +33,17 @@ class Signature(SignatureBase):
     new_text: str = Field(description="Replacement text.")
     replace_all: bool = Field(default=False, description="Replace every exact occurrence.")
 
+    def get_projection(self, request):
+        path = str(self.path)
+        return AcpToolProjection(
+            content=[FileEditToolCallContent(type="diff", path=path, old_text=self.old_text, new_text=self.new_text)],
+            locations=[ToolCallLocation(path=path)],
+        )
 
-class Edit(Tool, Signature):
+class Edit(Tool, Input):
     """Edit a file by exact string replacement."""
 
     KIND = Kinds.EDIT
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @classes
     def Validators(cls):
@@ -53,11 +58,13 @@ class Edit(Tool, Signature):
         count = -1 if self.replace_all else 1
         return self.current.replace(self.old_text, self.new_text, count)
 
-    async def run(self) -> str:
+    async def run(self) -> FileEditOutput:
         occurrences = self.current.count(self.old_text)
         self.path.write_text(self.updated)
         count = occurrences if self.replace_all else 1
-        return f"Edited {self.path}: replaced {strings.suffix_plural(count, 'occurrence')}"
+        return FileEditOutput(
+            output=f"Edited {self.path}: replaced {strings.suffix_plural(count, 'occurrence')}"
+        )
 
 
 class ValidEdit(Edit):

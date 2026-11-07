@@ -1,29 +1,24 @@
 from pydantic import Field
-from corio.function import ccp
-from xah.toolsets.base.projection import Projection as ProjectionBase
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
 from xah.class_collections import classes
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
-from xah.toolsets.terminal.base import TerminalManagementTool
+from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.terminal.base import TerminalManagementTool, TerminalStatuses
 
 
-class Projection(ProjectionBase):
-    def title(self):
-        if self.sig.terminal_id is None:
-            return "List terminal statuses"
-        return f"Check terminal {self.sig.terminal_id}"
-
-
-class Signature(SignatureBase):
+class Input(InputBase):
     terminal_id: str | None = Field(default=None, description="Identifier of the background terminal.")
 
+    def get_projection(self, request):
+        if self.terminal_id is None:
+            title = "List terminal statuses"
+        else:
+            title = f"Check terminal {self.terminal_id}"
+        return AcpToolProjection(title=title)
 
-class Status(Signature, TerminalManagementTool):
+
+class Status(Input, TerminalManagementTool):
     """Return the status and a short output tail of a background terminal."""
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     KIND = Kinds.READ
 
@@ -33,11 +28,11 @@ class Status(Signature, TerminalManagementTool):
     def Validators(cls):
         return [ExistingTerminal]
 
-    async def run(self) -> str | list[str]:
+    async def run(self) -> str | TerminalStatuses:
         if self.terminal_id is None:
-            return [terminal.summary for terminal in self.terminals]
+            return TerminalStatuses(terminals=list(self.terminals), cwd=self.cwd)
 
-        return self.message
+        return self.output
 
 
 class ExistingTerminal(Status):

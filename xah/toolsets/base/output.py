@@ -42,7 +42,7 @@ class ProjectionRequest:
 
 class ProjectionSupport:
     @staticmethod
-    def content(text: str) -> ContentToolCallContent:
+    def content_block(text: str) -> ContentToolCallContent:
         return ContentToolCallContent(
             type="content",
             content=TextContentBlock(type="text", text=text),
@@ -71,7 +71,10 @@ class Output(ProjectionSupport, dm.Base):
         return self.model_dump(mode="json")
 
     def get_projection(self, request: ProjectionRequest) -> AcpToolProjection | None:
-        return AcpToolProjection(title=request.tool_name, status=request.status)
+        content = None
+        if request.serialized_output:
+            content = [self.content_block(request.serialized_output)]
+        return AcpToolProjection(content=content, title=request.tool_name, status=request.status)
 
     def serialize(self) -> Any:
         return self.model_dump(mode="json")
@@ -110,6 +113,13 @@ class OutputString(Output):
 
     def get_agent(self) -> str:
         return self.output
+
+    def get_projection(self, request: ProjectionRequest) -> AcpToolProjection:
+        return AcpToolProjection(
+            content=[self.content_block(self.output)],
+            title=request.tool_name,
+            status=request.status,
+        )
 
 
 class InvalidInputOutput(Output):

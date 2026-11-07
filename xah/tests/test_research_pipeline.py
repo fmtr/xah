@@ -339,5 +339,5 @@ async def test_research_documents_are_inserted_indexed_and_queryable(knowledgeba
         collection_id="research-1",
     ).run()
 
-    assert [hit.url for hit in result] == [document.url]
-    assert result[0].collection_id == document.collection_id
+    assert [hit.url for hit in result.hits] == [document.url]
+    assert result.hits[0].collection_id == document.collection_id

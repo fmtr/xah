@@ -14,7 +14,7 @@ def test_read_supports_negative_offsets(tmp_path):
 
     result = asyncio.run(make(Read, ctx, path="lines.txt", offset=-2, limit=2).run())
 
-    assert result == "3:three\n4:four"
+    assert result.output == "3:three\n4:four"
 
 
 def test_read_line_pages_long_lines(tmp_path, monkeypatch):

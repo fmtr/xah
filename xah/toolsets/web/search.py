@@ -1,36 +1,49 @@
 from pydantic import Field
 
-from corio.function import ccp
+from typing import Any
+
+from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
-from xah.toolsets.web.base import WebProjection, WebTool
+from xah.toolsets.base.output import Output
+from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.web.base import WebTool
 
 
-class Projection(WebProjection):
-    def start(self):
-        query = self.sig.query
+class WebSearchResult(Output):
+    title: str | None = None
+    url: str
+    content: str | None = None
+    score: float | None = None
+    raw_content: str | None = None
+
+
+class WebSearchOutput(Output):
+    query: str | None = None
+    answer: str | None = None
+    results: list[WebSearchResult]
+
+    def get_agent(self) -> dict[str, Any]:
+        return self.model_dump(mode="json")
+
+
+class Input(InputBase):
+    query: str = Field(description="Web search query.")
+
+    def get_projection(self, request):
         return AcpToolProjection(
-            content=[self.content(f"Query: {query}")],
-            title=f"Search web for {self.preview(query, limit=80)}",
+            content=[self.content_block(f"Query: {self.query}")],
+            title=f"Search web for {self.preview(self.query, limit=80)}",
         )
 
 
-class Signature(SignatureBase):
-    query: str = Field(description="Web search query.")
-
-
-class Search(WebTool, Signature):
+class Search(WebTool, Input):
     """Search the web and return relevant sources and an answer."""
 
     KIND = Kinds.SEARCH
 
-    @ccp
-    def Projection(cls):
-        return Projection
-
-    async def run(self) -> dict:
+    async def run(self) -> WebSearchOutput:
         try:
-            return await self.client.search(
+            result = await self.client.search(
                 query=self.query,
                 search_depth="advanced",
                 topic="general",
@@ -39,5 +52,6 @@ class Search(WebTool, Signature):
                 include_raw_content=False,
                 include_images=False,
             )
+            return WebSearchOutput.model_validate(result)
         except Exception as error:
             self.fail(error)

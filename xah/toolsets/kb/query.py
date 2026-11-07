@@ -5,19 +5,21 @@ from qdrant_client.http import models
 from corio import strings
 from corio.db.search.document import Document
 from xah.class_collections import classes
-from corio.function import ccp
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase, Tool
-from xah.toolsets.kb.projection import KnowledgebaseProjection
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from xah.toolsets.base.output import Output
+from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.validators import CollectionValidator
 
 
-class Projection(KnowledgebaseProjection):
-    def title(self) -> str:
-        return f'Searching {self.sig.collection_id} for "{self.sig.query}"'
+class DocumentHitsOutput(Output):
+    hits: list[Document]
+
+    def get_agent(self) -> list[dict]:
+        return self.model_dump(mode="json")["hits"]
 
 
-class Signature(SignatureBase):
+class Input(InputBase):
     query: str = Field(
         description=strings.trim("""
         Text query to run against the document type.
@@ -27,21 +29,20 @@ class Signature(SignatureBase):
     )
     collection_id: str = Field(description="Collection ID to search.")
 
+    def get_projection(self, request):
+        title = f'Searching {self.collection_id} for "{self.query}"'
+        return AcpToolProjection(title=title)
 
-class Query(Tool, Signature):
+class Query(Tool, Input):
     """Run a text query against a knowledgebase document type."""
 
     KIND = Kinds.SEARCH
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @classes
     def Validators(cls):
         return [CollectionValidator]
 
-    async def run(self) -> list[Document]:
+    async def run(self) -> DocumentHitsOutput:
         collection = self.toolset.collection_for(self.collection_id)
         runtime_filter = None
         if collection is WebPage:
@@ -72,4 +73,4 @@ class Query(Tool, Signature):
         """)
         self.feedback(msg)
 
-        return results.hits
+        return DocumentHitsOutput(hits=results.hits)

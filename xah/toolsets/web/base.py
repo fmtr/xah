@@ -6,7 +6,6 @@ from typing import ClassVar, Never
 
 from corio import Constants
 from corio.logs import logger
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from crawl4ai import (
     AsyncWebCrawler,
     BrowserConfig,
@@ -19,8 +18,6 @@ from crawl4ai.antibot_detector import is_blocked
 from pydantic import BaseModel
 from pydantic_ai import ToolFailed
 
-from corio.function import ccp
-from xah.toolsets.base.projection import Projection as ProjectionBase, Status
 from xah.toolsets.base.tool import Tool
 
 
@@ -37,19 +34,8 @@ class FetchResult(BaseModel):
         return self.error is None
 
 
-class WebProjection(ProjectionBase):
-    def progress(self):
-        if self.status != Status.COMPLETED:
-            return None
-        return AcpToolProjection(content=[self.content(self.output_text)])
-
-
 class WebTool(Tool):
     FETCH_TIMEOUT: ClassVar[int] = 60
-
-    @ccp
-    def Projection(cls):
-        return WebProjection
 
     @cached_property
     def client(self):

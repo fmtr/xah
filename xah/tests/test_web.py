@@ -226,7 +226,7 @@ async def test_fetch_returns_all_url_failures(web, monkeypatch):
         urls=["https://example.test"],
     ).run()
 
-    assert results == [
+    assert results.results == [
         FetchResult(url="https://example.test", error="The request timed out.")
     ]
 
@@ -247,7 +247,7 @@ async def test_fetch_returns_successes_and_failures_together(web, monkeypatch):
         urls=["https://example.test", "https://blocked.test"],
     ).run()
 
-    assert results == [
+    assert results.results == [
         FetchResult(
             url="https://example.test",
             title="Example",

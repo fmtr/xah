@@ -56,8 +56,8 @@ async def test_list_converts_prompt_history_to_research_history():
 
     result = await List.model_construct(toolset=knowledgebase).run()
 
-    assert type(result[0]) is ResearchHistory
-    assert result[0].id == "research-1"
+    assert type(result.collections[0]) is ResearchHistory
+    assert result.collections[0].id == "research-1"
 
 
 def test_kb_tools_use_standard_identifier_names():
@@ -123,7 +123,7 @@ async def test_query_returns_document_hits(kb, monkeypatch):
         collection_id="research-1",
     ).run()
 
-    assert result == [hit]
+    assert result.hits == [hit]
 
 
 @pytest.mark.asyncio
@@ -174,7 +174,7 @@ async def test_get_returns_selected_chunks(kb):
         chunks=[0],
     ).run()
 
-    assert result[0].id == "doc-1"
+    assert result.chunks[0].id == "doc-1"
     assert calls[0]["collection_name"] == "WebPage"
     assert calls[0]["limit"] == 1
 
@@ -273,4 +273,4 @@ async def test_kb_get_returns_selected_chunks(knowledgebase):
         chunks=[2, 0],
     ).run()
 
-    assert {document.chunk_idx for document in result} == {0, 2}
+    assert {document.chunk_idx for document in result.chunks} == {0, 2}

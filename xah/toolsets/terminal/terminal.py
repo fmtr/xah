@@ -6,7 +6,6 @@ from collections.abc import Callable
 from enum import StrEnum, auto
 from typing import ClassVar
 
-import humanize
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
@@ -30,12 +29,6 @@ class Terminal(dm.Base):
 
     READ_CHUNK_SIZE: ClassVar[int] = 4096
     TAIL_LENGTH: ClassVar[int] = 256
-    SUMMARY_MASK: ClassVar[str] = strings.trim("""
-        Terminal `{id}` running `{command}` for {runtime}.
-        Last output: {last_output} ago.
-        Status: `{status}`; exit code: `{exit_code}`.        
-    """)
-
     id: str = Field(description="Identifier used by the terminal management tools.")
     expression: Expression = Field(description="DSL expression being run.", exclude=True)
     timeout: int | None = Field(default=None, description="Maximum execution time in seconds; None means no timeout.")
@@ -68,19 +61,6 @@ class Terminal(dm.Base):
             output = file.read(length).decode(errors="replace")
         return output.strip()
 
-    @property
-    def summary(self) -> str:
-        command = strings.truncate_mid(str(self.expression), length=60)
-        return strings.Mask(self.SUMMARY_MASK).format(
-            id=self.id,
-            command=command,
-            cwd=self.cwd,
-            runtime=humanize.precisedelta(self.runtime, format="%0.1f"),
-            status=self.status,
-            exit_code=self.exit_code,
-            last_output=humanize.precisedelta(self.output_idle, format="%0.1f"),
-        )
-
     @cp
     def process(self) -> asyncio.Task:
         self._started_at = time.monotonic()
@@ -96,6 +76,8 @@ class Terminal(dm.Base):
 
     async def start(self) -> TerminalStatus:
         self.status = TerminalStatus.RUNNING
+        self.output_path.parent.mkdirf()
+        self.output_path.touch()
         self.process
         return self.status
 

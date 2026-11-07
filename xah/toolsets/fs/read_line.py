@@ -4,20 +4,37 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path, strings
-from corio.function import ccp
+from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.class_collections import classes
-from xah.toolsets.fs.read import Projection as ReadProjection
-from xah.toolsets.base.tool import Kinds, Signature as SignatureBase
+from xah.toolsets.base.tool import Input as InputBase, Kinds
 from xah.toolsets.fs.file import FileTool
 from xah.toolsets.fs.permissions import Permissions
 
 
 
-class Projection(ReadProjection):
-    pass
+class Input(InputBase):
+    path: Annotated[Path, Permissions(Permissions.Read)] = Field(
+        description="File path relative to the working directory.",
+    )
+    line_number: int = Field(
+        ge=1,
+        description="One-based line number to read.",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based character offset within the line.",
+    )
+    limit: int = Field(
+        default=20_000,
+        gt=0,
+        le=20_000,
+        description="Maximum number of characters to return.",
+    )
 
+    def get_projection(self, request):
+        return AcpToolProjection(title=f"Read {self.preview(str(self.path), limit=80)}")
 
-class Signature(SignatureBase):
     path: Annotated[Path, Permissions(Permissions.Read)] = Field(
         description="File path relative to the working directory.",
     )
@@ -38,7 +55,7 @@ class Signature(SignatureBase):
     )
 
 
-class ReadLine(FileTool, Signature):
+class ReadLine(FileTool, Input):
     """
 
     Read a bounded character range from a single line in a file.
@@ -48,10 +65,6 @@ class ReadLine(FileTool, Signature):
     """
 
     KIND = Kinds.READ
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     EXTERNALIZE_OUTPUT: ClassVar[bool] = False
 

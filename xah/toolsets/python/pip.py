@@ -3,29 +3,22 @@ from functools import cached_property
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from corio import strings
-from corio.function import ccp
-from xah.toolsets.base.projection import Projection as ProjectionBase
-from xah.toolsets.base.tool import Signature as SignatureBase
+from xah.toolsets.base.tool import Input as InputBase
 
 from corio.shell.dsl import arg, shell
 from xah.toolsets.terminal.base import TerminalTool
 
 
-class Projection(ProjectionBase):
-    def title(self):
-        return f"Pip {strings.join(self.sig.args, sep=' ')}"
-
-
-class Signature(SignatureBase):
+class Input(InputBase):
     args: list[str] = Field(description="Arguments to pass to pip as plain tokens without shell syntax.")
 
+    def get_projection(self, request):
+        title = f"Pip {strings.join(self.args, sep=' ')}"
+        return AcpToolProjection(title=title)
 
-class Pip(TerminalTool, Signature):
+
+class Pip(TerminalTool, Input):
     """Run pip through the current Python interpreter."""
-
-    @ccp
-    def Projection(cls):
-        return Projection
 
     @cached_property
     def expression(self):

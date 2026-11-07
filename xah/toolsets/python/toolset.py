@@ -4,11 +4,10 @@ from xah.class_collections import classes
 from xah.options import base as options
 from xah.toolsets.base.toolset import Toolset
 
-
 class Python(Toolset):
     """Python execution, package management, and test tools."""
 
-    POLICY = options.Policy.Policies.APPROVAL
+    POLICY = options.Policy.Policies.AUTO
 
     @classes
     def Tools(cls):
