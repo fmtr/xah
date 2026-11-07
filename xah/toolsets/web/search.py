@@ -5,7 +5,8 @@ from typing import Any
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import WebTool
 
 
@@ -22,14 +23,17 @@ class WebSearchOutput(Output):
     answer: str | None = None
     results: list[WebSearchResult]
 
-    def get_agent(self) -> dict[str, Any]:
+    @property
+    def agent(self) -> dict[str, Any]:
         return self.model_dump(mode="json")
 
 
 class Input(InputBase):
     query: str = Field(description="Web search query.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(
             content=[self.content_block(f"Query: {self.query}")],
             title=f"Search web for {self.preview(self.query, limit=80)}",

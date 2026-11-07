@@ -2,21 +2,25 @@ from corio import strings
 from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool, ToolState
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool, ToolState
 from xah.toolsets.base.toolset import ToolsetInfo
 
 
 class Input(InputBase):
     """No arguments are required to list toolsets."""
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(title="List toolsets")
 
 
 class ListOutput(Output):
     toolsets: list[ToolsetInfo]
 
-    def get_agent(self):
+    @property
+    def agent(self):
         return self.toolsets
 
 

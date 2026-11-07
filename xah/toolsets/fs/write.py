@@ -7,14 +7,17 @@ from corio import Path
 from xah.class_collections import classes
 from acp.schema import FileEditToolCallContent, ToolCallLocation
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.output import OutputString, ProjectionRequest
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.output import OutputString
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
 class FileWriteOutput(OutputString):
-    def get_projection(self, request: ProjectionRequest):
+    @property
+    def projection(self):
+        request = self.request
         input = request.input
         path = str(input.path)
         return AcpToolProjection(
@@ -31,7 +34,9 @@ class Input(InputBase):
     )
     content: str = Field(description="Complete file content to write.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         path = str(self.path)
         return AcpToolProjection(
             content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=self.content)],

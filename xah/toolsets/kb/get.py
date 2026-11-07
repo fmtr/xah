@@ -4,7 +4,8 @@ from xah.class_collections import classes
 from corio import strings
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from corio.db.search.document import Document
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.validators import CollectionValidator
@@ -13,7 +14,8 @@ from xah.toolsets.kb.validators import CollectionValidator
 class DocumentChunksOutput(Output):
     chunks: list[Document]
 
-    def get_agent(self) -> list[dict]:
+    @property
+    def agent(self) -> list[dict]:
         return self.model_dump(mode="json")["chunks"]
 
 
@@ -26,7 +28,9 @@ class Input(InputBase):
         description="Chunk indexes to fetch; select at most five chunks.",
     )
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         chunks = strings.join_natural(str(chunk) for chunk in self.chunks)
         title = f"Getting chunks {chunks} from {self.document_id}"
         return AcpToolProjection(title=title)

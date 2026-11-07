@@ -44,7 +44,7 @@ def test_short_terminal_does_not_notify_after_completion(tmp_path, monkeypatch):
     result = asyncio.run(tool.run())
     terminal = runtime.deps.toolsets.all.cls[Terminals].terminals[0]
 
-    assert "terminal-e2e" in result.get_agent()
+    assert "terminal-e2e" in result.agent
     assert terminal.on_status is None
 
 
@@ -109,5 +109,5 @@ def test_terminal_kill_operates_on_a_background_shell_process(tmp_path):
 
     kill_result = asyncio.run(kill.run())
 
-    assert result.get_agent().find(f"Terminal `{terminal.id}`") >= 0
-    assert "killed" in kill_result.get_agent()
+    assert result.agent.find(f"Terminal `{terminal.id}`") >= 0
+    assert "killed" in kill_result.agent

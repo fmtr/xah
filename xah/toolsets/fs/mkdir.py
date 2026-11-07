@@ -5,7 +5,8 @@ from pydantic import Field
 from corio import Path
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.class_collections import classes
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -14,7 +15,9 @@ class Input(InputBase):
         description="Path relative to the working directory.",
     )
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(title=request.tool_name)
 
 

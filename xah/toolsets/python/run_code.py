@@ -7,7 +7,7 @@ from xah.class_collections import classes
 from pydantic import Field
 from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.tool import Input as InputBase
+from xah.toolsets.base.input import Input as InputBase
 
 from corio.shell.dsl import arg, shell
 from xah.toolsets.terminal.base import TerminalTool
@@ -16,7 +16,9 @@ from xah.toolsets.terminal.base import TerminalTool
 class Input(InputBase):
     code: str = Field(description="Short Python source fragment to execute directly.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         title = f"Run Python code: {self.preview(self.code, limit=80)}"
         return AcpToolProjection(title=title)
 

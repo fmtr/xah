@@ -21,7 +21,8 @@ from xah.toolsets.kb.toolset import Knowledgebase
 
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import WebTool
 from xah.toolsets.web.search import Search
 
@@ -155,7 +156,9 @@ class Input(InputBase):
         description="Collection ID. Leave empty for entirely new research, or provide an existing ID to extend existing research.",
     )
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(
             content=[self.content_block(f"Depth: {self.depth}\n\n{self.prompt}")],
             title=f"Research {self.preview(self.prompt, limit=80)}",
@@ -229,7 +232,7 @@ class Research(WebTool, Input):
         )
 
     @cp
-    def request(self) -> str:
+    def agent_request(self) -> str:
         return strings.trim(
             self.requested_depth_section,
             self.historical_prompt_section,
@@ -237,7 +240,10 @@ class Research(WebTool, Input):
         )
 
     async def run(self) -> ResearchOutput:
-        result = await self.harness.agent.run(self.request, deps=self.harness.deps)
+        result = await self.harness.agent.run(
+            self.agent_request,
+            deps=self.harness.deps,
+        )
         if self.history_entry is None:
             history_entry = ResearchHistory.Prompts(
                 id=self.id,

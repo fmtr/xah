@@ -6,21 +6,25 @@ from corio import strings
 
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import FetchResult, WebTool
 
 
 class FetchOutput(Output):
     results: list[FetchResult]
 
-    def get_agent(self) -> list[dict]:
+    @property
+    def agent(self) -> list[dict]:
         return self.model_dump(mode="json")["results"]
 
 
 class Input(InputBase):
     urls: Annotated[list[str], Field(min_length=1, description="One or more web page URLs to fetch.")]
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         if len(self.urls) == 1:
             title = f"Fetching {self.preview(self.urls[0], limit=80)}"
         else:

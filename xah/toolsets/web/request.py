@@ -11,7 +11,8 @@ from pydantic import Field
 from corio import dm, https
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import WebTool
 
 
@@ -159,7 +160,9 @@ class RequestInput(Input):
     url: str = Field(description="The URL to request.")
     headers: dict[str, str] = Field(default_factory=dict, description="Request headers.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         title = f"{self.method} {self.preview(self.url, limit=80)}"
         return AcpToolProjection(
             content=[self.content_block(f"{self.method} {self.url}")],
@@ -172,7 +175,9 @@ class EndpointInput(Input):
 
     endpoint: str
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         title = f"{self.method} {self.preview(self.endpoint, limit=80)}"
         return AcpToolProjection(
             content=[self.content_block(f"{self.method} {self.endpoint}")],

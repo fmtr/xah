@@ -6,7 +6,6 @@ from typing import ClassVar, Self
 
 from cached_classproperty import cached_classproperty
 from pydantic import Field, InstanceOf, model_validator
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic.json_schema import SkipJsonSchema
 
 from pydantic_ai import RunContext
@@ -19,7 +18,7 @@ from corio.iterator import ilist
 from corio.strings import get_docstring
 from xah.class_collections import classes
 from xah.options.path import PathCwd
-from xah.toolsets.base.output import ProjectionSupport
+from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -34,12 +33,6 @@ class Kinds(StrEnum):
     FETCH = auto()
     SWITCH_MODE = auto()
     OTHER = auto()
-
-
-class Input(ProjectionSupport, dm.Base):
-    def get_projection(self, request):
-        return AcpToolProjection(title=request.tool_name)
-
 
 
 class ToolState(dm.Base):
@@ -87,11 +80,11 @@ class Tool(dm.Base):
         return ToolState
 
     @ccp
-    def input(cls) -> type[Input] | None:
+    def input(cls) -> type[InputBase] | None:
         for base in cls.__mro__:
-            if base is Input or issubclass(base, Tool):
+            if base is InputBase or issubclass(base, Tool):
                 continue
-            if issubclass(base, Input):
+            if issubclass(base, InputBase):
                 return base
         return None
 

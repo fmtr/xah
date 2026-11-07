@@ -7,7 +7,8 @@ from corio.db.search.document import Document
 from xah.class_collections import classes
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.kb.db import WebPage
 from xah.toolsets.kb.validators import CollectionValidator
 
@@ -15,7 +16,8 @@ from xah.toolsets.kb.validators import CollectionValidator
 class DocumentHitsOutput(Output):
     hits: list[Document]
 
-    def get_agent(self) -> list[dict]:
+    @property
+    def agent(self) -> list[dict]:
         return self.model_dump(mode="json")["hits"]
 
 
@@ -29,7 +31,9 @@ class Input(InputBase):
     )
     collection_id: str = Field(description="Collection ID to search.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         title = f'Searching {self.collection_id} for "{self.query}"'
         return AcpToolProjection(title=title)
 

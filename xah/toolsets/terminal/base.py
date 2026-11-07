@@ -13,7 +13,8 @@ from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
 
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 
 from xah.toolsets.terminal.terminal import Terminal
 
@@ -44,7 +45,8 @@ class TerminalOutput(Output):
     def path(self) -> Path:
         return self.terminal.output_path.relative_to(self.cwd)
 
-    def get_agent(self) -> str:
+    @property
+    def agent(self) -> str:
         terminal = self.terminal
         command = strings.truncate_mid(str(terminal.expression), length=60)
         runtime = humanize.precisedelta(terminal.runtime, format="%0.1f")
@@ -65,8 +67,10 @@ class TerminalOutput(Output):
             tail=terminal.tail(),
         )
 
-    def get_projection(self, request) -> AcpToolProjection:
-        content = self.content_block(self.get_agent())
+    @property
+    def projection(self) -> AcpToolProjection:
+        request = self.request
+        content = self.content_block(self.agent)
         return AcpToolProjection(
             content=[content],
             locations=[ToolCallLocation(path=str(self.path))],
@@ -79,8 +83,9 @@ class TerminalStatuses(Output):
     terminals: list[Terminal]
     cwd: Path
 
-    def get_agent(self) -> list[str]:
-        return [TerminalOutput(terminal=terminal, cwd=self.cwd).get_agent() for terminal in self.terminals]
+    @property
+    def agent(self) -> list[str]:
+        return [TerminalOutput(terminal=terminal, cwd=self.cwd).agent for terminal in self.terminals]
 
 
 class TerminalToolBase(Tool):
@@ -125,7 +130,7 @@ class TerminalTool(TerminalToolBase):
         message = strings.trim(f"""
             Terminal has changed state:
 
-            {self.output.get_agent()}
+            {self.output.agent}
         """)
         self.feedback(message)
         return message

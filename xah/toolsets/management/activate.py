@@ -5,7 +5,8 @@ from corio.iterator import IterDiffer, ilist
 from xah.class_collections import classes
 from xah.options.base import Policy
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.base.toolset import Toolset
 
 
@@ -13,7 +14,9 @@ class Input(InputBase):
     ids: list[str] = Field(description="Toolset IDs.")
     reason: str = Field(description="A very short reason to justify why the tool is needed, and why your goal cannot be achieved using existing tools.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         ids = strings.join_natural(self.ids, mask=strings.MASK_QUOTE)
         return AcpToolProjection(
             content=[self.content_block(f"Reason: {self.reason}")],

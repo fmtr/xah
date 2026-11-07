@@ -3,14 +3,17 @@ from pydantic import Field
 from corio import strings
 from corio.iterator import ilist
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.todo.item import TodoItem
 
 
 class Input(InputBase):
     todos: list[TodoItem] = Field(description="Complete replacement todo list.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         count = len(self.todos)
         items = strings.suffix_plural(count, "items")
         return AcpToolProjection(

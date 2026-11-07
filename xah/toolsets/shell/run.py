@@ -12,7 +12,8 @@ from xah.class_collections import classes
 from xah.harness.base import Harness
 from xah.options.base import Policy
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.tool import Input as InputBase, Kinds, ToolState, Validation
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, ToolState, Validation
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files as FilesBase
@@ -88,7 +89,9 @@ class HarnessTerminalAdversary(Harness):
 class Input(InputBase):
     script: str = Field(description="Shell script to execute in the working directory.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         title = f"Execute {self.preview(self.script, limit=80)}"
         return AcpToolProjection(title=title)
 

@@ -22,8 +22,11 @@ from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.output import InvalidInputOutput, Output, ProjectionRequest
-from xah.toolsets.base.tool import Input, Tool, ToolState, Validation
+from xah.toolsets.base.output import InvalidInputOutput, Output
+from xah.toolsets.base.input import Input
+from xah.toolsets.base.projection.input import ProjectionRequestInput
+from xah.toolsets.base.projection.output import ProjectionRequestOutput
+from xah.toolsets.base.tool import Tool, ToolState, Validation
 
 
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
@@ -140,7 +143,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         if tool_class is None:
             return None
 
-        request = ProjectionRequest(
+        request = ProjectionRequestInput(
             tool_cls=tool_class,
             toolset_cls=cls,
             raw_input=raw_input,
@@ -148,10 +151,13 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         )
         input_class = tool_class.input or Input
         try:
-            request.input = input_class.model_validate(raw_input)
+            input = input_class.model_validate(raw_input)
         except ValidationError:
-            return InvalidInputOutput().get_projection(request)
-        return request.input.get_projection(request)
+            invalid = InvalidInputOutput()
+            invalid.request = request
+            return invalid.projection
+        input.request = request
+        return input.projection
 
     @classmethod
     def project_progress(
@@ -170,8 +176,14 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
         input_class = tool_class.input or Input
         input = input_class.model_validate(raw_input)
+        input.request = ProjectionRequestInput(
+            tool_cls=tool_class,
+            toolset_cls=cls,
+            raw_input=raw_input,
+            cwd=cwd,
+        )
         output: Output = raw_output
-        request = ProjectionRequest(
+        request = ProjectionRequestOutput(
             tool_cls=tool_class,
             toolset_cls=cls,
             raw_input=raw_input,
@@ -180,7 +192,8 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             serialized_output=serialized_output,
             status=status,
         )
-        return output.get_projection(request)
+        output.request = request
+        return output.projection
 
     def __init__(self, activated: bool = True, **kwargs):
         del kwargs

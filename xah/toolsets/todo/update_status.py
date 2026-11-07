@@ -4,7 +4,8 @@ from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
 
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.todo.constants import TodoStatus
 
 
@@ -12,7 +13,9 @@ class Input(InputBase):
     todo_id: str = Field(description="ID of the todo to update.")
     status: TodoStatus = Field(description="New todo status.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(
             content=[self.content_block(f"Todo {self.todo_id}: {self.status}")],
             title=f"Update todo {self.todo_id}",

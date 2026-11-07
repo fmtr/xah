@@ -1,13 +1,15 @@
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.tool import Input as InputBase
+from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.terminal.base import TerminalManagementTool, TerminalOutput
 
 
 class Input(InputBase):
     terminal_id: str = Field(description="Identifier of the background terminal.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(title=f"Kill terminal {self.terminal_id}")
 
 

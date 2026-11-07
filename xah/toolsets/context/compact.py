@@ -1,10 +1,13 @@
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 
 
 class Input(InputBase):
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         title = "Compact conversation"
         if self.focus:
             title = f"Compact conversation around {self.preview(self.focus, limit=80)}"

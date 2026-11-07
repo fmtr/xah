@@ -13,15 +13,17 @@ from pydantic_acp.serialization import DefaultOutputSerializer
 
 from xah.class_collections import classes
 from xah.server.acp.projection import build_tool_progress_update
+from xah.toolsets.base.input import Input
 from xah.toolsets.base.output import Output
-from xah.toolsets.base.tool import Input, Tool
+from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.toolset import Toolset
 
 
 class ExampleOutput(Output):
     value: str
 
-    def get_agent(self) -> str:
+    @property
+    def agent(self) -> str:
         return self.value
 
 

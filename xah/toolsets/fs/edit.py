@@ -7,20 +7,28 @@ from pydantic import Field
 from corio import Path, strings
 from acp.schema import FileEditToolCallContent, ToolCallLocation
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.output import OutputString, ProjectionRequest
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.output import OutputString
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
-
+from corio import Constants
 
 class FileEditOutput(OutputString):
-    def get_projection(self, request: ProjectionRequest):
+    @property
+    def projection(self):
+        request = self.request
         input = request.input
         path = str(input.path)
         return AcpToolProjection(
-            content=[FileEditToolCallContent(type="diff", path=path, old_text=input.old_text, new_text=input.new_text)],
+            content=[
+                FileEditToolCallContent(type="diff", path=path, old_text=input.old_text, new_text=input.new_text),
+                #self.content_block(self.output)
+
+
+            ],
             locations=[ToolCallLocation(path=path)],
-            title=request.tool_name,
+            title=f'{request.tool_name} {Constants.ARROW_RIGHT} {self.preview(self.output,limit=60)}',
             status=request.status,
         )
 
@@ -33,7 +41,9 @@ class Input(InputBase):
     new_text: str = Field(description="Replacement text.")
     replace_all: bool = Field(default=False, description="Replace every exact occurrence.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         path = str(self.path)
         return AcpToolProjection(
             content=[FileEditToolCallContent(type="diff", path=path, old_text=self.old_text, new_text=self.new_text)],

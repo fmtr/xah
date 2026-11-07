@@ -8,15 +8,18 @@ from pydantic_ai import ModelRetry
 from corio import Path, dm, strings
 from corio.function import ccp, cp
 from xah.class_collections import classes
-from xah.toolsets.base.output import OutputString, ProjectionRequest
-from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.base.output import OutputString
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.fs.file import FileTool
 from xah.toolsets.fs.permissions import Permissions
 
 
 class FileReadOutput(OutputString):
 
-    def get_projection(self, request: ProjectionRequest):
+    @property
+    def projection(self):
+        request = self.request
         path = str(request.input.path)
         return AcpToolProjection(
             content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=self.output)],
@@ -54,7 +57,9 @@ class Line(dm.Base):
 
 
 class Input(InputBase):
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(title=f"Read {self.preview(str(self.path), limit=80)}")
 
     path: Annotated[Path, Permissions(Permissions.Read)] = Field(

@@ -2,14 +2,17 @@ from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
 from xah.class_collections import classes
-from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.terminal.base import TerminalManagementTool, TerminalStatuses
 
 
 class Input(InputBase):
     terminal_id: str | None = Field(default=None, description="Identifier of the background terminal.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         if self.terminal_id is None:
             title = "List terminal statuses"
         else:

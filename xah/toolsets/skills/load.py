@@ -6,13 +6,16 @@ from pydantic_ai import ModelRetry
 from corio import strings
 from corio.iterator import IterDiffer
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 
 
 class Input(InputBase):
     skill_ids: list[str] = Field(description="Full list of relevant skill IDs to load in one call.")
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(title=strings.join_natural(self.skill_ids))
 
 

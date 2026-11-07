@@ -1,23 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
-from acp.schema import (
-    ContentToolCallContent,
-    TextContentBlock,
-    ToolCallStatus,
-)
+from acp.schema import ContentToolCallContent, TextContentBlock
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
-from corio import Constants, Path, dm, jsn, strings
+from corio import Constants, dm, jsn, strings
+from xah.toolsets.base.projection.base import InputOutputBase
+from xah.toolsets.base.projection.input import ProjectionRequestInput
+from xah.toolsets.base.projection.output import ProjectionRequestOutput
 
 if TYPE_CHECKING:
-    from xah.toolsets.base.tool import Input, Tool
-    from xah.toolsets.base.toolset import Toolset
+    from xah.toolsets.base.tool import Tool
 
 
 class Status(StrEnum):
@@ -27,54 +24,22 @@ class Status(StrEnum):
     CANCELLED = auto()
 
 
-@dataclass
-class ProjectionRequest:
-    tool_cls: type[Tool]
-    toolset_cls: type[Toolset]
-    raw_input: Any = None
-    input: Input | None = None
-    cwd: Path | None = None
-    serialized_output: str | None = None
-    status: ToolCallStatus | None = None
-
-    @property
-    def tool_name(self) -> str:
-        return self.toolset_cls.get_name(self.tool_cls)
-
-
-class ProjectionSupport:
-    @staticmethod
-    def content_block(text: str) -> ContentToolCallContent:
-        return ContentToolCallContent(
-            type="content",
-            content=TextContentBlock(type="text", text=text),
-        )
-
-    @staticmethod
-    def code_block(text: str, *, language: str | None = None) -> str:
-        fence = f"```{language or ''}"
-        return f"{fence}\n{text}\n```"
-
-    @staticmethod
-    def preview(text: str, *, limit: int) -> str:
-        return strings.truncate_mid(text, limit, flatten_text=True)
-
-
-class Output(ProjectionSupport, dm.Base):
+class Output(InputOutputBase, dm.Base):
     """Base class for structured tool results and their projections."""
 
     call_id: SkipJsonSchema[str | None] = Field(default=None, exclude=True)
+    request: SkipJsonSchema[ProjectionRequestOutput | None] = Field(
+        default=None,
+        exclude=True,
+    )
 
-    @classmethod
-    def from_result(cls, result: Any) -> Output:
-        if isinstance(result, str):
-            return OutputString(output=result)
-        return result
+    @property
+    def agent(self) -> Self:
+        return self
 
-    def get_agent(self) -> Any:
-        return self.model_dump(mode="json")
-
-    def get_projection(self, request: ProjectionRequest) -> AcpToolProjection | None:
+    @property
+    def projection(self) -> AcpToolProjection | None:
+        request = self.request
         content = None
         title = request.tool_name
         if request.serialized_output:
@@ -82,6 +47,12 @@ class Output(ProjectionSupport, dm.Base):
             title = f"{title} {Constants.ARROW_RIGHT} {preview}"
             content = [self.content_block(request.serialized_output)]
         return AcpToolProjection(content=content, title=title, status=request.status)
+
+    @classmethod
+    def from_result(cls, result: Any) -> Output:
+        if isinstance(result, str):
+            return OutputString(output=result)
+        return result
 
     def serialize(self) -> Any:
         return self.model_dump(mode="json")
@@ -91,7 +62,7 @@ class Output(ProjectionSupport, dm.Base):
 
     def externalize(self, tool: Tool) -> Any:
         if not tool.EXTERNALIZE_OUTPUT:
-            return self.get_agent()
+            return self.agent
 
         if isinstance(self, OutputString):
             suffix = "txt"
@@ -101,7 +72,7 @@ class Output(ProjectionSupport, dm.Base):
             serialized = self.serialize_text()
 
         if len(serialized) <= tool.toolset.MAX_INLINE_OUTPUT_LENGTH:
-            return self.get_agent()
+            return self.agent
 
         settings = tool.ctx.deps.settings
         directory = tool.ctx.deps.cwd_default / settings.path.home.name / "artifacts"
@@ -118,10 +89,13 @@ class Output(ProjectionSupport, dm.Base):
 class OutputString(Output):
     output: str
 
-    def get_agent(self) -> str:
+    @property
+    def agent(self) -> str:
         return self.output
 
-    def get_projection(self, request: ProjectionRequest) -> AcpToolProjection:
+    @property
+    def projection(self) -> AcpToolProjection:
+        request = self.request
         return AcpToolProjection(
             content=[self.content_block(self.output)],
             title=request.tool_name,
@@ -132,14 +106,21 @@ class OutputString(Output):
 class InvalidInputOutput(Output):
     """Fallback output used when tool input validation fails."""
 
-    def get_projection(self, request: ProjectionRequest) -> AcpToolProjection:
+    request: SkipJsonSchema[ProjectionRequestInput | None] = Field(
+        default=None,
+        exclude=True,
+    )
+
+    @property
+    def projection(self) -> AcpToolProjection:
+        request = self.request
         text = f"{request.tool_name}: {request.raw_input}"
         content = TextContentBlock(type="text", text=text)
         return AcpToolProjection(
             title="[INVALID CALL]",
             content=[ContentToolCallContent(type="content", content=content)],
-            status=request.status,
         )
 
-    def get_agent(self) -> str:
+    @property
+    def agent(self) -> str:
         return "[INVALID CALL]"

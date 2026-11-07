@@ -33,7 +33,8 @@ from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
 from xah.options import base as options
 from xah.toolsets.base.output import InvalidInputOutput
-from xah.toolsets.base.tool import Input, Kinds, Messages, Tool
+from xah.toolsets.base.input import Input
+from xah.toolsets.base.tool import Kinds, Messages, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.base.toolset import Toolset as ToolsetBase, ToolsetInfo
 from pydantic_acp import compose_projection_maps
@@ -324,7 +325,7 @@ def test_terminal_run_appends_to_terminal_collection(tmp_path, monkeypatch):
 
     result = asyncio.run(tool.run())
 
-    assert "hello" in result.get_agent()
+    assert "hello" in result.agent
     assert tool.terminals is terminals
     assert terminals[0].output_path.read_text() == "hello"
     assert terminals[0].output_size == 5

@@ -10,8 +10,9 @@ from pydantic_ai import ModelRetry
 from corio import Path, strings
 from corio.function import ccp
 from xah.class_collections import classes
-from xah.toolsets.base.output import OutputString, ProjectionRequest
-from xah.toolsets.base.tool import Input as InputBase, Kinds, Tool
+from xah.toolsets.base.output import OutputString
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 
 
@@ -106,7 +107,9 @@ class SearcherContent(SearcherBase):
 
 
 class SearchOutput(OutputString):
-    def get_projection(self, request: ProjectionRequest):
+    @property
+    def projection(self):
+        request = self.request
         input = request.input
         pattern = input.glob or input.regex
         if input.path and pattern:
@@ -132,7 +135,9 @@ class Input(InputBase):
         description="Directory or file to search.",
     )
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         pattern = self.glob or self.regex
         if self.path and pattern:
             title = f"Search {self.path} for {self.preview(pattern, limit=80)}"

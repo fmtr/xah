@@ -6,7 +6,8 @@ from pydantic_ai import ModelRetry
 from corio import Path, strings
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.class_collections import classes
-from xah.toolsets.base.tool import Input as InputBase, Kinds
+from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.fs.file import FileTool
 from xah.toolsets.fs.permissions import Permissions
 
@@ -32,7 +33,9 @@ class Input(InputBase):
         description="Maximum number of characters to return.",
     )
 
-    def get_projection(self, request):
+    @property
+    def projection(self):
+        request = self.request
         return AcpToolProjection(title=f"Read {self.preview(str(self.path), limit=80)}")
 
     path: Annotated[Path, Permissions(Permissions.Read)] = Field(
