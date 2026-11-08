@@ -459,6 +459,8 @@
       
         
       
+        
+      
     
     
     
@@ -766,6 +768,34 @@
     
   
     0.0.17
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/0.0.18/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.0.18
   
 
     
@@ -1494,10 +1524,18 @@
 <td>Project-level skills</td>
 <td><code>&lt;working directory&gt;/.agents/skills/</code></td>
 </tr>
+<tr>
+<td>Externalized tool results</td>
+<td><code>&lt;working directory&gt;/&lt;user data home name&gt;/artifacts/</code></td>
+</tr>
+<tr>
+<td>Background terminal logs</td>
+<td><code>&lt;working directory&gt;/&lt;user data home name&gt;/terminals/</code></td>
+</tr>
 </tbody>
 </table>
-<p>Project paths are based on the working directory supplied by the ACP client when it creates a session. <code>xah</code> reads user and project <code>AGENTS.md</code> files when present. It discovers skills in both skills folders; a project skill takes precedence when an ID appears in both. Session data is stored under the user data home.</p>
-<p>You can customize these locations through the <code>path</code> settings. <code>home</code> changes where sessions and user-level files are stored; <code>agents_dir</code> and <code>skills_dir</code> choose the instruction and skills folders; <code>agents_name</code> changes the instruction filename. These settings are defined by <code>PathAgent</code> in <a href="https://github.com/fmtr/xah/blob/main/xah/settings.py"><code>xah/settings.py</code></a>.</p>
+<p>Project paths are based on the working directory supplied by the ACP client when it creates a session. <code>xah</code> reads user and project <code>AGENTS.md</code> files when present. It discovers skills in both skills folders; a project skill takes precedence when an ID appears in both. Session data is stored under the user data home. Externalized tool results and background terminal logs are stored in separate subdirectories under <code>&lt;working directory&gt;/&lt;user data home name&gt;/</code>.</p>
+<p>You can customize these locations through the <code>path</code> settings. <code>home</code> changes where sessions and user-level files are stored and supplies the name for the project-local output directory (<code>.xah</code> by default); <code>agents_dir</code> and <code>skills_dir</code> choose the instruction and skills folders; <code>agents_name</code> changes the instruction filename. These settings are defined by <code>PathAgent</code> in <a href="https://github.com/fmtr/xah/blob/main/xah/settings.py"><code>xah/settings.py</code></a>.</p>
 <h2 id="skills">Skills</h2>
 <p>Skills use the <a href="https://agentskills.io/specification">Agent Skills format</a>: a folder containing <code>SKILL.md</code>, with YAML frontmatter for <code>name</code> and <code>description</code>, followed by Markdown instructions. For example, save this file as <code>.agents/skills/python/style/SKILL.md</code>:</p>
 <div class="language-markdown highlight"><pre><span></span><code>---
