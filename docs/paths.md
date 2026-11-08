@@ -10,10 +10,12 @@
 | User-level skills | `~/.xah/.agents/skills/` |
 | Project-level instructions | `<working directory>/.agents/AGENTS.md` |
 | Project-level skills | `<working directory>/.agents/skills/` |
+| Externalized tool results | `<working directory>/<user data home name>/artifacts/` |
+| Background terminal logs | `<working directory>/<user data home name>/terminals/` |
 
-Project paths are based on the working directory supplied by the ACP client when it creates a session. `xah` reads user and project `AGENTS.md` files when present. It discovers skills in both skills folders; a project skill takes precedence when an ID appears in both. Session data is stored under the user data home.
+Project paths are based on the working directory supplied by the ACP client when it creates a session. `xah` reads user and project `AGENTS.md` files when present. It discovers skills in both skills folders; a project skill takes precedence when an ID appears in both. Session data is stored under the user data home. Externalized tool results and background terminal logs are stored in separate subdirectories under `<working directory>/<user data home name>/`.
 
-You can customize these locations through the `path` settings. `home` changes where sessions and user-level files are stored; `agents_dir` and `skills_dir` choose the instruction and skills folders; `agents_name` changes the instruction filename. These settings are defined by `PathAgent` in [`xah/settings.py`](https://github.com/fmtr/xah/blob/main/xah/settings.py).
+You can customize these locations through the `path` settings. `home` changes where sessions and user-level files are stored and supplies the name for the project-local output directory (`.xah` by default); `agents_dir` and `skills_dir` choose the instruction and skills folders; `agents_name` changes the instruction filename. These settings are defined by `PathAgent` in [`xah/settings.py`](https://github.com/fmtr/xah/blob/main/xah/settings.py).
 
 ## Skills
 
