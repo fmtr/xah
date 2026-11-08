@@ -74,8 +74,7 @@ class Output(InputOutputBase, dm.Base):
         if len(serialized) <= tool.toolset.MAX_INLINE_OUTPUT_LENGTH:
             return self.agent
 
-        settings = tool.ctx.deps.settings
-        directory = tool.ctx.deps.cwd_default / settings.path.home.name / "artifacts"
+        directory = tool.ctx.deps.artifacts_dir
         directory.mkdirf()
         artifact = directory / f"{tool.call_id}.{suffix}"
         artifact.write_text(serialized)

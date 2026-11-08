@@ -24,6 +24,7 @@ from pydantic_deep import ContextManagerCapability, StuckLoopDetection
 
 from xah.paths import paths
 from xah.caps.traffic import ModelTrafficLogger
+from xah.instructions.base import Instruction
 from xah.class_collections import classes
 from xah.harness.deps import HarnessAgentDeps, HarnessDeps
 from xah.models import AdapterModel, Luna

@@ -85,6 +85,7 @@ def context(toolset, approved=False, tool_call_id="call-1"):
         approval_bridge=None,
         settings=settings,
         cwd_default=Path.cwd(),
+        artifacts_dir=Path.cwd() / settings.path.home.name / "artifacts",
     )
     return RunContext(
         deps=deps,
@@ -100,6 +101,7 @@ def test_externalize_output_serializes_pydantic_response(tmp_path):
     toolset = ApprovalToolset()
     ctx = context(toolset)
     ctx.deps.cwd_default = Path(tmp_path)
+    ctx.deps.artifacts_dir = Path(tmp_path) / ".agent" / "artifacts"
     instance = ApprovalTool(ctx=ctx, toolset=toolset, value="result")
     toolset.MAX_INLINE_OUTPUT_LENGTH = 0
     result = Response(status_code=200, headers={}, body={"ok": True})

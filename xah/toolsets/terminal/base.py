@@ -21,7 +21,7 @@ from xah.toolsets.terminal.terminal import Terminal
 
 class TerminalOutput(Output):
     terminal: Terminal
-    cwd: Path
+    cwd_default: Path
 
     SUMMARY_MASK: ClassVar[str] = strings.trim("""
         Terminal `{id}` running `{command}` for {runtime}.
@@ -43,7 +43,7 @@ class TerminalOutput(Output):
 
     @property
     def path(self) -> Path:
-        return self.terminal.output_path.relative_to(self.cwd)
+        return self.terminal.output_path.relative_to(self.cwd_default)
 
     @property
     def agent(self) -> str:
@@ -81,11 +81,14 @@ class TerminalOutput(Output):
 
 class TerminalStatuses(Output):
     terminals: list[Terminal]
-    cwd: Path
+    cwd_default: Path
 
     @property
     def agent(self) -> list[str]:
-        return [TerminalOutput(terminal=terminal, cwd=self.cwd).agent for terminal in self.terminals]
+        return [
+            TerminalOutput(terminal=terminal, cwd_default=self.cwd_default).agent
+            for terminal in self.terminals
+        ]
 
 
 class TerminalToolBase(Tool):
@@ -99,7 +102,10 @@ class TerminalToolBase(Tool):
 
     @cp
     def output(self) -> TerminalOutput:
-        return TerminalOutput(terminal=self.terminal, cwd=self.cwd)
+        return TerminalOutput(
+            terminal=self.terminal,
+            cwd_default=self.ctx.deps.cwd_default,
+        )
 
     @cached_property
     def terminals(self):
@@ -141,8 +147,7 @@ class TerminalTool(TerminalToolBase):
 
     @cached_property
     def output_path(self) -> Path:
-        settings = self.ctx.deps.settings
-        directory = self.ctx.deps.cwd_default / settings.path.home.name / "terminals"
+        directory = self.ctx.deps.terminals_dir
         directory.mkdirf()
         executable_name = Path(self.expression.name).name
         return directory / f"{executable_name}-{self.terminal_id}.log"

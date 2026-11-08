@@ -7,9 +7,10 @@ from pydantic import PrivateAttr
 from corio import Path
 from corio.shell.dsl import shell
 
+from xah.harness.deps import HarnessAgentDeps
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.shell.run import Run
-from xah.toolsets.terminal.base import TerminalOutput
+from xah.toolsets.terminal.base import TerminalOutput, TerminalStatuses
 from xah.toolsets.terminal.terminal import Terminal, TerminalStatus
 
 
@@ -21,11 +22,40 @@ class RecordingTool(Tool):
         return "notified"
 
 
+def test_output_directories_are_under_cwd_default(tmp_path):
+    deps = HarnessAgentDeps(
+        settings=SimpleNamespace(path=SimpleNamespace(home=Path("~/.workspace"))),
+        cwd_default=Path(tmp_path),
+    )
+
+    assert deps.artifacts_dir == Path(tmp_path) / ".workspace" / "artifacts"
+    assert deps.terminals_dir == Path(tmp_path) / ".workspace" / "terminals"
+
+
+def test_terminal_statuses_format_paths_relative_to_cwd_default(tmp_path):
+    cwd_default = Path(tmp_path)
+    output_path = cwd_default / ".workspace" / "terminals" / "terminal.log"
+    output_path.parent.mkdir(parents=True)
+    output_path.touch()
+    terminal = Terminal(
+        id="test",
+        expression=shell.sleep("0.1"),
+        timeout=2,
+        cwd="/other/workspace",
+        output_path=output_path,
+    )
+
+    statuses = TerminalStatuses(terminals=[terminal], cwd_default=cwd_default)
+
+    assert ".workspace/terminals/terminal.log" in statuses.agent[0]
+
+
 def test_terminal_output_path_treats_absolute_executable_as_a_filename(tmp_path):
     harness_cwd = Path(tmp_path / "project")
     home = Path(tmp_path / ".xah")
     deps = SimpleNamespace(
         cwd_default=harness_cwd,
+        terminals_dir=harness_cwd / home.name / "terminals",
         settings=SimpleNamespace(path=SimpleNamespace(home=home)),
     )
     tool = Run.model_construct(
@@ -72,7 +102,8 @@ async def test_terminal_output_formats_lifecycle_for_agent(tmp_path):
     )
 
     await terminal.start()
-    output = TerminalOutput(terminal=terminal, cwd=Path("/tmp"))
+    output = TerminalOutput(terminal=terminal, cwd_default=Path(tmp_path))
+    assert output.path == Path("terminal.log")
     assert "running" in output.agent
     assert "Last output:" in output.agent
     await terminal.process

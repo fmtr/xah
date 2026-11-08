@@ -31,6 +31,20 @@ def test_path_home_expands_user(tmp_path):
     assert path.home == Path.home() / ".workspace"
 
 
+def test_path_home_default_uses_subclass_package_name(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    class WorkspacePaths:
+        name = "workspace"
+
+    class WorkspacePathAgent(PathAgent):
+        paths = WorkspacePaths()
+
+    path = WorkspacePathAgent()
+
+    assert path.home == tmp_path / ".workspace"
+
+
 def test_acp_implements_corio_subcommand_contract():
     assert issubclass(Acp, sets.SubCommand)
 

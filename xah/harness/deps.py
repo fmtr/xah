@@ -24,6 +24,14 @@ class HarnessAgentDeps(DeepAgentDeps):
     context_manager: ContextManagerCapability | None = field(default=None, kw_only=True)
     _config_update: Callable[[], Awaitable[None]] | None = field(default=None, kw_only=True)
 
+    @cached_property
+    def artifacts_dir(self) -> Path:
+        return self.cwd_default / self.settings.path.home.name / "artifacts"
+
+    @cached_property
+    def terminals_dir(self) -> Path:
+        return self.cwd_default / self.settings.path.home.name / "terminals"
+
     async def update_config(self):
         if self._config_update is None:
             return

@@ -33,7 +33,10 @@ class Status(Input, TerminalManagementTool):
 
     async def run(self) -> str | TerminalStatuses:
         if self.terminal_id is None:
-            return TerminalStatuses(terminals=list(self.terminals), cwd=self.cwd)
+            return TerminalStatuses(
+                terminals=list(self.terminals),
+                cwd_default=self.ctx.deps.cwd_default,
+            )
 
         return self.output
 

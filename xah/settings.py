@@ -24,7 +24,7 @@ class PathAgent(dm.Base):
     secrets: list[str] = ["**/.env"]
 
     def model_post_init(self, __context):
-        self.home = (self.home or Path(f"~/.{paths.name}")).expanduser()
+        self.home = (self.home or Path(f"~/.{self.paths.name}")).expanduser()
         if not self.home.exists():
             logger.warning(f"Creating missing agent home directory: {self.home}")
             self.home.mkdir(parents=True)
