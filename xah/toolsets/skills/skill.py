@@ -15,8 +15,8 @@ class Skill(UpstreamSkill):
 
     @property
     def text(self) -> str:
-        return strings.trim(f"## {self.id}\n{self.content}")
+        return strings.trim(f"## {self.id}", self.content)
 
     @property
     def text_description(self) -> str:
-        return strings.trim(f"## {self.id}\n{self.description}")
+        return strings.trim(f"## {self.id}", self.description)

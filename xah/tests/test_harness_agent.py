@@ -15,7 +15,7 @@ from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.todo.toolset import Todo
-from xah.toolsets.management.activate import Activate
+from xah.toolsets.management.activate import Activate, ApproveRequestables
 from xah.harness.manager import ToolsetsManager, ToolsetsManagerAgent
 from xah.toolsets.management.toolset import Management
 
@@ -180,6 +180,24 @@ def test_acp_toolsets_manager_applies_policy_after_activation():
 
     manager.all.name[Files.name].activated = False
     assert manager.agent == ilist([shell])
+
+
+def test_approving_activation_only_changes_requestable_toolset_policies():
+    deps = make_agent_deps([Files, Shell])
+    files = deps.toolsets.all.name[Files.name]
+    shell = deps.toolsets.all.name[Shell.name]
+    context = RunContext(deps=deps, model=TestModel(), usage=RunUsage())
+    approval = ApproveRequestables(
+        ctx=context,
+        toolset=files,
+        ids=[Files.name, Shell.name],
+        reason="Test activation approval",
+    )
+
+    asyncio.run(approval.after_approval())
+
+    assert files.options.cls[options.Policy].value == options.Policies.AUTO
+    assert shell.options.cls[options.Policy].value == options.Policies.APPROVAL
 
 
 def test_activate_reactivates_toolsets_and_reports_already_active(monkeypatch):

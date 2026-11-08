@@ -63,7 +63,7 @@ class Todo(Toolset):
             return "No todos in the list."
 
         body = strings.join((f"{index}. {todo.text}" for index, todo in enumerate(self.items, 1)), sep="\n")
-        return f"Current todos:\n\n{body}\n\n{self.summary}"
+        return strings.trim("Current todos:", body, self.summary)
 
     async def get_instructions(self, ctx: RunContext[Any]) -> list[InstructionPart]:
         del ctx

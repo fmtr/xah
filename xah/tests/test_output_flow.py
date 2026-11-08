@@ -7,6 +7,7 @@ from pydantic_ai.messages import ToolCallPart, ToolReturnPart
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
+from corio import Path
 from corio.iterator import ilist
 from pydantic_acp.projection import build_tool_start_update
 from pydantic_acp.serialization import DefaultOutputSerializer
@@ -17,6 +18,9 @@ from xah.toolsets.base.input import Input
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.toolset import Toolset
+from xah.options.path import PathCwd, PathRead, PathWrite
+from xah.toolsets.fs.toolset import Files
+from xah.toolsets.fs.write import Write
 
 
 class ExampleOutput(Output):
@@ -76,12 +80,15 @@ def context():
 
 def test_projection_errors_return_traceback_projection():
     tool_name = BrokenProjectionToolset.get_name(BrokenProjectionTool)
+    raw_args = {}
 
-    projection = BrokenProjectionToolset.project_start(tool_name, raw_input={})
+    projection = BrokenProjectionToolset.project_start(tool_name, raw_input=raw_args)
 
-    assert projection.title == "[PROJECTION ERROR]"
+    assert projection.title == f"{tool_name} [PROJECTION ERROR]"
     traceback_content = projection.content[0].content.text
-    assert traceback_content.startswith("```pytb\n")
+    assert f"tool_name: {tool_name}" in traceback_content
+    assert f"raw_args: {raw_args!r}" in traceback_content
+    assert traceback_content.startswith(f"tool_name: {tool_name}\n")
     assert "RuntimeError: projection failed" in traceback_content
 
 
@@ -147,9 +154,96 @@ async def test_progress_projection_errors_preserve_tool_status():
         status="completed",
     )
 
-    assert projection.title == "[PROJECTION ERROR]"
+    assert projection.title == f"{tool_name} [PROJECTION ERROR]"
     assert projection.status == "completed"
-    assert "RuntimeError: output projection failed" in projection.content[0].content.text
+    error_content = projection.content[0].content.text
+    assert f"tool_name: {tool_name}" in error_content
+    assert "raw_args: {}" in error_content
+    assert "RuntimeError: output projection failed" in error_content
+
+
+def test_progress_input_validation_errors_return_contextual_projection():
+    tool_name = Files.get_name(Write)
+    raw_args = {"path": "broken.py"}
+
+    projection = Files.project_progress(
+        tool_name,
+        raw_input=raw_args,
+        raw_output=ExampleOutput(value="unused"),
+        serialized_output='{"value":"unused"}',
+        status="failed",
+    )
+
+    assert projection.title == f"{tool_name} [PROJECTION ERROR]"
+    assert projection.status == "failed"
+    error_content = projection.content[0].content.text
+    assert f"tool_name: {tool_name}" in error_content
+    assert f"raw_args: {raw_args!r}" in error_content
+    assert "Field required" in error_content
+
+
+@pytest.mark.asyncio
+async def test_acp_write_start_and_progress_preserve_supplied_content(tmp_path):
+    cwd = Path(tmp_path).resolve()
+    toolset = Files()
+    deps = SimpleNamespace(
+        toolsets=ilist([toolset]),
+        approval_bridge=None,
+        settings=SimpleNamespace(path=SimpleNamespace(secrets=["**/.env"])),
+        options=ilist([
+            PathCwd.from_cwd(cwd=cwd, description="Working directory."),
+            PathRead.from_cwd(cwd=cwd, description="Read path."),
+            PathWrite.from_cwd(cwd=cwd, description="Write path."),
+        ]),
+    )
+    ctx = RunContext(
+        deps=deps,
+        model=TestModel(),
+        usage=RunUsage(),
+        tool_call_id="call-write",
+    )
+    toolset.outputs = ilist()
+    tool_name = Files.get_name(Write)
+    raw_args = {"path": "item.txt", "text": "alpha"}
+    classifier = SimpleNamespace(classify=lambda name, raw_input=None: "edit")
+    start = build_tool_start_update(
+        ToolCallPart(
+            tool_name=tool_name,
+            args=raw_args,
+            tool_call_id=ctx.tool_call_id,
+        ),
+        classifier=classifier,
+        cwd=cwd,
+        projection_map=toolset,
+    )
+    assert start.content[0].new_text == "alpha"
+
+    tools = await toolset.wrapper.get_tools(ctx)
+    result = await toolset.wrapper.call_tool(
+        tool_name,
+        raw_args,
+        ctx,
+        tools[tool_name],
+    )
+    assert (cwd / "item.txt").read_text() == "alpha"
+
+    toolsets = SimpleNamespace(for_tool=lambda name: toolset)
+    progress = build_tool_progress_update(
+        ToolReturnPart(
+            tool_name=tool_name,
+            content=result,
+            tool_call_id=ctx.tool_call_id,
+            outcome="success",
+        ),
+        classifier=classifier,
+        cwd=cwd,
+        known_start=start,
+        projection_map=toolset,
+        serializer=DefaultOutputSerializer(),
+        toolsets=toolsets,
+    )
+    assert progress.title.startswith("Writing 1 line to `item.txt`")
+    assert progress.status == "completed"
 
 
 @pytest.mark.asyncio

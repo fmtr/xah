@@ -29,7 +29,7 @@ class FetchOutput(Output):
         for result in self.results:
             title = result.title or result.url
             if result.succeeded:
-                page = strings.trim(f"## {title}\n\n{result.text}")
+                page = strings.trim(f"## {title}", result.text)
                 content.append(self.content_block(page))
                 content.append(
                     self.resource_link_content(

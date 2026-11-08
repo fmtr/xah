@@ -93,7 +93,7 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
         approvals=[
             ToolCallPart(
                 tool_name="write_file",
-                args={"path": "broken.py", "content": "def broken("},
+                args={"path": "broken.py", "text": "def broken("},
                 tool_call_id="call-1",
             )
         ],

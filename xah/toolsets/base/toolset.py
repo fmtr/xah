@@ -190,14 +190,29 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         if tool_class is None:
             return None
 
-        input_class = tool_class.input or Input
-        input = input_class.model_validate(raw_input)
-        input.request = ProjectionRequestInput(
+        projection_request = ProjectionRequestInput(
             tool_cls=tool_class,
             toolset_cls=cls,
             raw_input=raw_input,
             cwd=cwd,
         )
+        input_class = tool_class.input or Input
+        try:
+            input = input_class.model_validate(raw_input)
+        except ValidationError as exception:
+            input = Input(request=projection_request)
+            request = ProjectionRequestOutput(
+                tool_cls=tool_class,
+                toolset_cls=cls,
+                raw_input=raw_input,
+                input=input,
+                cwd=cwd,
+                serialized_output=serialized_output,
+                status=status,
+            )
+            return cls.projection_error(exception, request)
+
+        input.request = projection_request
         output: Output = raw_output
         request = ProjectionRequestOutput(
             tool_cls=tool_class,

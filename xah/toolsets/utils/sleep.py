@@ -1,6 +1,6 @@
 import asyncio
 
-from corio import strings
+import humanize
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
@@ -12,7 +12,7 @@ class Input(InputBase):
 
     @property
     def title(self):
-        duration = strings.suffix_plural(self.seconds, "second", mask_count="{:g}")
+        duration = humanize.precisedelta(self.seconds, format="%0.1f")
         return f"Sleeping for {duration}"
 
     @property
@@ -27,4 +27,5 @@ class Sleep(Tool, Input):
 
     async def run(self) -> str:
         await asyncio.sleep(self.seconds)
-        return f"Slept for {self.seconds:g} seconds."
+        duration = humanize.precisedelta(self.seconds, format="%0.1f")
+        return f"Slept for {duration}."

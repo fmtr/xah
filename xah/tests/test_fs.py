@@ -55,7 +55,7 @@ def test_permission_validation_message_identifies_required_permission(tmp_path):
     ctx = context(tmp_path)
 
     with pytest.raises(ValidationError) as error:
-        make(Write, ctx, path="../outside.txt", content="hello")
+        make(Write, ctx, path="../outside.txt", text="hello")
 
     message = Files.validation_error_message(error.value)
 
@@ -72,18 +72,21 @@ def test_search_defaults_to_the_current_working_directory(tmp_path):
 
 def test_ctx_is_validated_but_absent_from_schema_and_dump(tmp_path):
     ctx = context(tmp_path)
-    tool = make(Write, ctx, path="note.txt", content="hello")
+    tool = make(Write, ctx, path="note.txt", text="hello")
 
-    assert "ctx" not in Write.model_json_schema()["properties"]
-    assert "validation" not in Write.model_json_schema()["properties"]
+    schema = Write.model_json_schema()
+    assert "ctx" not in schema["properties"]
+    assert "validation" not in schema["properties"]
+    assert "text" in schema["properties"]
+    assert "content" not in schema["properties"]
     assert "ctx" not in tool.model_dump()
     assert "validation" not in tool.model_dump()
-    assert Write.model_json_schema()["properties"]["path"]["type"] == "string"
+    assert schema["properties"]["path"]["type"] == "string"
 
 
 def test_write_validate_and_run(tmp_path):
     ctx = context(tmp_path)
-    tool = make(Write, ctx, path="nested/note.txt", content="hello\n")
+    tool = make(Write, ctx, path="nested/note.txt", text="hello\n")
 
     tool.validation = Validation()
     asyncio.run(tool.validate())
@@ -96,7 +99,7 @@ def test_permission_failure_occurs_during_model_validation(tmp_path):
     ctx = context(tmp_path)
 
     with pytest.raises(ValidationError, match="PathWrite permission"):
-        make(Write, ctx, path="../escape.txt", content="no")
+        make(Write, ctx, path="../escape.txt", text="no")
 
 
 def test_env_file_requires_approval(tmp_path):

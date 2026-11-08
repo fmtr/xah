@@ -23,7 +23,9 @@ class KnowledgeCollectionsOutput(Output):
     @property
     def content(self):
         return [
-            self.content_block(f"## `{collection.id}`\n{collection.desc}")
+            self.content_block(
+                strings.trim(f"## `{collection.id}`", collection.desc)
+            )
             for collection in self.collections
         ]
 

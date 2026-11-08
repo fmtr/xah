@@ -22,7 +22,7 @@ class FileWriteOutput(OutputString):
         location = self.tool_location(input.path)
         path = location.path
         return AcpToolProjection(
-            content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=input.content)],
+            content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=input.text)],
             locations=[location],
             title=self.title,
             status=request.status,
@@ -33,24 +33,24 @@ class Input(InputBase):
     path: Annotated[Path, Permissions(Permissions.Write)] = Field(
         description="Destination path relative to the working directory.",
     )
-    content: str = Field(description="Complete file content to write.")
+    text: str = Field(description="Text to write to the file.")
 
     @property
     def title(self):
-        line_count = strings.suffix_plural(len(self.content.splitlines()), "line")
+        line_count = strings.suffix_plural(len(self.text.splitlines()), "line")
         return f"Writing {line_count} to `{self.path.name}`"
 
     @property
     def projection(self):
         location = self.tool_location(self.path)
         return AcpToolProjection(
-            content=[FileEditToolCallContent(type="diff", path=location.path, old_text="", new_text=self.content)],
+            content=[FileEditToolCallContent(type="diff", path=location.path, old_text="", new_text=self.text)],
             locations=[location],
             title=self.title,
         )
 
 class Write(Tool, Input):
-    """Write complete content to a file."""
+    """Write text to a file."""
 
     KIND = Kinds.EDIT
 
@@ -60,9 +60,9 @@ class Write(Tool, Input):
 
     async def run(self) -> FileWriteOutput:
         self.path.parent.mkdirf()
-        self.path.write_text(self.content)
+        self.path.write_text(self.text)
         return FileWriteOutput(
-            output=f"Wrote {len(self.content.splitlines())} lines to {self.path}"
+            output=f"Wrote {len(self.text.splitlines())} lines to {self.path}"
         )
 
 
@@ -74,7 +74,7 @@ class WriteWarnings(SimilarityValidator, Write):
         current = self.path.read_text(errors="replace")
         messages = self.similarity_warnings(
             current,
-            self.content,
+            self.text,
             "You are overwriting a file with {similarity}% similar content. Use partial reads and edits for small changes.",
         )
         self.messages.extend(messages)

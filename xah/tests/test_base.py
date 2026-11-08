@@ -248,12 +248,13 @@ def test_invalid_input_returns_fallback_projection():
         def Tools(cls):
             return [InvalidTool]
 
+    tool_name = InvalidToolset.get_name(InvalidTool)
     projection = InvalidToolset.project_start(
-        InvalidToolset.get_name(InvalidTool),
+        tool_name,
         raw_input={"value": "invalid"},
     )
 
-    assert projection.title == "[INVALID CALL]"
+    assert projection.title == f"{tool_name} [INVALID CALL]"
     assert projection.content
 def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
     harness_instance = harness()
@@ -269,7 +270,7 @@ def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
     projection_map = compose_projection_maps(maps)
     write_projection = projection_map.project_start(
         "Files-Write",
-        raw_input={"path": "bad.py", "content": "bad"},
+        raw_input={"path": "bad.py", "text": "bad"},
     )
     shell_projection = projection_map.project_start(
         Shell.get_name(Run),

@@ -182,8 +182,9 @@ class Input(InputBase):
 
     @property
     def projection(self):
+        text = strings.trim(f"Depth: {self.depth}", self.prompt)
         return AcpToolProjection(
-            content=[self.content_block(f"Depth: {self.depth}\n\n{self.prompt}")],
+            content=[self.content_block(text)],
             title=self.title,
         )
 

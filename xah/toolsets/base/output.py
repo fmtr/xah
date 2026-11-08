@@ -121,7 +121,7 @@ class InvalidInputOutput(Output):
 
     @property
     def title(self) -> str:
-        return "[INVALID CALL]"
+        return f"{self.request.tool_name} [INVALID CALL]"
 
     @property
     def content(self) -> list[ProjectionContent]:
@@ -150,12 +150,21 @@ class ProjectionErrorOutput(Output):
 
     @property
     def title(self) -> str:
-        return "[PROJECTION ERROR]"
+        return f"{self.request.tool_name} [PROJECTION ERROR]"
 
     @property
     def content(self) -> list[ProjectionContent]:
+        tool_name = f"tool_name: {self.request.tool_name}"
+        raw_args = f"raw_args: {self.request.raw_input!r}"
         stack_trace = self.code_block(self.stack_trace, language="pytb")
-        return [self.content_block(stack_trace)]
+        text = strings.trim(
+            f"""
+            {tool_name}
+            {raw_args}
+            """,
+            stack_trace,
+        )
+        return [self.content_block(text)]
 
     @property
     def locations(self) -> list[ToolCallLocation] | None:

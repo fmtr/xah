@@ -19,7 +19,7 @@ class SkillSummary(dm.Base):
 
     @property
     def text_description(self):
-        return strings.trim(f"## {self.id}\n{self.description}")
+        return strings.trim(f"## {self.id}", self.description)
 
 
 class SkillsOutput(Output):

@@ -117,7 +117,6 @@ class ApproveRequestables(Activate):
         self.validation.messages.approval.append(msg)
 
     async def after_approval(self):
-        for toolset_id in self.valids:
-            toolset = self.permitted[toolset_id]
+        for toolset in self.requestables:
             toolset.options.cls[Policy].current_value = Policy.Policies.APPROVAL
         await self.ctx.deps.update_config()
