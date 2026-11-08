@@ -6,12 +6,14 @@ from xah.toolsets.base.tool import Kinds, Tool
 
 class Input(InputBase):
     @property
-    def projection(self):
-        request = self.request
-        title = "Compact conversation"
+    def title(self):
         if self.focus:
-            title = f"Compact conversation around {self.preview(self.focus, limit=80)}"
-        return AcpToolProjection(title=title)
+            return f"Compacting conversation around `{self.preview(self.focus, limit=80)}`"
+        return "Compacting conversation"
+
+    @property
+    def projection(self):
+        return AcpToolProjection(title=self.title)
 
     focus: str | None = Field(default=None, description="Optional topic to prioritize in the summary.")
 

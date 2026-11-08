@@ -29,11 +29,13 @@ class Input(InputBase):
     )
 
     @property
-    def projection(self):
-        request = self.request
+    def title(self):
         chunks = strings.join_natural(str(chunk) for chunk in self.chunks)
-        title = f"Getting chunks {chunks} from {self.document_id}"
-        return AcpToolProjection(title=title)
+        return f"Getting chunks {chunks} from `{self.document_id}`"
+
+    @property
+    def projection(self):
+        return AcpToolProjection(title=self.title)
 
 class Get(Tool, Input):
     """Used to page through documents of interest found by search."""

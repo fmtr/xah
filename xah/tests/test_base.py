@@ -276,10 +276,10 @@ def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
         raw_input={"script": "echo hello"},
     )
 
-    assert write_projection.title is None
+    assert write_projection.title == "Writing 1 line to `bad.py`"
     assert write_projection.content
-    assert shell_projection.title == "Execute echo hello"
-    assert shell_projection.content is None
+    assert shell_projection.title == "Running shell script `echo hello`"
+    assert shell_projection.content[0].content.text == "```bash\necho hello\n```"
 
 
 def test_shell_validation_uses_agent_output():

@@ -11,9 +11,12 @@ class Input(InputBase):
     """No arguments are required to list toolsets."""
 
     @property
+    def title(self):
+        return "Listing toolsets"
+
+    @property
     def projection(self):
-        request = self.request
-        return AcpToolProjection(title="List toolsets")
+        return AcpToolProjection(title=self.title)
 
 
 class ListOutput(Output):

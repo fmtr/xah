@@ -15,12 +15,15 @@ class Input(InputBase):
     reason: str = Field(description="A very short reason to justify why the tool is needed, and why your goal cannot be achieved using existing tools.")
 
     @property
+    def title(self):
+        ids = strings.join_natural(self.ids, mask="`{}`")
+        return f"Activating {ids}"
+
+    @property
     def projection(self):
-        request = self.request
-        ids = strings.join_natural(self.ids, mask=strings.MASK_QUOTE)
         return AcpToolProjection(
             content=[self.content_block(f"Reason: {self.reason}")],
-            title=f"Activate {ids}",
+            title=self.title,
         )
 
 

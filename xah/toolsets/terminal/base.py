@@ -4,15 +4,15 @@ from typing import ClassVar
 
 import humanize
 from pydantic import Field
-from acp.schema import ToolCallLocation
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from acp.schema import FileEditToolCallContent, TerminalToolCallContent, ToolCallLocation
 
-from corio import Path, strings
-from corio.function import cp
+from corio import Constants, Path, strings
+from corio.function import ccp, cp
 from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
 
 from xah.toolsets.base.output import Output
+from xah.toolsets.base.projection.base import ProjectionContent
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 
@@ -34,9 +34,7 @@ class TerminalOutput(Output):
 
         ## Tail
 
-        ```
         {tail}
-        ```
 
         The above is the tail only. Review the output file directly if you need more.
     """)
@@ -46,12 +44,12 @@ class TerminalOutput(Output):
         return self.terminal.output_path.relative_to(self.cwd_default)
 
     @property
-    def agent(self) -> str:
+    def summary(self) -> str:
         terminal = self.terminal
         command = strings.truncate_mid(str(terminal.expression), length=60)
         runtime = humanize.precisedelta(terminal.runtime, format="%0.1f")
         output_idle = humanize.precisedelta(terminal.output_idle, format="%0.1f")
-        summary = strings.Mask(self.SUMMARY_MASK).format(
+        return strings.Mask(self.SUMMARY_MASK).format(
             id=terminal.id,
             command=command,
             cwd=terminal.cwd,
@@ -60,23 +58,54 @@ class TerminalOutput(Output):
             exit_code=terminal.exit_code,
             last_output=output_idle,
         )
+
+    @property
+    def tail(self) -> str:
+        return self.terminal.tail()
+
+    @property
+    def message(self) -> str:
+        terminal = self.terminal
         return strings.Mask(self.MASK).format(
-            summary=summary,
+            summary=self.summary,
             path=self.path,
             size=terminal.output_size,
-            tail=terminal.tail(),
+            tail=self.code_block(self.tail),
         )
 
     @property
-    def projection(self) -> AcpToolProjection:
-        request = self.request
-        content = self.content_block(self.agent)
-        return AcpToolProjection(
-            content=[content],
-            locations=[ToolCallLocation(path=str(self.path))],
-            title=f"Terminal {self.terminal.id}: {self.terminal.status}",
-            status=request.status,
-        )
+    def agent(self) -> str:
+        return self.message
+
+    @property
+    def command(self) -> str:
+        return str(self.terminal.expression)
+
+    COMMAND_LANGUAGE: ClassVar[str] = "bash"
+
+    @property
+    def title(self) -> str:
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {self.terminal.status}"
+
+    @property
+    def locations(self) -> list[ToolCallLocation]:
+        return [ToolCallLocation(path=str(self.terminal.output_path))]
+
+    @property
+    def content(self) -> list[ProjectionContent]:
+        output_path = str(self.terminal.output_path)
+        command = self.code_block(self.command, language=self.COMMAND_LANGUAGE)
+        return [
+            TerminalToolCallContent(type="terminal", terminal_id=self.terminal.id),
+            FileEditToolCallContent(
+                type="diff",
+                path=output_path,
+                old_text="",
+                new_text=self.tail,
+            ),
+            self.content_block(self.summary),
+            self.content_block(command),
+        ]
 
 
 class TerminalStatuses(Output):
@@ -100,9 +129,13 @@ class TerminalToolBase(Tool):
     def terminal(self) -> Terminal:
         return self.terminals.id[self.terminal_id]
 
+    @ccp
+    def Output(cls) -> type[TerminalOutput]:
+        return TerminalOutput
+
     @cp
     def output(self) -> TerminalOutput:
-        return TerminalOutput(
+        return self.Output(
             terminal=self.terminal,
             cwd_default=self.ctx.deps.cwd_default,
         )

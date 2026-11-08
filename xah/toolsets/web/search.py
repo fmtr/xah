@@ -1,8 +1,6 @@
-from pydantic import Field
-
 from typing import Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
@@ -10,7 +8,7 @@ from xah.toolsets.base.tool import Kinds
 from xah.toolsets.web.base import WebTool
 
 
-class WebSearchResult(Output):
+class WebSearchResult(BaseModel):
     title: str | None = None
     url: str
     content: str | None = None
@@ -32,11 +30,14 @@ class Input(InputBase):
     query: str = Field(description="Web search query.")
 
     @property
+    def title(self):
+        return f"Searching the web for `{self.preview(self.query, limit=80)}`"
+
+    @property
     def projection(self):
-        request = self.request
         return AcpToolProjection(
             content=[self.content_block(f"Query: {self.query}")],
-            title=f"Search web for {self.preview(self.query, limit=80)}",
+            title=self.title,
         )
 
 

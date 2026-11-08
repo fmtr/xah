@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from corio import strings
+from corio import Constants, strings
 
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
@@ -18,20 +18,50 @@ class FetchOutput(Output):
     def agent(self) -> list[dict]:
         return self.model_dump(mode="json")["results"]
 
+    @property
+    def title(self) -> str:
+        page_count = strings.suffix_plural(len(self.results), "page")
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {page_count}"
+
+    @property
+    def projection(self):
+        content = []
+        for result in self.results:
+            title = result.title or result.url
+            if result.succeeded:
+                page = strings.trim(f"## {title}\n\n{result.text}")
+                content.append(self.content_block(page))
+                content.append(
+                    self.resource_link_content(
+                        result.url,
+                        name=title,
+                        title=title,
+                    )
+                )
+                continue
+
+            content.append(self.content_block(f"Could not fetch {result.url}: {result.error}"))
+
+        return AcpToolProjection(
+            content=content,
+            title=self.title,
+            status=self.request.status,
+        )
+
 
 class Input(InputBase):
     urls: Annotated[list[str], Field(min_length=1, description="One or more web page URLs to fetch.")]
 
     @property
+    def title(self):
+        urls = strings.join_natural(self.urls, mask="`{}`")
+        return f"Fetching {urls}"
+
+    @property
     def projection(self):
-        request = self.request
-        if len(self.urls) == 1:
-            title = f"Fetching {self.preview(self.urls[0], limit=80)}"
-        else:
-            title = f"Fetching {len(self.urls)} URLs"
         return AcpToolProjection(
             content=[self.content_block(strings.join(self.urls, sep="\n"))],
-            title=title,
+            title=self.title,
         )
 
 

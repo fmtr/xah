@@ -108,21 +108,40 @@ class SearcherContent(SearcherBase):
 
 class SearchOutput(OutputString):
     @property
+    def locations(self):
+        request = self.request
+        input_model = request.input
+        if not input_model.regex:
+            return super().locations
+
+        base = Path(request.cwd or ".")
+        if input_model.path:
+            base = Path(input_model.path)
+            if not base.is_absolute() and request.cwd is not None:
+                base = Path(request.cwd) / base
+
+        locations = []
+        for group in self.output.split("\n-\n"):
+            lines = group.splitlines()
+            result_path = Path(lines[0])
+            if not result_path.is_absolute():
+                result_path = base / result_path
+            for match in lines[1:]:
+                line_number, separator, _ = match.partition(":")
+                if not separator or not line_number.isdigit():
+                    continue
+                location = self.tool_location(result_path, line=int(line_number) - 1)
+                locations.append(location)
+
+        return locations or super().locations
+
+    @property
     def projection(self):
         request = self.request
-        input = request.input
-        pattern = input.glob or input.regex
-        if input.path and pattern:
-            title = f"Search {input.path} for {self.preview(pattern, limit=80)}"
-        elif pattern:
-            title = f"Search for {self.preview(pattern, limit=80)}"
-        elif input.path:
-            title = f"List {input.path}"
-        else:
-            title = "Search files"
         return AcpToolProjection(
             content=[self.content_block(self.output)],
-            title=title,
+            locations=self.locations,
+            title=self.title,
             status=request.status,
         )
 
@@ -136,18 +155,22 @@ class Input(InputBase):
     )
 
     @property
-    def projection(self):
-        request = self.request
+    def title(self):
         pattern = self.glob or self.regex
         if self.path and pattern:
-            title = f"Search {self.path} for {self.preview(pattern, limit=80)}"
-        elif pattern:
-            title = f"Search for {self.preview(pattern, limit=80)}"
-        elif self.path:
-            title = f"List {self.path}"
-        else:
-            title = "Search files"
-        return AcpToolProjection(title=title)
+            path = f"`{self.path}`"
+            search_pattern = f"`{self.preview(pattern, limit=80)}`"
+            return f"Searching {path} for {search_pattern}"
+        if pattern:
+            return f"Searching for `{self.preview(pattern, limit=80)}`"
+        if self.path:
+            return f"Listing `{self.path}`"
+        return "Searching files"
+
+    @property
+    def projection(self):
+        locations = [self.tool_location(self.path)] if self.path else None
+        return AcpToolProjection(title=self.title, locations=locations)
 
     glob: str | None = Field(default=None, description="Glob to filter search paths/filenames.")
     regex: str | None = Field(default=None, description="Regex to search **inside** files. Leave empty to search only paths/filenames.")

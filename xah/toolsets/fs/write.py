@@ -3,9 +3,9 @@ from typing import Annotated
 from xah.class_collections import classes
 from pydantic import Field
 
-from corio import Path
+from corio import Path, strings
 from xah.class_collections import classes
-from acp.schema import FileEditToolCallContent, ToolCallLocation
+from acp.schema import FileEditToolCallContent
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import OutputString
 from xah.toolsets.base.input import Input as InputBase
@@ -19,11 +19,12 @@ class FileWriteOutput(OutputString):
     def projection(self):
         request = self.request
         input = request.input
-        path = str(input.path)
+        location = self.tool_location(input.path)
+        path = location.path
         return AcpToolProjection(
             content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=input.content)],
-            locations=[ToolCallLocation(path=path)],
-            title=request.tool_name,
+            locations=[location],
+            title=self.title,
             status=request.status,
         )
 
@@ -35,12 +36,17 @@ class Input(InputBase):
     content: str = Field(description="Complete file content to write.")
 
     @property
+    def title(self):
+        line_count = strings.suffix_plural(len(self.content.splitlines()), "line")
+        return f"Writing {line_count} to `{self.path.name}`"
+
+    @property
     def projection(self):
-        request = self.request
-        path = str(self.path)
+        location = self.tool_location(self.path)
         return AcpToolProjection(
-            content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=self.content)],
-            locations=[ToolCallLocation(path=path)],
+            content=[FileEditToolCallContent(type="diff", path=location.path, old_text="", new_text=self.content)],
+            locations=[location],
+            title=self.title,
         )
 
 class Write(Tool, Input):

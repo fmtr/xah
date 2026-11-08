@@ -95,7 +95,7 @@ async def test_management_list_result_stays_typed(tmp_path):
         status="completed",
     )
 
-    assert progress.title.startswith(f"{name} →")
+    assert progress.title.startswith("Listing toolsets →")
     assert progress.status == "completed"
 
 

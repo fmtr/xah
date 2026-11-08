@@ -6,9 +6,15 @@ from xah.toolsets.base.tool import Kinds, Tool
 
 class Input(InputBase):
     @property
+    def title(self):
+        return "Reading todos"
+
+    @property
     def projection(self):
-        request = self.request
-        return AcpToolProjection(content=[self.content_block("Read current todo list")], title="Read todos")
+        return AcpToolProjection(
+            content=[self.content_block("Read current todo list")],
+            title=self.title,
+        )
 
     pass
 

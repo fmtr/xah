@@ -1,27 +1,37 @@
 from pydantic import Field
+from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
 from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds
-from xah.toolsets.terminal.base import TerminalManagementTool, TerminalStatuses
+from xah.toolsets.terminal.base import TerminalManagementTool, TerminalOutput, TerminalStatuses
+
+
+class StatusOutput(TerminalOutput):
+    pass
 
 
 class Input(InputBase):
     terminal_id: str | None = Field(default=None, description="Identifier of the background terminal.")
 
     @property
-    def projection(self):
-        request = self.request
+    def title(self):
         if self.terminal_id is None:
-            title = "List terminal statuses"
-        else:
-            title = f"Check terminal {self.terminal_id}"
-        return AcpToolProjection(title=title)
+            return "Listing terminal statuses"
+        return f"Checking terminal **{self.terminal_id}**"
+
+    @property
+    def projection(self):
+        return AcpToolProjection(title=self.title)
 
 
 class Status(Input, TerminalManagementTool):
     """Return the status and a short output tail of a background terminal."""
+
+    @ccp
+    def Output(cls) -> type[StatusOutput]:
+        return StatusOutput
 
     KIND = Kinds.READ
 

@@ -21,9 +21,17 @@ class Input(InputBase):
     is_copy: bool = Field(default=False, description="Copy the source instead of moving it.")
 
     @property
+    def title(self):
+        action = "Copying" if self.is_copy else "Moving"
+        return f"{action} `{self.source.name}` to `{self.target.name}`"
+
+    @property
     def projection(self):
-        request = self.request
-        return AcpToolProjection(title=request.tool_name)
+        locations = [
+            self.tool_location(self.source),
+            self.tool_location(self.target),
+        ]
+        return AcpToolProjection(title=self.title, locations=locations)
 
 
 class Move(Tool, Input):

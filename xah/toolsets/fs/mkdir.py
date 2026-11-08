@@ -16,9 +16,15 @@ class Input(InputBase):
     )
 
     @property
+    def title(self):
+        return f"Creating directory `{self.path.name}`"
+
+    @property
     def projection(self):
-        request = self.request
-        return AcpToolProjection(title=request.tool_name)
+        return AcpToolProjection(
+            title=self.title,
+            locations=[self.tool_location(self.path)],
+        )
 
 
 class Mkdir(Tool, Input):

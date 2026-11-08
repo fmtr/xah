@@ -12,13 +12,16 @@ class Input(InputBase):
     todos: list[TodoItem] = Field(description="Complete replacement todo list.")
 
     @property
+    def title(self):
+        item_count = strings.suffix_plural(len(self.todos), "todo")
+        return f"Replacing todo list with {item_count}"
+
+    @property
     def projection(self):
-        request = self.request
-        count = len(self.todos)
-        items = strings.suffix_plural(count, "items")
+        item_count = strings.suffix_plural(len(self.todos), "item")
         return AcpToolProjection(
-            content=[self.content_block(f"Replace todo list with {items}")],
-            title="Update todo list",
+            content=[self.content_block(f"Replace todo list with {item_count}")],
+            title=self.title,
         )
 
 class Write(Tool, Input):

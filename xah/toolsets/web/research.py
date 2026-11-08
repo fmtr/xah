@@ -5,7 +5,7 @@ from typing import ClassVar
 from uuid import uuid4
 
 from cached_classproperty import cached_classproperty
-from corio import strings
+from corio import Constants, strings
 from corio.enums import MapEnum
 from corio.db.search.client import Client
 from pydantic import Field, field_validator
@@ -36,6 +36,26 @@ class ResearchOutput(Output):
         description="A potential definitive answer to the research query based on the search results, if one exists.",
     )
     desc: str = Field(description="Description in a short sentence of the research so far.")
+
+    @property
+    def title(self) -> str:
+        source_count = strings.suffix_plural(len(self.urls), "source")
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {source_count}"
+
+    @property
+    def projection(self):
+        content = [self.content_block(self.desc)]
+        if self.answer:
+            content.append(self.content_block(self.answer))
+        content.extend(
+            self.resource_link_content(url, name=url, title=url)
+            for url in self.urls
+        )
+        return AcpToolProjection(
+            content=content,
+            title=self.title,
+            status=self.request.status,
+        )
 
     @field_validator("urls")
     @classmethod
@@ -157,11 +177,14 @@ class Input(InputBase):
     )
 
     @property
+    def title(self):
+        return f"Research `{self.preview(self.prompt, limit=80)}`"
+
+    @property
     def projection(self):
-        request = self.request
         return AcpToolProjection(
             content=[self.content_block(f"Depth: {self.depth}\n\n{self.prompt}")],
-            title=f"Research {self.preview(self.prompt, limit=80)}",
+            title=self.title,
         )
 
 

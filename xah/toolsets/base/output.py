@@ -3,13 +3,13 @@ from __future__ import annotations
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Any, Self
 
-from acp.schema import ContentToolCallContent, TextContentBlock
+from acp.schema import ToolCallLocation, ToolCallStatus
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
-from corio import Constants, dm, jsn, strings
-from xah.toolsets.base.projection.base import InputOutputBase
+from corio import Constants, dm, strings
+from xah.toolsets.base.projection.base import InputOutputBase, ProjectionContent
 from xah.toolsets.base.projection.input import ProjectionRequestInput
 from xah.toolsets.base.projection.output import ProjectionRequestOutput
 
@@ -38,15 +38,35 @@ class Output(InputOutputBase, dm.Base):
         return self
 
     @property
-    def projection(self) -> AcpToolProjection | None:
-        request = self.request
-        content = None
-        title = request.tool_name
-        if request.serialized_output:
-            preview = self.preview(request.serialized_output, limit=120)
-            title = f"{title} {Constants.ARROW_RIGHT} {preview}"
-            content = [self.content_block(request.serialized_output)]
-        return AcpToolProjection(content=content, title=title, status=request.status)
+    def output_repr(self) -> str:
+        return self.preview(self.serialized_text, limit=100)
+
+    @property
+    def title(self) -> str:
+        output_repr = self.inline_code(self.output_repr)
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {output_repr}"
+
+    @property
+    def content(self) -> list[ProjectionContent]:
+        content = self.content_block(self.code_block(self.serialized_text, language="json"))
+        return [content]
+
+    @property
+    def locations(self) -> list[ToolCallLocation] | None:
+        return self.request.input.locations
+
+    @property
+    def status(self) -> ToolCallStatus | None:
+        return self.request.status
+
+    @property
+    def projection(self) -> AcpToolProjection:
+        return AcpToolProjection(
+            content=self.content,
+            locations=self.locations,
+            title=self.title,
+            status=self.status,
+        )
 
     @classmethod
     def from_result(cls, result: Any) -> Output:
@@ -54,22 +74,12 @@ class Output(InputOutputBase, dm.Base):
             return OutputString(output=result)
         return result
 
-    def serialize(self) -> Any:
-        return self.model_dump(mode="json")
-
-    def serialize_text(self) -> str:
-        return jsn.to_json(self.serialize())
-
     def externalize(self, tool: Tool) -> Any:
         if not tool.EXTERNALIZE_OUTPUT:
             return self.agent
 
-        if isinstance(self, OutputString):
-            suffix = "txt"
-            serialized = self.output
-        else:
-            suffix = "json"
-            serialized = self.serialize_text()
+        suffix = "txt" if isinstance(self, OutputString) else "json"
+        serialized = self.serialized_text
 
         if len(serialized) <= tool.toolset.MAX_INLINE_OUTPUT_LENGTH:
             return self.agent
@@ -93,13 +103,12 @@ class OutputString(Output):
         return self.output
 
     @property
-    def projection(self) -> AcpToolProjection:
-        request = self.request
-        return AcpToolProjection(
-            content=[self.content_block(self.output)],
-            title=request.tool_name,
-            status=request.status,
-        )
+    def serialized_text(self) -> str:
+        return self.output
+
+    @property
+    def content(self) -> list[ProjectionContent]:
+        return [self.content_block(self.output)]
 
 
 class InvalidInputOutput(Output):
@@ -111,15 +120,49 @@ class InvalidInputOutput(Output):
     )
 
     @property
-    def projection(self) -> AcpToolProjection:
-        request = self.request
-        text = f"{request.tool_name}: {request.raw_input}"
-        content = TextContentBlock(type="text", text=text)
-        return AcpToolProjection(
-            title="[INVALID CALL]",
-            content=[ContentToolCallContent(type="content", content=content)],
-        )
+    def title(self) -> str:
+        return "[INVALID CALL]"
+
+    @property
+    def content(self) -> list[ProjectionContent]:
+        text = f"{self.request.tool_name}: {self.request.raw_input}"
+        return [self.content_block(text)]
+
+    @property
+    def locations(self) -> list[ToolCallLocation] | None:
+        return None
+
+    @property
+    def status(self) -> ToolCallStatus | None:
+        return None
 
     @property
     def agent(self) -> str:
         return "[INVALID CALL]"
+
+
+class ProjectionErrorOutput(Output):
+    request: SkipJsonSchema[ProjectionRequestInput | ProjectionRequestOutput | None] = Field(
+        default=None,
+        exclude=True,
+    )
+    stack_trace: str
+
+    @property
+    def title(self) -> str:
+        return "[PROJECTION ERROR]"
+
+    @property
+    def content(self) -> list[ProjectionContent]:
+        stack_trace = self.code_block(self.stack_trace, language="pytb")
+        return [self.content_block(stack_trace)]
+
+    @property
+    def locations(self) -> list[ToolCallLocation] | None:
+        return None
+
+    @property
+    def status(self) -> ToolCallStatus | None:
+        if isinstance(self.request, ProjectionRequestOutput):
+            return self.request.status
+        return None

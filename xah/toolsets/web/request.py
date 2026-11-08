@@ -161,12 +161,14 @@ class RequestInput(Input):
     headers: dict[str, str] = Field(default_factory=dict, description="Request headers.")
 
     @property
+    def title(self):
+        return f"{self.method} `{self.preview(self.url, limit=80)}`"
+
+    @property
     def projection(self):
-        request = self.request
-        title = f"{self.method} {self.preview(self.url, limit=80)}"
         return AcpToolProjection(
             content=[self.content_block(f"{self.method} {self.url}")],
-            title=title,
+            title=self.title,
         )
 
 
@@ -176,12 +178,14 @@ class EndpointInput(Input):
     endpoint: str
 
     @property
+    def title(self):
+        return f"{self.method} `{self.preview(self.endpoint, limit=80)}`"
+
+    @property
     def projection(self):
-        request = self.request
-        title = f"{self.method} {self.preview(self.endpoint, limit=80)}"
         return AcpToolProjection(
             content=[self.content_block(f"{self.method} {self.endpoint}")],
-            title=title,
+            title=self.title,
         )
 
 

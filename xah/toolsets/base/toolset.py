@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from functools import cached_property
 from typing import Any, ClassVar, Generic, TypedDict, TypeVar
 
@@ -22,7 +23,7 @@ from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.output import InvalidInputOutput, Output
+from xah.toolsets.base.output import InvalidInputOutput, Output, ProjectionErrorOutput
 from xah.toolsets.base.input import Input
 from xah.toolsets.base.projection.input import ProjectionRequestInput
 from xah.toolsets.base.projection.output import ProjectionRequestOutput
@@ -155,9 +156,24 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         except ValidationError:
             invalid = InvalidInputOutput()
             invalid.request = request
-            return invalid.projection
+            try:
+                return invalid.projection
+            except Exception as exception:
+                return cls.projection_error(exception, request)
         input.request = request
-        return input.projection
+        try:
+            return input.projection
+        except Exception as exception:
+            return cls.projection_error(exception, request)
+
+    @staticmethod
+    def projection_error(
+        exception: Exception,
+        request: ProjectionRequestInput | ProjectionRequestOutput,
+    ):
+        logger.error(f"Tool projection failed: {exception}", _exc_info=True)
+        stack_trace = "".join(traceback.format_exception(exception))
+        return ProjectionErrorOutput(stack_trace=stack_trace, request=request).projection
 
     @classmethod
     def project_progress(
@@ -193,7 +209,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             status=status,
         )
         output.request = request
-        return output.projection
+        try:
+            return output.projection
+        except Exception as exception:
+            return cls.projection_error(exception, request)
 
     def __init__(self, activated: bool = True, **kwargs):
         del kwargs

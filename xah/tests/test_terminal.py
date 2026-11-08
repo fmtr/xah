@@ -8,10 +8,13 @@ from corio import Path
 from corio.shell.dsl import shell
 
 from xah.harness.deps import HarnessAgentDeps
+from xah.toolsets.base.projection.output import ProjectionRequestOutput
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.shell.run import Run
 from xah.toolsets.terminal.base import TerminalOutput, TerminalStatuses
+from xah.toolsets.terminal.status import Status as StatusTool
 from xah.toolsets.terminal.terminal import Terminal, TerminalStatus
+from xah.toolsets.terminal.toolset import Terminals
 
 
 class RecordingTool(Tool):
@@ -110,6 +113,37 @@ async def test_terminal_output_formats_lifecycle_for_agent(tmp_path):
 
     assert "completed" in output.agent
     assert terminal.on_status is None
+
+
+def test_terminal_output_projection_uses_absolute_location(tmp_path):
+    cwd_default = Path(tmp_path)
+    output_path = cwd_default / ".workspace" / "terminals" / "terminal.log"
+    output_path.parent.mkdir(parents=True)
+    output_path.touch()
+    terminal = Terminal(
+        id="test",
+        expression=shell.sleep("0.1"),
+        timeout=2,
+        cwd=str(cwd_default),
+        output_path=output_path,
+    )
+    request = ProjectionRequestOutput(
+        tool_cls=StatusTool,
+        toolset_cls=Terminals,
+        raw_input={},
+        cwd=cwd_default,
+        input=StatusTool.model_construct(),
+        serialized_output="",
+        status="completed",
+    )
+    output = TerminalOutput(
+        terminal=terminal,
+        cwd_default=cwd_default,
+        request=request,
+    )
+
+    assert output.path == Path(".workspace/terminals/terminal.log")
+    assert output.projection.locations[0].path == str(output_path)
 
 
 @pytest.mark.asyncio

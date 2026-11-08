@@ -1,5 +1,4 @@
-from corio.function import ccp
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from corio import strings
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
@@ -13,15 +12,26 @@ class KnowledgeCollectionsOutput(Output):
     def agent(self) -> list[dict]:
         return self.model_dump(mode="json")["collections"]
 
+    @property
+    def title(self) -> str:
+        collection_ids = strings.join_natural(
+            (collection.id for collection in self.collections),
+            mask="`{}`",
+        )
+        return f"Listed collections {collection_ids}"
+
+    @property
+    def content(self):
+        return [
+            self.content_block(f"## `{collection.id}`\n{collection.desc}")
+            for collection in self.collections
+        ]
+
 
 class Input(InputBase):
     @property
-    def projection(self):
-        request = self.request
-        return AcpToolProjection(title="List knowledge collections")
-
-    pass
-
+    def title(self):
+        return "Listing knowledge collections"
 
 class List(Tool, Input):
     """List known research collections and fixed document collections."""

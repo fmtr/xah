@@ -11,13 +11,12 @@ from corio.shell.dsl import Expression, arg, shell
 from xah.class_collections import classes
 from xah.harness.base import Harness
 from xah.options.base import Policy
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, ToolState, Validation
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
 from xah.toolsets.fs.toolset import Files as FilesBase
-from xah.toolsets.terminal.base import TerminalTool
+from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
 from xah.toolsets.terminal.toolset import Terminals
 
 
@@ -86,18 +85,32 @@ class HarnessTerminalAdversary(Harness):
         return [Files]
 
 
+class ShellOutput(TerminalOutput):
+    COMMAND_LANGUAGE = None
+
+    @property
+    def command(self) -> str:
+        return self.request.input.script
+
+
 class Input(InputBase):
     script: str = Field(description="Shell script to execute in the working directory.")
 
     @property
-    def projection(self):
-        request = self.request
-        title = f"Execute {self.preview(self.script, limit=80)}"
-        return AcpToolProjection(title=title)
+    def title(self):
+        return f"Running shell script `{self.preview(self.script, limit=80)}`"
+
+    @property
+    def content(self):
+        return [self.content_block(self.code_block(self.script))]
 
 
 class Run(TerminalTool, Input):
     """Run a shell command in the working directory."""
+
+    @ccp
+    def Output(cls) -> type[ShellOutput]:
+        return ShellOutput
 
     @classes
     def Validators(cls):

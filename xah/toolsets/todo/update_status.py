@@ -14,11 +14,14 @@ class Input(InputBase):
     status: TodoStatus = Field(description="New todo status.")
 
     @property
+    def title(self):
+        return f"Updating todo `{self.todo_id}` to `{self.status}`"
+
+    @property
     def projection(self):
-        request = self.request
         return AcpToolProjection(
             content=[self.content_block(f"Todo {self.todo_id}: {self.status}")],
-            title=f"Update todo {self.todo_id}",
+            title=self.title,
         )
 
 class UpdateStatus(Tool, Input):

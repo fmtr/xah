@@ -32,10 +32,12 @@ class Input(InputBase):
     collection_id: str = Field(description="Collection ID to search.")
 
     @property
+    def title(self):
+        return f"Searching `{self.collection_id}` for `{self.query}`"
+
+    @property
     def projection(self):
-        request = self.request
-        title = f'Searching {self.collection_id} for "{self.query}"'
-        return AcpToolProjection(title=title)
+        return AcpToolProjection(title=self.title)
 
 class Query(Tool, Input):
     """Run a text query against a knowledgebase document type."""

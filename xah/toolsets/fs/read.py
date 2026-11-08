@@ -1,6 +1,6 @@
 from typing import Annotated, ClassVar
 
-from acp.schema import FileEditToolCallContent, ToolCallLocation
+from acp.schema import FileEditToolCallContent
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
@@ -16,15 +16,26 @@ from xah.toolsets.fs.permissions import Permissions
 
 
 class FileReadOutput(OutputString):
+    @property
+    def first_line(self) -> int | None:
+        offset = self.request.input.offset
+        if offset >= 0:
+            return offset
+
+        line, separator, _ = self.output.partition(":")
+        if separator and line.isdigit():
+            return int(line) - 1
+        return None
 
     @property
     def projection(self):
         request = self.request
-        path = str(request.input.path)
+        path = request.input.path
+        location = self.tool_location(path, line=self.first_line)
         return AcpToolProjection(
-            content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=self.output)],
-            locations=[ToolCallLocation(path=path)],
-            title=request.tool_name,
+            content=[FileEditToolCallContent(type="diff", path=location.path, old_text="", new_text=self.output)],
+            locations=[location],
+            title=self.title,
             status=request.status,
         )
 
@@ -58,9 +69,20 @@ class Line(dm.Base):
 
 class Input(InputBase):
     @property
+    def title(self):
+        line_count = strings.suffix_plural(self.limit, "line")
+        return f"Reading {line_count} from `{self.path.name}`"
+
+    @property
+    def location_line(self) -> int | None:
+        return self.offset if self.offset >= 0 else None
+
+    @property
     def projection(self):
-        request = self.request
-        return AcpToolProjection(title=f"Read {self.preview(str(self.path), limit=80)}")
+        return AcpToolProjection(
+            title=self.title,
+            locations=[self.tool_location(self.path, line=self.location_line)],
+        )
 
     path: Annotated[Path, Permissions(Permissions.Read)] = Field(
         description="File path relative to the working directory.",

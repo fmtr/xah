@@ -38,6 +38,31 @@ class ExampleToolset(Toolset):
         return [ExampleTool]
 
 
+class BrokenProjectionInput(Input):
+    @property
+    def projection(self):
+        raise RuntimeError("projection failed")
+
+
+class BrokenProjectionTool(Tool, BrokenProjectionInput):
+    async def run(self):
+        return "unused"
+
+
+class BrokenProjectionOutput(Output):
+    value: str
+
+    @property
+    def projection(self):
+        raise RuntimeError("output projection failed")
+
+
+class BrokenProjectionToolset(Toolset):
+    @classes
+    def Tools(cls):
+        return [BrokenProjectionTool]
+
+
 @pytest.fixture
 def context():
     deps = SimpleNamespace()
@@ -47,6 +72,17 @@ def context():
         usage=RunUsage(),
         tool_call_id="call-1",
     )
+
+
+def test_projection_errors_return_traceback_projection():
+    tool_name = BrokenProjectionToolset.get_name(BrokenProjectionTool)
+
+    projection = BrokenProjectionToolset.project_start(tool_name, raw_input={})
+
+    assert projection.title == "[PROJECTION ERROR]"
+    traceback_content = projection.content[0].content.text
+    assert traceback_content.startswith("```pytb\n")
+    assert "RuntimeError: projection failed" in traceback_content
 
 
 @pytest.mark.asyncio
@@ -99,6 +135,24 @@ async def test_acp_progress_handles_denied_call_without_registered_output(contex
 
 
 @pytest.mark.asyncio
+async def test_progress_projection_errors_preserve_tool_status():
+    tool_name = BrokenProjectionToolset.get_name(BrokenProjectionTool)
+    output = BrokenProjectionOutput(value="result")
+
+    projection = BrokenProjectionToolset.project_progress(
+        tool_name,
+        raw_input={},
+        raw_output=output,
+        serialized_output='{"value":"result"}',
+        status="completed",
+    )
+
+    assert projection.title == "[PROJECTION ERROR]"
+    assert projection.status == "completed"
+    assert "RuntimeError: output projection failed" in projection.content[0].content.text
+
+
+@pytest.mark.asyncio
 async def test_acp_progress_uses_original_output_and_cleans_registry(context):
     toolset = ExampleToolset()
     toolset.outputs = ilist()
@@ -135,5 +189,5 @@ async def test_acp_progress_uses_original_output_and_cleans_registry(context):
 
     assert isinstance(update, ToolCallProgress)
     assert update.status == "completed"
-    assert update.title.startswith(f"{toolset.get_name(ExampleTool)} →")
+    assert update.title.startswith(f"{toolset.get_name(ExampleTool)}(`{{}}`) →")
     assert list(toolset.outputs) == []

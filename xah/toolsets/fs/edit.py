@@ -3,23 +3,26 @@ from typing import Annotated
 
 from xah.class_collections import classes
 from pydantic import Field
+from pydantic.json_schema import SkipJsonSchema
 
 from corio import Path, strings
-from acp.schema import FileEditToolCallContent, ToolCallLocation
+from acp.schema import FileEditToolCallContent
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import OutputString
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
-from corio import Constants
 
 class FileEditOutput(OutputString):
+    location_line: SkipJsonSchema[int | None] = Field(default=None, exclude=True)
+
     @property
     def projection(self):
         request = self.request
         input = request.input
-        path = str(input.path)
+        location = self.tool_location(input.path, line=self.location_line)
+        path = location.path
         return AcpToolProjection(
             content=[
                 FileEditToolCallContent(type="diff", path=path, old_text=input.old_text, new_text=input.new_text),
@@ -27,8 +30,8 @@ class FileEditOutput(OutputString):
 
 
             ],
-            locations=[ToolCallLocation(path=path)],
-            title=f'{request.tool_name} {Constants.ARROW_RIGHT} {self.preview(self.output,limit=60)}',
+            locations=[location],
+            title=self.title,
             status=request.status,
         )
 
@@ -42,12 +45,17 @@ class Input(InputBase):
     replace_all: bool = Field(default=False, description="Replace every exact occurrence.")
 
     @property
+    def title(self):
+        return f"Editing `{self.path.name}`"
+
+    @property
     def projection(self):
         request = self.request
-        path = str(self.path)
+        location = self.tool_location(self.path)
         return AcpToolProjection(
-            content=[FileEditToolCallContent(type="diff", path=path, old_text=self.old_text, new_text=self.new_text)],
-            locations=[ToolCallLocation(path=path)],
+            content=[FileEditToolCallContent(type="diff", path=location.path, old_text=self.old_text, new_text=self.new_text)],
+            locations=[location],
+            title=self.title,
         )
 
 class Edit(Tool, Input):
@@ -70,10 +78,12 @@ class Edit(Tool, Input):
 
     async def run(self) -> FileEditOutput:
         occurrences = self.current.count(self.old_text)
+        location_line = self.current[:self.current.index(self.old_text)].count("\n")
         self.path.write_text(self.updated)
         count = occurrences if self.replace_all else 1
         return FileEditOutput(
-            output=f"Edited {self.path}: replaced {strings.suffix_plural(count, 'occurrence')}"
+            output=f"Edited {self.path}: replaced {strings.suffix_plural(count, 'occurrence')}",
+            location_line=location_line,
         )
 
 

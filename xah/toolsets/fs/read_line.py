@@ -7,10 +7,26 @@ from corio import Path, strings
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.output import OutputString
 from xah.toolsets.base.tool import Kinds
 from xah.toolsets.fs.file import FileTool
 from xah.toolsets.fs.permissions import Permissions
 
+
+
+class ReadLineOutput(OutputString):
+    @property
+    def projection(self):
+        location = self.tool_location(
+            self.request.input.path,
+            line=self.request.input.line_number - 1,
+        )
+        return AcpToolProjection(
+            content=[self.content_block(self.output)],
+            locations=[location],
+            title=self.title,
+            status=self.request.status,
+        )
 
 
 class Input(InputBase):
@@ -34,9 +50,15 @@ class Input(InputBase):
     )
 
     @property
+    def title(self):
+        return f"Reading line {self.line_number} from `{self.path.name}`"
+
+    @property
     def projection(self):
-        request = self.request
-        return AcpToolProjection(title=f"Read {self.preview(str(self.path), limit=80)}")
+        return AcpToolProjection(
+            title=self.title,
+            locations=[self.tool_location(self.path, line=self.line_number - 1)],
+        )
 
     path: Annotated[Path, Permissions(Permissions.Read)] = Field(
         description="File path relative to the working directory.",
@@ -71,7 +93,7 @@ class ReadLine(FileTool, Input):
 
     EXTERNALIZE_OUTPUT: ClassVar[bool] = False
 
-    async def run(self) -> str:
+    async def run(self) -> ReadLineOutput:
         number=0
         with self.path.open(errors="replace") as file:
             for number, raw_line in enumerate(file, 1):
@@ -96,6 +118,6 @@ class ReadLine(FileTool, Input):
                 output = f"{number}:{result}"
                 if remaining > 0:
                     self.feedback(f"The line contains {remaining} characters beyond the displayed range.")
-                return output
+                return ReadLineOutput(output=output)
 
         raise ModelRetry(f"Line {self.line_number} does not exist in '{self.path}', which contains {number} lines.")

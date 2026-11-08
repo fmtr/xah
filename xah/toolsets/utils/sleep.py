@@ -1,5 +1,6 @@
 import asyncio
 
+from corio import strings
 from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
@@ -10,10 +11,13 @@ class Input(InputBase):
     seconds: float = Field(default=10, ge=0, description="Number of seconds to wait.")
 
     @property
+    def title(self):
+        duration = strings.suffix_plural(self.seconds, "second", mask_count="{:g}")
+        return f"Sleeping for {duration}"
+
+    @property
     def projection(self):
-        request = self.request
-        title = f"Sleeping for {self.seconds:g} seconds"
-        return AcpToolProjection(title=title)
+        return AcpToolProjection(title=self.title)
 
 
 class Sleep(Tool, Input):

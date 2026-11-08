@@ -6,25 +6,38 @@ from cached_classproperty import cached_classproperty
 from xah.class_collections import classes
 from pydantic import Field
 from corio.function import ccp
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
 
 from corio.shell.dsl import arg, shell
-from xah.toolsets.terminal.base import TerminalTool
+from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
+
+
+class RunCodeOutput(TerminalOutput):
+    COMMAND_LANGUAGE = "python"
+
+    @property
+    def command(self) -> str:
+        return self.request.input.code
 
 
 class Input(InputBase):
     code: str = Field(description="Short Python source fragment to execute directly.")
 
     @property
-    def projection(self):
-        request = self.request
-        title = f"Run Python code: {self.preview(self.code, limit=80)}"
-        return AcpToolProjection(title=title)
+    def title(self):
+        return f"Running Python code `{self.preview(self.code, limit=80)}`"
+
+    @property
+    def content(self):
+        return [self.content_block(self.code_block(self.code, language="python"))]
 
 
 class RunCode(TerminalTool, Input):
     """Run a short Python source fragment directly, like `python -c`."""
+
+    @ccp
+    def Output(cls) -> type[RunCodeOutput]:
+        return RunCodeOutput
 
     @classes
     def Validators(cls):

@@ -2,11 +2,16 @@ from functools import cached_property
 from typing import Literal
 
 from pydantic import Field
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
+from corio import strings
+from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
 
 from corio.shell.dsl import Expression, arg, shell
-from xah.toolsets.terminal.base import TerminalTool
+from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
+
+
+class TestOutput(TerminalOutput):
+    pass
 
 
 class Input(InputBase):
@@ -14,15 +19,24 @@ class Input(InputBase):
     verbosity: Literal["normal", "verbose", "quiet"] = Field(default="normal", description="Test output level.")
 
     @property
-    def projection(self):
-        request = self.request
-        count = len(self.tests)
-        title = "Run test suite" if not count else f"Run {count} tests"
-        return AcpToolProjection(title=title)
+    def title(self):
+        if not self.tests:
+            return "Running Python test suite"
+        test_count = strings.suffix_plural(len(self.tests), "Python test")
+        return f"Running {test_count}"
+
+    @property
+    def content(self):
+        command = strings.join(("pytest", *self.tests))
+        return [self.content_block(self.code_block(command, language="bash"))]
 
 
 class Test(TerminalTool, Input):
     """Run the current repository's test suite."""
+
+    @ccp
+    def Output(cls) -> type[TestOutput]:
+        return TestOutput
 
     @cached_property
     def expression(self) -> Expression:

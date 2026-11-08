@@ -3,25 +3,39 @@ from functools import cached_property
 from cached_classproperty import cached_classproperty
 from xah.class_collections import classes
 from pydantic import Field
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from corio import strings
+from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
 from corio.shell.dsl import shell
-from xah.toolsets.terminal.base import TerminalTool
+from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
+
+
+class PythonRunOutput(TerminalOutput):
+    pass
 
 
 class Input(InputBase):
     args: list[str] = Field(description="Arguments to pass to Python as plain tokens.")
 
     @property
-    def projection(self):
-        request = self.request
-        title = f"Run Python {strings.join(self.args, sep=' ')}"
-        return AcpToolProjection(title=title)
+    def title(self):
+        if not self.args:
+            return "Running Python"
+        args = strings.join(self.args, sep=" ")
+        return f"Running Python `{args}`"
+
+    @property
+    def content(self):
+        command = strings.join(("python", *self.args))
+        return [self.content_block(self.code_block(command, language="bash"))]
 
 
 class Run(TerminalTool, Input):
     """Run Python in the current project, with script paths relative to the working directory."""
+
+    @ccp
+    def Output(cls) -> type[PythonRunOutput]:
+        return PythonRunOutput
 
     @classes
     def Validators(cls):
