@@ -58,9 +58,9 @@ def test_default_structured_output_projects_json():
 
     result = output.projection
 
-    assert result.title == 'Example(`{}`) → `{"value":"result"}`'
-    assert result.content[0].content.text.startswith("```json\n")
-    assert '"value": "result"' in result.content[0].content.text
+    assert result.title.startswith("Example(`{}`) → `{")
+    assert '"value": "result"' in result.title
+    assert result.content[0].content.text == f"```json\n{output.serialized_text}\n```"
 
 
 def test_string_outputs_project_their_content():

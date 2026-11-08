@@ -32,16 +32,16 @@ def test_list_and_load_construct_per_call_models(tmp_path):
     )
 
     listed = asyncio.run(List(ctx=ctx, toolset=toolset).run())
-    assert "python/style" in listed
-    assert "Summaries only" not in listed
+    assert "python/style" in listed.agent
+    assert "Summaries only" not in listed.agent
     content = ctx.pending_messages[0].messages[0].parts[0].content
     assert content.startswith(HARNESS_FEEDBACK)
     assert "Summaries only" in content
     assert "Use Python style." in asyncio.run(Load(ctx=ctx, toolset=toolset, skill_ids=["python/style"]).run())
     assert toolset.history == {"python/style"}
     remaining = asyncio.run(List(ctx=ctx, toolset=toolset).run())
-    assert "Python tests." in remaining
-    assert "Python style." not in remaining
+    assert "Python tests." in remaining.agent
+    assert "Python style." not in remaining.agent
 
     asyncio.run(Load(ctx=ctx, toolset=toolset, skill_ids=["python/tests"]).run())
     with pytest.raises(ModelRetry, match="already been read"):
