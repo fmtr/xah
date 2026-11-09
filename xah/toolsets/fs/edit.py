@@ -66,7 +66,7 @@ class Input(InputBase):
 class Edit(Tool, Input):
     """Edit a file by exact string replacement."""
 
-    KIND = Kinds.EDIT
+    KIND = Kinds.MOVE
 
     @classes
     def Validators(cls):

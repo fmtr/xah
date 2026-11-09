@@ -27,7 +27,7 @@ class Input(InputBase):
 class UpdateStatus(Tool, Input):
     """Update one todo's status."""
 
-    KIND = Kinds.EDIT
+    KIND = Kinds.THINK
 
     @classes
     def Validators(cls):

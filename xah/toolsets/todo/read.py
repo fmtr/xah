@@ -16,7 +16,6 @@ class Input(InputBase):
             title=self.title,
         )
 
-    pass
 
 
 class Read(Tool, Input):
