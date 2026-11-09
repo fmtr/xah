@@ -60,7 +60,7 @@ class Input(InputBase):
 class Write(Tool, Input):
     """Write text to a file."""
 
-    KIND = Kinds.EDIT
+    KIND = Kinds.MOVE
 
     @classes
     def Validators(cls):

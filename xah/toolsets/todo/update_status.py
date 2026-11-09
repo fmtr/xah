@@ -1,4 +1,4 @@
-from cached_classproperty import cached_classproperty
+from corio.function import ccp
 from xah.class_collections import classes
 from pydantic import Field
 from pydantic_ai import ModelRetry
@@ -6,7 +6,7 @@ from pydantic_ai import ModelRetry
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.todo.constants import TodoStatus
-from xah.toolsets.todo.output import UpdatedTodoOutput
+from xah.toolsets.todo.item import TodoItem
 
 
 class Input(InputBase):
@@ -30,17 +30,18 @@ class UpdateStatus(Tool, Input):
     def Validators(cls):
         return [ExistingTodo]
 
-    async def run(self) -> UpdatedTodoOutput:
-        todo = self.toolset.items.id[self.todo_id]
-        todo.status = self.status
-        self.toolset.feedback_state(self)
-        return UpdatedTodoOutput(
-            items=[todo],
-            message=todo.updated_status_text,
-        )
+    @ccp
+    def Output(cls) -> type[TodoItem]:
+        return TodoItem
+
+    async def run(self) -> TodoItem:
+        todo = self.toolset.list.items.id[self.todo_id]
+        todo.todo_status = self.status
+        self.toolset.list.feedback_state(self)
+        return todo
 
 
 class ExistingTodo(UpdateStatus):
     async def validate(self):
-        if self.todo_id not in self.toolset.items.id:
+        if self.todo_id not in self.toolset.list.items.id:
             raise ModelRetry(f"Todo with ID '{self.todo_id}' not found")

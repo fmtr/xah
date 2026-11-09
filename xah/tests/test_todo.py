@@ -21,10 +21,12 @@ def context():
 def test_read_returns_structured_items_and_flattens_for_agent():
     ctx = context()
     toolset = ctx.deps.toolsets.cls[Todo]
-    toolset.items.append(TodoItem(id="abc123", content="one"))
+    toolset.list.items.append(TodoItem(id="abc123", content="one"))
+    assert len(TodoItem(content="one").id) == 4
 
     output = asyncio.run(Read(ctx=ctx, toolset=toolset).run())
 
+    assert output is toolset.list
     assert "1. [ ] [abc123] one" in output.agent
     assert len(output.content) == 2
     assert output.content[0].content.text == "[ ] [abc123] one"
@@ -39,7 +41,8 @@ def test_write_uses_model_todos_and_returns_structured_output():
 
     output = asyncio.run(tool.run())
 
-    assert output.agent.startswith("Updated 1 todo:")
+    assert output is ctx.deps.toolsets.cls[Todo].list
+    assert output.agent.startswith("Current todos:")
     assert len(output.content) == 2
     assert output.content[0].content.text.endswith("one")
 
@@ -47,7 +50,7 @@ def test_write_uses_model_todos_and_returns_structured_output():
 def test_update_output_title_uses_todo_status_and_projects_item():
     ctx = context()
     toolset = ctx.deps.toolsets.cls[Todo]
-    toolset.items.append(TodoItem(id="abc123", content="one"))
+    toolset.list.items.append(TodoItem(id="abc123", content="one"))
     tool = UpdateStatus(
         ctx=ctx,
         toolset=toolset,
@@ -57,6 +60,7 @@ def test_update_output_title_uses_todo_status_and_projects_item():
 
     output = asyncio.run(tool.run())
 
+    assert output is toolset.list.items.id["abc123"]
     assert output.title == "Updated todo `abc123` to `completed`"
     assert output.agent.startswith("Updated todo 'one' status to 'completed'")
     assert output.content[0].content.text == "[x] [abc123] one"

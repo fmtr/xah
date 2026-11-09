@@ -148,11 +148,11 @@ def test_harness_tools_have_semantic_kinds():
     expected_kinds = {
         "Files-Read": "read",
         "Files-ReadLine": "read",
-        "Files-Write": "edit",
-        "Files-Edit": "edit",
+        "Files-Write": "move",
+        "Files-Edit": "move",
         "Files-Move": "move",
         "Files-Search": "search",
-        "Files-Mkdir": "edit",
+        "Files-Mkdir": "move",
         "Files-Remove": "delete",
         "Terminals-Status": "read",
         "Terminals-Kill": "other",
@@ -162,9 +162,9 @@ def test_harness_tools_have_semantic_kinds():
         "Python-Test": "other",
         "Skills-List": "read",
         "Skills-Load": "read",
-        "Todo-Read": "read",
-        "Todo-Write": "edit",
-        "Todo-UpdateStatus": "edit",
+        "Todo-Read": "think",
+        "Todo-Write": "think",
+        "Todo-UpdateStatus": "think",
         "Utils-Sleep": "other",
         "Context-Compact": "think",
         "Management-List": "read",
@@ -265,7 +265,7 @@ def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
     assert Files in maps
     assert "deps" not in harness_instance.__dict__
     assert harness_instance.adapter_config.projection_maps == maps
-    assert harness_instance.adapter_config.tool_classifier.classify("Files-Write") == "edit"
+    assert harness_instance.adapter_config.tool_classifier.classify("Files-Write") == "move"
 
     projection_map = compose_projection_maps(maps)
     write_projection = projection_map.project_start(

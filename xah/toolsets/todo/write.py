@@ -1,11 +1,12 @@
 from pydantic import Field
 
 from corio import strings
+from corio.function import ccp
 from corio.iterator import ilist
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.todo.item import TodoItem
-from xah.toolsets.todo.output import TodoOutput
+from xah.toolsets.todo.list import TodoList
 
 
 class Input(InputBase):
@@ -24,15 +25,13 @@ class Input(InputBase):
 class Write(Tool, Input):
     """Replace the full todo list, including initial status metadata."""
 
-    KIND = Kinds.MOVE
+    KIND = Kinds.THINK
 
-    async def run(self) -> TodoOutput:
-        self.toolset.items = ilist(self.todos)
-        self.toolset.feedback_state(self)
+    @ccp
+    def Output(cls) -> type[TodoList]:
+        return TodoList
 
-        todos = strings.suffix_plural(len(self.todos), "todo")
-        return TodoOutput(
-            items=list(self.toolset.items),
-            message=f"Updated {todos}:",
-            summary=self.toolset.summary,
-        )
+    async def run(self) -> TodoList:
+        self.toolset.list.items = ilist(self.todos)
+        self.toolset.list.feedback_state(self)
+        return self.toolset.list

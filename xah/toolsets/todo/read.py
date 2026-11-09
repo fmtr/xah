@@ -1,6 +1,8 @@
+from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
-from xah.toolsets.todo.output import TodoOutput
+
+from xah.toolsets.todo.list import TodoList
 
 
 class Input(InputBase):
@@ -13,15 +15,15 @@ class Input(InputBase):
         return [self.content_block("Read current todo list")]
 
 
-
 class Read(Tool, Input):
     """Read the current todo list and task IDs."""
 
-    KIND = Kinds.READ
+    KIND = Kinds.THINK
 
-    async def run(self) -> TodoOutput:
-        self.toolset.feedback_state(self)
-        items = list(self.toolset.items)
-        message = "Current todos:" if items else "No todos in the list."
-        summary = self.toolset.summary if items else ""
-        return TodoOutput(items=items, message=message, summary=summary)
+    @ccp
+    def Output(cls) -> type[TodoList]:
+        return TodoList
+
+    async def run(self) -> TodoList:
+        self.toolset.list.feedback_state(self)
+        return self.toolset.list
