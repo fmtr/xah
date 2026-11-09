@@ -19,7 +19,6 @@ from xah.toolsets.kb.query import Query
 from xah.toolsets.kb.history import ResearchHistory
 from xah.toolsets.kb.toolset import Knowledgebase
 
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds
@@ -43,7 +42,7 @@ class ResearchOutput(Output):
         return f"{self.request.input.title} {Constants.ARROW_RIGHT} {self.inline_code(str(self.status))} {Constants.ARROW_RIGHT} {source_count}"
 
     @property
-    def projection(self):
+    def content(self):
         content = [self.content_block(self.desc)]
         if self.answer:
             content.append(self.content_block(self.answer))
@@ -51,11 +50,7 @@ class ResearchOutput(Output):
             self.resource_link_content(url, name=url, title=url)
             for url in self.urls
         )
-        return AcpToolProjection(
-            content=content,
-            title=self.title,
-            status=self.request.status,
-        )
+        return content
 
     @field_validator("urls")
     @classmethod
@@ -181,12 +176,9 @@ class Input(InputBase):
         return f"Research **{self.depth.name}** `{self.preview(self.prompt, limit=20)}`"
 
     @property
-    def projection(self):
+    def content(self):
         text = strings.trim(f"Depth: {self.depth}", self.prompt)
-        return AcpToolProjection(
-            content=[self.content_block(text)],
-            title=self.title,
-        )
+        return [self.content_block(text)]
 
 
 class Research(WebTool, Input):

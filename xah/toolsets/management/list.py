@@ -1,6 +1,5 @@
 from corio import strings
 from corio.function import ccp
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool, ToolState
@@ -14,9 +13,6 @@ class Input(InputBase):
     def title(self):
         return "Listing toolsets"
 
-    @property
-    def projection(self):
-        return AcpToolProjection(title=self.title)
 
 
 class ListOutput(Output):

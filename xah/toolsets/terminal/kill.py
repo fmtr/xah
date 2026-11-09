@@ -1,6 +1,5 @@
 from pydantic import Field
 from corio.function import ccp
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.terminal.base import TerminalManagementTool, TerminalOutput
 
@@ -16,9 +15,6 @@ class Input(InputBase):
     def title(self):
         return f"Stopping terminal `{self.terminal_id}`"
 
-    @property
-    def projection(self):
-        return AcpToolProjection(title=self.title)
 
 
 class Kill(Input, TerminalManagementTool):

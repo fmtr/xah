@@ -2,7 +2,6 @@ from pydantic import Field
 
 from xah.class_collections import classes
 from corio import strings
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
@@ -41,9 +40,6 @@ class Input(InputBase):
         chunk_count = strings.suffix_plural(len(self.chunks), "chunk")
         return f"Getting {chunk_count} from knowledge `{self.collection_id}` for `{self.document_id}`"
 
-    @property
-    def projection(self):
-        return AcpToolProjection(title=self.title)
 
 class Get(Tool, Input):
     """Used to page through documents of interest found by search."""

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from http import HTTPStatus
 from email.message import Message
 from enum import StrEnum, auto
 from typing import Annotated
@@ -9,7 +10,6 @@ import httpx
 from pydantic import Field
 
 from corio import Constants, dm, https
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds
@@ -61,7 +61,8 @@ class Response(Output):
 
     @property
     def title(self) -> str:
-        return f"{self.request.input.title} {Constants.ARROW_RIGHT} `{self.status_code}`"
+        phrase = HTTPStatus(self.status_code).phrase
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {phrase}"
 
 
 class Input(InputBase):
@@ -169,11 +170,8 @@ class RequestInput(Input):
         return f"{self.request.tool_name} **{self.method}** `{self.preview(self.url, limit=80)}`"
 
     @property
-    def projection(self):
-        return AcpToolProjection(
-            content=[self.content_block(f"{self.method} {self.url}")],
-            title=self.title,
-        )
+    def content(self):
+        return [self.content_block(f"{self.method} {self.url}")]
 
 
 class EndpointInput(Input):
@@ -186,11 +184,8 @@ class EndpointInput(Input):
         return f"{self.request.tool_name} **{self.method}** `{self.preview(self.endpoint, limit=80)}`"
 
     @property
-    def projection(self):
-        return AcpToolProjection(
-            content=[self.content_block(f"{self.method} {self.endpoint}")],
-            title=self.title,
-        )
+    def content(self):
+        return [self.content_block(f"{self.method} {self.endpoint}")]
 
 
 

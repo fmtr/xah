@@ -1,12 +1,12 @@
 from cached_classproperty import cached_classproperty
 from xah.class_collections import classes
 from pydantic import Field
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
 
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.todo.constants import TodoStatus
+from xah.toolsets.todo.output import UpdatedTodoOutput
 
 
 class Input(InputBase):
@@ -18,11 +18,8 @@ class Input(InputBase):
         return f"Updating todo `{self.todo_id}` to `{self.status}`"
 
     @property
-    def projection(self):
-        return AcpToolProjection(
-            content=[self.content_block(f"Todo {self.todo_id}: {self.status}")],
-            title=self.title,
-        )
+    def content(self):
+        return [self.content_block(f"Todo {self.todo_id}: {self.status}")]
 
 class UpdateStatus(Tool, Input):
     """Update one todo's status."""
@@ -33,11 +30,14 @@ class UpdateStatus(Tool, Input):
     def Validators(cls):
         return [ExistingTodo]
 
-    async def run(self) -> str:
+    async def run(self) -> UpdatedTodoOutput:
         todo = self.toolset.items.id[self.todo_id]
         todo.status = self.status
         self.toolset.feedback_state(self)
-        return todo.updated_status_text
+        return UpdatedTodoOutput(
+            items=[todo],
+            message=todo.updated_status_text,
+        )
 
 
 class ExistingTodo(UpdateStatus):

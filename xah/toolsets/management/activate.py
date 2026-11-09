@@ -4,7 +4,6 @@ from corio.function import cp
 from corio.iterator import IterDiffer, ilist
 from xah.class_collections import classes
 from xah.options.base import Policy
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.base.toolset import Toolset
@@ -17,14 +16,13 @@ class Input(InputBase):
     @property
     def title(self):
         ids = strings.join_natural(self.ids, mask="`{}`")
-        return f"Activating {ids}"
+        toolset = "toolset" if len(self.ids) == 1 else "toolsets"
+        return f"Activating {ids} {toolset}"
 
     @property
-    def projection(self):
-        return AcpToolProjection(
-            content=[self.content_block(f"Reason: {self.reason}")],
-            title=self.title,
-        )
+    def content(self):
+        ids = strings.join_natural(self.ids, mask="`{}`")
+        return [self.content_block(f"Toolsets: {ids}\nReason: {self.reason}")]
 
 
 class Activate(Tool, Input):

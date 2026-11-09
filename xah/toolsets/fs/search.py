@@ -4,10 +4,9 @@ from typing import Annotated
 
 from cached_classproperty import cached_classproperty
 from pydantic import Field
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
 
-from corio import Path, dm, strings
+from corio import Constants, Path, dm, strings
 from corio.function import ccp
 from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
@@ -47,6 +46,11 @@ class SearchFilesOutput(SearchOutput):
     files: list[SearchFile]
 
     @property
+    def title(self) -> str:
+        count = strings.suffix_plural(len(self.files), "result")
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {count}"
+
+    @property
     def agent(self) -> str:
         if not self.files:
             return f"No files found in {self.path}"
@@ -61,6 +65,12 @@ class SearchContentOutput(SearchOutput):
     root: Path
     pattern: str
     groups: list[SearchMatchGroup]
+
+    @property
+    def title(self) -> str:
+        match_count = sum(len(group.matches) for group in self.groups)
+        count = strings.suffix_plural(match_count, "result")
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {count}"
 
     @property
     def agent(self) -> str:
@@ -221,9 +231,8 @@ class Input(InputBase):
         return "Searching files"
 
     @property
-    def projection(self):
-        locations = [self.tool_location(self.path)] if self.path else None
-        return AcpToolProjection(title=self.title, locations=locations)
+    def locations(self):
+        return [self.tool_location(self.path)] if self.path else None
 
 
 class Search(Tool, Input):

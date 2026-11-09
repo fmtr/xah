@@ -2,10 +2,10 @@ from pydantic import Field
 
 from corio import strings
 from corio.iterator import ilist
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.todo.item import TodoItem
+from xah.toolsets.todo.output import TodoOutput
 
 
 class Input(InputBase):
@@ -17,26 +17,22 @@ class Input(InputBase):
         return f"Replacing todo list with {item_count}"
 
     @property
-    def projection(self):
+    def content(self):
         item_count = strings.suffix_plural(len(self.todos), "item")
-        return AcpToolProjection(
-            content=[self.content_block(f"Replace todo list with {item_count}")],
-            title=self.title,
-        )
+        return [self.content_block(f"Replace todo list with {item_count}")]
 
 class Write(Tool, Input):
     """Replace the full todo list, including initial status metadata."""
 
-    KIND = Kinds.EDIT
+    KIND = Kinds.MOVE
 
-    async def run(self) -> str:
+    async def run(self) -> TodoOutput:
         self.toolset.items = ilist(self.todos)
         self.toolset.feedback_state(self)
 
-        todos=strings.suffix_plural(len(self.todos), 'todo')
-        msg=strings.trim(f"""
-            Updated {todos}:
-
-            {self.toolset.summary}
-        """)
-        return msg
+        todos = strings.suffix_plural(len(self.todos), "todo")
+        return TodoOutput(
+            items=list(self.toolset.items),
+            message=f"Updated {todos}:",
+            summary=self.toolset.summary,
+        )

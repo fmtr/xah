@@ -1,5 +1,4 @@
 from pydantic import Field
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 
@@ -11,9 +10,6 @@ class Input(InputBase):
             return f"Compacting conversation around `{self.preview(self.focus, limit=20)}`"
         return "Compacting conversation"
 
-    @property
-    def projection(self):
-        return AcpToolProjection(title=self.title)
 
     focus: str | None = Field(default=None, description="Optional topic to prioritize in the summary.")
 

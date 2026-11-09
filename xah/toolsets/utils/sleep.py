@@ -2,7 +2,6 @@ import asyncio
 
 import humanize
 from pydantic import Field
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 
@@ -15,9 +14,6 @@ class Input(InputBase):
         duration = humanize.precisedelta(self.seconds, format="%0.1f")
         return f"Sleeping for {duration}"
 
-    @property
-    def projection(self):
-        return AcpToolProjection(title=self.title)
 
 
 class Sleep(Tool, Input):

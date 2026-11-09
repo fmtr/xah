@@ -4,7 +4,6 @@ from qdrant_client.http import models
 from corio import strings
 from corio.db.search.document import Document
 from xah.class_collections import classes
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
@@ -43,9 +42,6 @@ class Input(InputBase):
         query = self.preview(self.query, limit=20)
         return f"Searching knowledge `{self.collection_id}` for `{query}`"
 
-    @property
-    def projection(self):
-        return AcpToolProjection(title=self.title)
 
 class Query(Tool, Input):
     """Run a text query against a knowledgebase document type."""

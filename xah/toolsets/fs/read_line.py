@@ -4,7 +4,6 @@ from pydantic import Field
 from pydantic_ai import ModelRetry
 
 from corio import Path, strings
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.output import Output
@@ -60,11 +59,8 @@ class Input(InputBase):
         return f"Reading line {self.line_number} from `{self.path.name}`"
 
     @property
-    def projection(self):
-        return AcpToolProjection(
-            title=self.title,
-            locations=[self.tool_location(self.path, line=self.line_number - 1)],
-        )
+    def locations(self):
+        return [self.tool_location(self.path, line=self.line_number - 1)]
 
 
 class ReadLine(FileTool, Input):

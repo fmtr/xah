@@ -10,7 +10,7 @@ from pydantic_ai import RunContext
 from pydantic_ai.messages import InstructionPart
 from xah.constants import TODO_STATE_END, TODO_STATE_START
 from xah.toolsets.base.toolset import Toolset
-from xah.toolsets.todo.constants import COMPLETED, TODO_STATUSES
+from xah.toolsets.todo.constants import TodoStatus
 from xah.toolsets.todo.item import TodoItem
 
 TODO_SYSTEM_PROMPT = strings.trim("""
@@ -48,22 +48,16 @@ class Todo(Toolset):
     @property
     def summary(self) -> str:
         counts = Counter(todo.status for todo in self.items)
-        summary = strings.join((f"{counts[status]} {status}" for status in TODO_STATUSES), sep=", ")
+        summary = strings.join((f"{counts[status]} {status}" for status in TodoStatus), sep=", ")
         text = f"Summary: {summary}"
 
         return text
 
     @property
     def all_completed(self) -> bool:
-        return bool(self.items) and all(todo.status == COMPLETED for todo in self.items)
-
-    @property
-    def text(self) -> str:
-        if not self.items:
-            return "No todos in the list."
-
-        body = strings.join((f"{index}. {todo.text}" for index, todo in enumerate(self.items, 1)), sep="\n")
-        return strings.trim("Current todos:", body, self.summary)
+        return bool(self.items) and all(
+            todo.status == TodoStatus.COMPLETED for todo in self.items
+        )
 
     async def get_instructions(self, ctx: RunContext[Any]) -> list[InstructionPart]:
         del ctx

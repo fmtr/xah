@@ -4,7 +4,6 @@ from pydantic import Field
 
 from corio import strings
 
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds
@@ -19,7 +18,7 @@ class FetchOutput(Output):
         return self.model_dump(mode="json")["results"]
 
     @property
-    def projection(self):
+    def content(self):
         content = []
         for result in self.results:
             title = result.title or result.url
@@ -37,11 +36,7 @@ class FetchOutput(Output):
 
             content.append(self.content_block(f"Could not fetch {result.url}: {result.error}"))
 
-        return AcpToolProjection(
-            content=content,
-            title=self.title,
-            status=self.request.status,
-        )
+        return content
 
 
 class Input(InputBase):
@@ -54,11 +49,8 @@ class Input(InputBase):
         return f"Fetching {len(self.urls)} URLs"
 
     @property
-    def projection(self):
-        return AcpToolProjection(
-            content=[self.content_block(strings.join(self.urls, sep="\n"))],
-            title=self.title,
-        )
+    def content(self):
+        return [self.content_block(strings.join(self.urls, sep="\n"))]
 
 
 class Fetch(WebTool, Input):

@@ -10,6 +10,7 @@ from xah.toolsets.fs.mkdir import Mkdir
 from xah.toolsets.fs.read import FileReadOutput, Read, ReadLineData
 from xah.toolsets.fs.read_line import ReadLine, ReadLineOutput
 from xah.toolsets.fs.search import Search, SearchContentOutput, SearchFilesOutput, SearchMatch, SearchMatchGroup
+from xah.toolsets.management.activate import Activate
 from xah.toolsets.skills.load import Load
 from xah.toolsets.web.fetch import Fetch, FetchOutput
 from xah.toolsets.web.request import EndpointInput, Method, Request, Response
@@ -41,6 +42,17 @@ def test_default_input_title_uses_tool_name_and_input_repr():
 
     assert input_model.title == "Example(`{}`)"
     assert input_model.projection.title == input_model.title
+
+
+def test_activate_title_and_content_identify_selected_toolsets():
+    input_model = Activate.input.model_validate(
+        {"ids": ["Files", "Python"], "reason": "Run and inspect code."}
+    )
+
+    assert input_model.title == "Activating `Files` and `Python` toolsets"
+    assert input_model.content[0].content.text == (
+        "Toolsets: `Files` and `Python`\nReason: Run and inspect code."
+    )
 
 
 def test_default_structured_output_projects_json():
@@ -186,6 +198,7 @@ def test_file_search_output_projects_match_line_locations():
     locations = output.projection.locations
 
     assert output.agent == "file.py\n12:class A\n-\nother.py\n4:class B"
+    assert output.title == "Searching `src` for `class` → 2 results"
     assert output.projection.content[0].content.text == output.agent
     assert [(location.path, location.line) for location in locations] == [
         ("/tmp/src/file.py", 11),
@@ -200,6 +213,7 @@ def test_empty_file_search_outputs_keep_friendly_messages():
     output.request = request
 
     assert output.agent == "No matches for 'missing'"
+    assert output.title == "Searching for `missing` → 0 results"
     assert output.projection.content[0].content.text == output.agent
 
     listing = SearchFilesOutput(path=Path("/tmp"), root=Path("/tmp"), files=[])
@@ -254,13 +268,17 @@ def test_web_request_titles_identify_tool_method_and_endpoint():
     assert endpoint_input.title == "Web-Child-API **POST** `/api`"
 
 
-def test_request_response_title_shows_http_status_code():
+def test_request_response_title_uses_http_status_phrase():
     input_model = Request.input.model_validate({"url": "https://example.com"})
     request = projection_request(input_model, "Web-Request")
-    output = Response(status_code=200, headers={}, body={"ok": True})
-    output.request = request
 
-    assert output.title == "Web-Request **GET** `https://example.com` → `200`"
+    for status_code, phrase in ((200, "OK"), (404, "Not Found")):
+        output = Response(status_code=status_code, headers={}, body={})
+        output.request = request
+        assert output.title == (
+            f"Web-Request **GET** `https://example.com` → "
+            f"{phrase}"
+        )
 
 
 def test_web_fetch_output_projects_markdown_and_resource_link():

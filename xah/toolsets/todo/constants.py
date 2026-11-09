@@ -1,8 +1,8 @@
-from typing import Literal, TypeAlias
+from corio.enums import MapEnum
 
-PENDING = "pending"
-IN_PROGRESS = "in_progress"
-COMPLETED = "completed"
-BLOCKED = "blocked"
-TODO_STATUSES = (PENDING, IN_PROGRESS, COMPLETED, BLOCKED)
-TodoStatus: TypeAlias = Literal["pending", "in_progress", "completed", "blocked"]
+
+class TodoStatus(MapEnum):
+    PENDING = "pending", "The todo has not been started.", "[ ]"
+    IN_PROGRESS = "in_progress", "The todo is currently being worked on.", "[*]"
+    COMPLETED = "completed", "The todo is finished.", "[x]"
+    BLOCKED = "blocked", "The todo is blocked.", "[!]"

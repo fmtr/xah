@@ -4,8 +4,11 @@ from pydantic_ai import RunContext
 from pydantic_ai.usage import RunUsage
 from corio.iterator import ilist
 from xah.toolsets.base.tool import Messages, Validation
+from xah.toolsets.todo.constants import TodoStatus
 from xah.toolsets.todo.item import TodoItem
+from xah.toolsets.todo.read import Read
 from xah.toolsets.todo.toolset import Todo
+from xah.toolsets.todo.update_status import UpdateStatus
 from xah.toolsets.todo.write import Write
 
 
@@ -15,10 +18,45 @@ def context():
     return RunContext(deps=deps, model=None, usage=RunUsage())
 
 
-def test_write_uses_model_todos_and_updates_toolset():
+def test_read_returns_structured_items_and_flattens_for_agent():
+    ctx = context()
+    toolset = ctx.deps.toolsets.cls[Todo]
+    toolset.items.append(TodoItem(id="abc123", content="one"))
+
+    output = asyncio.run(Read(ctx=ctx, toolset=toolset).run())
+
+    assert "1. [ ] [abc123] one" in output.agent
+    assert len(output.content) == 2
+    assert output.content[0].content.text == "[ ] [abc123] one"
+
+
+def test_write_uses_model_todos_and_returns_structured_output():
     ctx = context()
     tool = Write(ctx=ctx, toolset=ctx.deps.toolsets.cls[Todo], todos=[TodoItem(content="one")])
     tool.validation = Validation()
     asyncio.run(tool.validate())
     assert tool.validation.messages == Messages()
-    assert asyncio.run(tool.run()).startswith("Updated 1 todo")
+
+    output = asyncio.run(tool.run())
+
+    assert output.agent.startswith("Updated 1 todo:")
+    assert len(output.content) == 2
+    assert output.content[0].content.text.endswith("one")
+
+
+def test_update_output_title_uses_todo_status_and_projects_item():
+    ctx = context()
+    toolset = ctx.deps.toolsets.cls[Todo]
+    toolset.items.append(TodoItem(id="abc123", content="one"))
+    tool = UpdateStatus(
+        ctx=ctx,
+        toolset=toolset,
+        todo_id="abc123",
+        status=TodoStatus.COMPLETED,
+    )
+
+    output = asyncio.run(tool.run())
+
+    assert output.title == "Updated todo `abc123` to `completed`"
+    assert output.agent.startswith("Updated todo 'one' status to 'completed'")
+    assert output.content[0].content.text == "[x] [abc123] one"

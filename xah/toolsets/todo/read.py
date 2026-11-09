@@ -1,7 +1,6 @@
-from corio.function import ccp
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
+from xah.toolsets.todo.output import TodoOutput
 
 
 class Input(InputBase):
@@ -10,11 +9,8 @@ class Input(InputBase):
         return "Reading todos"
 
     @property
-    def projection(self):
-        return AcpToolProjection(
-            content=[self.content_block("Read current todo list")],
-            title=self.title,
-        )
+    def content(self):
+        return [self.content_block("Read current todo list")]
 
 
 
@@ -23,6 +19,9 @@ class Read(Tool, Input):
 
     KIND = Kinds.READ
 
-    async def run(self) -> str:
+    async def run(self) -> TodoOutput:
         self.toolset.feedback_state(self)
-        return self.toolset.text
+        items = list(self.toolset.items)
+        message = "Current todos:" if items else "No todos in the list."
+        summary = self.toolset.summary if items else ""
+        return TodoOutput(items=items, message=message, summary=summary)

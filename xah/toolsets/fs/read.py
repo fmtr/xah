@@ -2,7 +2,6 @@ from typing import Annotated, ClassVar
 
 from acp.schema import FileEditToolCallContent
 from pydantic import Field
-from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
 
 from corio import Constants, Path, dm, strings
@@ -97,11 +96,8 @@ class Input(InputBase):
         return self.offset if self.offset >= 0 else None
 
     @property
-    def projection(self):
-        return AcpToolProjection(
-            title=self.title,
-            locations=[self.tool_location(self.path, line=self.location_line)],
-        )
+    def locations(self):
+        return [self.tool_location(self.path, line=self.location_line)]
 
     path: Annotated[Path, Permissions(Permissions.Read)] = Field(
         description="File path relative to the working directory.",
