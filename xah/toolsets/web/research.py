@@ -40,7 +40,7 @@ class ResearchOutput(Output):
     @property
     def title(self) -> str:
         source_count = strings.suffix_plural(len(self.urls), "source")
-        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {source_count}"
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {self.inline_code(str(self.status))} {Constants.ARROW_RIGHT} {source_count}"
 
     @property
     def projection(self):
@@ -178,7 +178,7 @@ class Input(InputBase):
 
     @property
     def title(self):
-        return f"Research `{self.preview(self.prompt, limit=80)}`"
+        return f"Research **{self.depth.name}** `{self.preview(self.prompt, limit=20)}`"
 
     @property
     def projection(self):
@@ -197,7 +197,7 @@ class Research(WebTool, Input):
     FETCH_TIMEOUT: ClassVar[int] = 60
 
     def model_post_init(self, __context) -> None:
-        if self.id is None:
+        if self.id is None and self.depth in {Depth.THOROUGH, Depth.INTENSIVE}:
             self.id = get_hash_readable(str(uuid4()), length=4)
 
     @cached_property
@@ -221,6 +221,8 @@ class Research(WebTool, Input):
 
     @cp
     def history_entry(self):
+        if self.depth in {Depth.QUICK, Depth.STANDARD}:
+            return None
         return self.knowledgebase.history.id.get(self.id)
 
     @cp
@@ -268,20 +270,11 @@ class Research(WebTool, Input):
             self.agent_request,
             deps=self.harness.deps,
         )
-        if self.history_entry is None:
-            history_entry = ResearchHistory.Prompts(
-                id=self.id,
-                desc=result.output.desc,
-                prompts=[self.prompt],
-            )
-            self.knowledgebase.history.append(history_entry)
-        else:
-            self.history_entry.prompts.append(self.prompt)
-            self.history_entry.desc = result.output.desc
-        urls = result.output.urls
         if self.depth in {Depth.QUICK, Depth.STANDARD}:
             return result.output
 
+        history_entry = self.history_entry
+        urls = result.output.urls
         fetch_results = [result async for result in super().fetch(urls)]
         documents = [
             WebPage(
@@ -301,6 +294,17 @@ class Research(WebTool, Input):
             data=documents,
             client=self.client,
         )
+
+        if history_entry is None:
+            history_entry = ResearchHistory.Prompts(
+                id=self.id,
+                desc=result.output.desc,
+                prompts=[self.prompt],
+            )
+            self.knowledgebase.history.append(history_entry)
+        else:
+            history_entry.prompts.append(self.prompt)
+            history_entry.desc = result.output.desc
 
         feedback = f"""
             The research tool has provided a provisional answer, based on summaries only.

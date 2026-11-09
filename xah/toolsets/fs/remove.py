@@ -6,8 +6,22 @@ from corio import Path
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.output import Output
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
+
+
+class RemoveOutput(Output):
+    path: Path
+    item_type: str
+
+    @property
+    def agent(self) -> str:
+        return f"{self.item_type} '{self.path}' successfully deleted."
+
+    @property
+    def content(self):
+        return [self.content_block(self.agent)]
 
 
 class Input(InputBase):
@@ -32,11 +46,11 @@ class Remove(Tool, Input):
 
     KIND = Kinds.DELETE
 
-    async def run(self) -> str:
+    async def run(self) -> RemoveOutput:
         item_type = "Directory" if self.path.is_dir() else "File"
         if self.path.exists():
             if self.path.is_dir():
                 self.path.rmtree()
             else:
                 self.path.unlink()
-        return f"{item_type} '{self.path}' successfully deleted."
+        return RemoveOutput(path=self.path, item_type=item_type)

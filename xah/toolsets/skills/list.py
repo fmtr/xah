@@ -30,14 +30,6 @@ class SkillsOutput(Output):
         return strings.trim(*(skill.text_description for skill in self.skills))
 
     @property
-    def title(self) -> str:
-        skill_ids = strings.join_natural(
-            (skill.id for skill in self.skills),
-            mask="`{}`",
-        )
-        return f"Listed skills {skill_ids}"
-
-    @property
     def content(self):
         return [self.content_block(skill.text_description) for skill in self.skills]
 

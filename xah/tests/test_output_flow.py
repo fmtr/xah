@@ -162,11 +162,12 @@ async def test_progress_projection_errors_preserve_tool_status():
     assert "RuntimeError: output projection failed" in error_content
 
 
-def test_progress_input_validation_errors_return_contextual_projection():
+def test_invalid_input_projection_is_not_replaced_by_progress_validation():
     tool_name = Files.get_name(Write)
     raw_args = {"path": "broken.py"}
 
-    projection = Files.project_progress(
+    start = Files.project_start(tool_name, raw_input=raw_args)
+    progress = Files.project_progress(
         tool_name,
         raw_input=raw_args,
         raw_output=ExampleOutput(value="unused"),
@@ -174,12 +175,35 @@ def test_progress_input_validation_errors_return_contextual_projection():
         status="failed",
     )
 
-    assert projection.title == f"{tool_name} [PROJECTION ERROR]"
-    assert projection.status == "failed"
-    error_content = projection.content[0].content.text
-    assert f"tool_name: {tool_name}" in error_content
-    assert f"raw_args: {raw_args!r}" in error_content
-    assert "Field required" in error_content
+    assert start.title == f"{tool_name} [INVALID CALL]"
+    assert progress is None
+
+    toolset = Files()
+    toolset.outputs = ilist()
+    classifier = SimpleNamespace(classify=lambda name, raw_input=None: "edit")
+    start_update = build_tool_start_update(
+        ToolCallPart(tool_name=tool_name, args=raw_args, tool_call_id="invalid-call"),
+        classifier=classifier,
+        cwd=None,
+        projection_map=toolset,
+    )
+    progress_update = build_tool_progress_update(
+        ToolReturnPart(
+            tool_name=tool_name,
+            content="Input validation failed.",
+            tool_call_id="invalid-call",
+            outcome="success",
+        ),
+        classifier=classifier,
+        cwd=None,
+        known_start=start_update,
+        projection_map=toolset,
+        serializer=DefaultOutputSerializer(),
+        toolsets=SimpleNamespace(for_tool=lambda name: toolset),
+    )
+
+    assert progress_update.title == start_update.title
+    assert progress_update.content == start_update.content
 
 
 @pytest.mark.asyncio

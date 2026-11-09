@@ -11,6 +11,7 @@ from corio.function import ccp, cp
 from corio.hash import get_hash_readable
 from corio.shell.dsl import Expression
 
+from xah.class_collections import classes
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.projection.base import ProjectionContent
 from xah.toolsets.base.input import Input as InputBase
@@ -46,7 +47,7 @@ class TerminalOutput(Output):
     @property
     def summary(self) -> str:
         terminal = self.terminal
-        command = strings.truncate_mid(str(terminal.expression), length=60)
+        command = strings.truncate_mid(str(terminal.expression), length=20)
         runtime = humanize.precisedelta(terminal.runtime, format="%0.1f")
         output_idle = humanize.precisedelta(terminal.output_idle, format="%0.1f")
         return strings.Mask(self.SUMMARY_MASK).format(
@@ -85,7 +86,7 @@ class TerminalOutput(Output):
 
     @property
     def title(self) -> str:
-        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {self.terminal.status}"
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} `{self.terminal.status}`"
 
     @property
     def locations(self) -> list[ToolCallLocation]:
@@ -96,15 +97,17 @@ class TerminalOutput(Output):
         output_path = str(self.terminal.output_path)
         command = self.code_block(self.command, language=self.COMMAND_LANGUAGE)
         return [
-            TerminalToolCallContent(type="terminal", terminal_id=self.terminal.id),
+            #TerminalToolCallContent(type="terminal", terminal_id=self.terminal.id), # Unsupported in zed, and breaks other content.
+            self.content_block(self.summary),
+            self.content_block(command),
             FileEditToolCallContent(
                 type="diff",
                 path=output_path,
                 old_text="",
                 new_text=self.tail,
             ),
-            self.content_block(self.summary),
-            self.content_block(command),
+
+
         ]
 
 
@@ -223,3 +226,20 @@ class TerminalManagementTool(TerminalToolBase, ManagementInput):
     EVENT: ClassVar[str]
     terminal_id: str = Field(description="Identifier of the background terminal.")
 
+    @classes
+    def Validators(cls):
+        return [ExistingTerminal]
+
+
+class ExistingTerminal(TerminalManagementTool):
+    terminal_id: str | None
+
+    async def validate(self):
+        if self.terminal_id is None:
+            return
+
+        if self.terminal_id not in self.terminals.id:
+            self.validation.messages.errors.append(
+                f"Terminal with ID '{self.terminal_id}' not found"
+            )
+            self.validation.abort = True

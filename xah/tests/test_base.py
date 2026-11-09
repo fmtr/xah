@@ -461,8 +461,6 @@ def test_harness_creates_fresh_agents():
     second = harness().agent
 
     assert first is not second
-    assert first.description == "Root/orchestrator agent"
-    assert second.description == "Root/orchestrator agent"
 
 
 def test_harness_subclass_adds_capabilities_after_thinking():

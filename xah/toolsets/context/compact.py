@@ -8,7 +8,7 @@ class Input(InputBase):
     @property
     def title(self):
         if self.focus:
-            return f"Compacting conversation around `{self.preview(self.focus, limit=80)}`"
+            return f"Compacting conversation around `{self.preview(self.focus, limit=20)}`"
         return "Compacting conversation"
 
     @property

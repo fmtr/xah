@@ -1,32 +1,41 @@
 from typing import Annotated
 
-from xah.class_collections import classes
 from pydantic import Field
 
 from corio import Path, strings
 from xah.class_collections import classes
 from acp.schema import FileEditToolCallContent
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.output import OutputString
+from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
 
-class FileWriteOutput(OutputString):
+class FileWriteOutput(Output):
+    path: Path
+    text: str
+
     @property
-    def projection(self):
-        request = self.request
-        input = request.input
-        location = self.tool_location(input.path)
-        path = location.path
-        return AcpToolProjection(
-            content=[FileEditToolCallContent(type="diff", path=path, old_text="", new_text=input.text)],
-            locations=[location],
-            title=self.title,
-            status=request.status,
-        )
+    def agent(self) -> str:
+        line_count = len(self.text.splitlines())
+        return f"Wrote {line_count} lines to {self.path}"
+
+    @property
+    def content(self):
+        return [
+            FileEditToolCallContent(
+                type="diff",
+                path=self.locations[0].path,
+                old_text="",
+                new_text=self.text,
+            ),
+        ]
+
+    @property
+    def locations(self):
+        return [self.tool_location(self.path)]
 
 
 class Input(InputBase):
@@ -61,9 +70,7 @@ class Write(Tool, Input):
     async def run(self) -> FileWriteOutput:
         self.path.parent.mkdirf()
         self.path.write_text(self.text)
-        return FileWriteOutput(
-            output=f"Wrote {len(self.text.splitlines())} lines to {self.path}"
-        )
+        return FileWriteOutput(path=self.path, text=self.text)
 
 
 class WriteWarnings(SimilarityValidator, Write):

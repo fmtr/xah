@@ -1,5 +1,4 @@
 from pydantic import Field
-from pydantic_ai import ToolFailed, ModelRetry
 from qdrant_client.http import models
 
 from corio import strings
@@ -17,8 +16,16 @@ class DocumentHitsOutput(Output):
     hits: list[Document]
 
     @property
-    def agent(self) -> list[dict]:
+    def agent(self) -> list[dict] | str:
+        if not self.hits:
+            return "The query returned no results."
         return self.model_dump(mode="json")["hits"]
+
+    @property
+    def content(self):
+        if not self.hits:
+            return [self.content_block(self.agent)]
+        return super().content
 
 
 class Input(InputBase):
@@ -33,7 +40,8 @@ class Input(InputBase):
 
     @property
     def title(self):
-        return f"Searching `{self.collection_id}` for `{self.query}`"
+        query = self.preview(self.query, limit=20)
+        return f"Searching knowledge `{self.collection_id}` for `{query}`"
 
     @property
     def projection(self):
@@ -70,11 +78,11 @@ class Query(Tool, Input):
         )
 
         if not results.hits:
-            raise ModelRetry("The query returned no results.")
+            return DocumentHitsOutput(hits=[])
 
         from xah.toolsets.kb.get import Get
         msg=strings.trim(f"""
-            These are excepts matching your query only.
+            These are excerpts matching your query only.
             Use the {self.toolset.get_name(Get)} tool to page through documents of interest.
         """)
         self.feedback(msg)

@@ -30,5 +30,8 @@ def test_file_listing_respects_glob(tmp_path):
     Path(tmp_path / "two.txt").write_text("two")
     ctx = context(tmp_path)
     result = asyncio.run(Search(ctx=ctx, toolset=ctx.deps.toolsets.cls[Files], glob="*.py").run())
-    assert "one.py" in result.output
-    assert "two.txt" not in result
+    assert "one.py" in result.agent
+    assert "two.txt" not in result.agent
+    assert len(result.files) == 1
+    assert result.files[0].path == Path("one.py")
+    assert result.files[0].size == 3

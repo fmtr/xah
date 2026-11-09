@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 import httpx
 from pydantic import Field
 
-from corio import dm, https
+from corio import Constants, dm, https
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
@@ -58,6 +58,10 @@ class Response(Output):
     status_code: int = Field(description="The HTTP response status code.")
     headers: dict[str, str] = Field(description="The HTTP response headers.")
     body: JsonValue = Field(description="The response body as text or JSON data.")
+
+    @property
+    def title(self) -> str:
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} `{self.status_code}`"
 
 
 class Input(InputBase):
@@ -162,7 +166,7 @@ class RequestInput(Input):
 
     @property
     def title(self):
-        return f"{self.method} `{self.preview(self.url, limit=80)}`"
+        return f"{self.request.tool_name} **{self.method}** `{self.preview(self.url, limit=80)}`"
 
     @property
     def projection(self):
@@ -179,7 +183,7 @@ class EndpointInput(Input):
 
     @property
     def title(self):
-        return f"{self.method} `{self.preview(self.endpoint, limit=80)}`"
+        return f"{self.request.tool_name} **{self.method}** `{self.preview(self.endpoint, limit=80)}`"
 
     @property
     def projection(self):

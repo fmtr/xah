@@ -14,7 +14,7 @@ def test_read_supports_negative_offsets(tmp_path):
 
     result = asyncio.run(make(Read, ctx, path="lines.txt", offset=-2, limit=2).run())
 
-    assert result.output == "3:three\n4:four"
+    assert result.agent == "3:three\n4:four"
 
 
 def test_read_line_pages_long_lines(tmp_path, monkeypatch):
@@ -35,5 +35,5 @@ def test_read_line_pages_long_lines(tmp_path, monkeypatch):
 
     result = asyncio.run(tool.run())
 
-    assert result.output == "1:abcdefghij"
+    assert result.agent == "1:abcdefghij"
     assert feedback == ["The line contains 14380 characters beyond the displayed range."]

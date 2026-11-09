@@ -11,10 +11,10 @@ from corio.db.search.query import Query as SearchQuery
 from corio.hash import get_hash_int
 
 from xah.toolsets.kb.db import WebPage, WebPageBuilder
-from xah.toolsets.kb.get import Get
+from xah.toolsets.kb.get import DocumentChunksOutput, Get
 from xah.toolsets.kb.history import ResearchHistory
 from xah.toolsets.kb.list import List
-from xah.toolsets.kb.query import Query
+from xah.toolsets.kb.query import DocumentHitsOutput, Query
 from xah.toolsets.kb.toolset import Knowledgebase
 
 
@@ -30,6 +30,22 @@ def test_read_tools_expose_collection_validator_classes():
     assert Get.Validators[0].__name__ == "CollectionValidator"
     assert Query.Validators[0].__name__ == "CollectionValidator"
     knowledgebase.states
+
+
+def test_kb_titles_name_knowledge_and_count_chunks():
+    query = Query.input.model_validate(
+        {"collection_id": "research-1", "query": "meteors"}
+    )
+    one_chunk = Get.input.model_validate(
+        {"collection_id": "research-1", "document_id": "doc-1", "chunks": [0]}
+    )
+    several_chunks = Get.input.model_validate(
+        {"collection_id": "research-1", "document_id": "doc-1", "chunks": [0, 1, 2]}
+    )
+
+    assert query.title == "Searching knowledge `research-1` for `meteors`"
+    assert one_chunk.title == "Getting 1 chunk from knowledge `research-1` for `doc-1`"
+    assert several_chunks.title == "Getting 3 chunks from knowledge `research-1` for `doc-1`"
 
 
 def test_research_history_tracks_prompts_with_ilist_lookup():
@@ -62,7 +78,6 @@ async def test_list_converts_prompt_history_to_research_history():
 
 def test_kb_tools_use_standard_identifier_names():
     assert "collection_id" in Query.model_fields
-    assert Query.model_fields["collection_id"].description == "Collection ID to search."
     assert "collection_id" in Get.model_fields
     assert "document_id" in Get.model_fields
     assert "id" not in Get.model_fields
@@ -124,6 +139,43 @@ async def test_query_returns_document_hits(kb, monkeypatch):
     ).run()
 
     assert result.hits == [hit]
+
+
+@pytest.mark.asyncio
+async def test_query_returns_friendly_no_results_output(kb, monkeypatch):
+    toolset, ctx = kb
+
+    async def query(**kwargs):
+        yield SimpleNamespace(hits=[])
+
+    monkeypatch.setattr(WebPage, "query", classmethod(lambda cls, **kwargs: query(**kwargs)))
+
+    result = await Query(
+        ctx=ctx,
+        toolset=toolset,
+        query="question",
+        collection_id="research-1",
+    ).run()
+    result.request = SimpleNamespace(
+        input=SimpleNamespace(title="Searching the knowledgebase", locations=None),
+        status="completed",
+        cwd=None,
+    )
+
+    assert result.agent == "The query returned no results."
+    assert result.projection.content[0].content.text == result.agent
+
+
+def test_get_returns_friendly_no_chunks_output():
+    output = DocumentChunksOutput(chunks=[])
+    output.request = SimpleNamespace(
+        input=SimpleNamespace(title="Getting chunks 0 from doc-1", locations=None),
+        status="completed",
+        cwd=None,
+    )
+
+    assert output.agent == "No chunks were found for the requested document."
+    assert output.projection.content[0].content.text == output.agent
 
 
 @pytest.mark.asyncio

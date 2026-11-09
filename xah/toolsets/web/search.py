@@ -31,7 +31,7 @@ class Input(InputBase):
 
     @property
     def title(self):
-        return f"Searching the web for `{self.preview(self.query, limit=80)}`"
+        return f"Searching the web for `{self.preview(self.query, limit=20)}`"
 
     @property
     def projection(self):

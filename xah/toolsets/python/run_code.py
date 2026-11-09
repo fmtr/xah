@@ -25,7 +25,7 @@ class Input(InputBase):
 
     @property
     def title(self):
-        return f"Running Python code `{self.preview(self.code, limit=80)}`"
+        return f"Running Python code `{self.preview(self.code, limit=20)}`"
 
     @property
     def content(self):

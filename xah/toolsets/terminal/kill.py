@@ -14,7 +14,7 @@ class Input(InputBase):
 
     @property
     def title(self):
-        return f"Stopping terminal **{self.terminal_id}**"
+        return f"Stopping terminal `{self.terminal_id}`"
 
     @property
     def projection(self):

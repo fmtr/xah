@@ -6,11 +6,13 @@ from xah.toolsets.base.input import Input
 from xah.toolsets.base.output import Output, OutputString
 from xah.toolsets.base.projection.base import InputOutputBase
 from xah.toolsets.fs.edit import Edit, FileEditOutput
-from xah.toolsets.fs.read import FileReadOutput, Read
+from xah.toolsets.fs.mkdir import Mkdir
+from xah.toolsets.fs.read import FileReadOutput, Read, ReadLineData
 from xah.toolsets.fs.read_line import ReadLine, ReadLineOutput
-from xah.toolsets.fs.search import Search, SearchOutput
+from xah.toolsets.fs.search import Search, SearchContentOutput, SearchFilesOutput, SearchMatch, SearchMatchGroup
 from xah.toolsets.skills.load import Load
 from xah.toolsets.web.fetch import Fetch, FetchOutput
+from xah.toolsets.web.request import EndpointInput, Method, Request, Response
 from xah.toolsets.web.search import Search as WebSearch
 from xah.toolsets.web.research import Depth, Input as ResearchInput, ResearchOutput
 from xah.toolsets.web.base import FetchResult
@@ -58,8 +60,7 @@ def test_default_structured_output_projects_json():
 
     result = output.projection
 
-    assert result.title.startswith("Example(`{}`) → `{")
-    assert '"value": "result"' in result.title
+    assert result.title == "Example(`{}`) → `completed`"
     assert result.content[0].content.text == f"```json\n{output.serialized_text}\n```"
 
 
@@ -79,11 +80,20 @@ def test_file_edit_output_projects_absolute_diff_and_location():
         {"path": "file.txt", "old_text": "old", "new_text": "new"}
     )
     request = projection_request(input_model, "Files-Edit", cwd="/tmp")
-    output = FileEditOutput(output="Edited file.txt", location_line=2)
+    output = FileEditOutput(
+        path=Path("file.txt"),
+        old_text="old",
+        new_text="new",
+        occurrence_count=1,
+        location_line=2,
+    )
     output.request = request
 
     result = output.projection
 
+    assert result.title == output.title
+    assert result.content == output.content
+    assert result.status == output.status
     assert result.content[0].type == "diff"
     assert result.content[0].old_text == "old"
     assert result.content[0].new_text == "new"
@@ -96,7 +106,11 @@ def test_file_edit_output_projects_absolute_diff_and_location():
 def test_file_read_output_projects_diff_and_zero_based_line_location():
     input_model = Read.input.model_validate({"path": "file.txt", "offset": 4})
     request = projection_request(input_model, "Files-Read", cwd="/tmp")
-    output = FileReadOutput(output="5:content")
+    output = FileReadOutput(
+        path=Path("file.txt"),
+        lines=[ReadLineData(number=5, text="content")],
+        number_width=1,
+    )
     output.request = request
 
     result = output.projection
@@ -106,7 +120,19 @@ def test_file_read_output_projects_diff_and_zero_based_line_location():
     assert result.content[0].new_text == "5:content"
     assert result.locations[0].path == "/tmp/file.txt"
     assert result.locations[0].line == 4
-    assert result.title.startswith("Reading 50 lines from `file.txt`")
+    assert result.title == "Reading 50 lines from `file.txt` → `5:content` → `completed`"
+
+
+def test_empty_file_read_output_projects_without_a_line_location():
+    input_model = Read.input.model_validate({"path": "empty.txt", "offset": -1})
+    request = projection_request(input_model, "Files-Read", cwd="/tmp")
+    output = FileReadOutput(path=Path("empty.txt"), lines=[], number_width=1)
+    output.request = request
+
+    result = output.projection
+
+    assert result.locations[0].path == "/tmp/empty.txt"
+    assert result.locations[0].line is None
 
 
 def test_file_read_line_projects_file_path_and_line_location():
@@ -115,7 +141,7 @@ def test_file_read_line_projects_file_path_and_line_location():
     )
     request = projection_request(input_model, "Files-Read-Line", cwd="/tmp")
     input_projection = input_model.projection
-    output = ReadLineOutput(output="8:long line")
+    output = ReadLineOutput(line_number=8, text="long line")
     output.request = request
     output_projection = output.projection
 
@@ -123,6 +149,12 @@ def test_file_read_line_projects_file_path_and_line_location():
     assert input_projection.locations[0].path == "/tmp/long.py"
     assert input_projection.locations[0].line == 7
     assert output_projection.locations[0].line == 7
+
+
+def test_mkdir_title_marks_directory_as_code():
+    input_model = Mkdir.input.model_validate({"path": "nested"})
+
+    assert input_model.title == "Creating directory `nested`"
 
 
 def test_file_search_title_code_formats_glob_and_path():
@@ -135,15 +167,46 @@ def test_file_search_title_code_formats_glob_and_path():
 def test_file_search_output_projects_match_line_locations():
     input_model = Search.input.model_validate({"path": "src", "regex": "class"})
     request = projection_request(input_model, "Files-Search", cwd="/tmp")
-    output = SearchOutput(output="file.py\n12:class A\n-\nother.py\n4:class B")
+    output = SearchContentOutput(
+        root=Path("/tmp/src"),
+        pattern="class",
+        groups=[
+            SearchMatchGroup(
+                path=Path("file.py"),
+                matches=[SearchMatch(line_number=12, line_text="class A")],
+            ),
+            SearchMatchGroup(
+                path=Path("other.py"),
+                matches=[SearchMatch(line_number=4, line_text="class B")],
+            ),
+        ],
+    )
     output.request = request
 
     locations = output.projection.locations
 
+    assert output.agent == "file.py\n12:class A\n-\nother.py\n4:class B"
+    assert output.projection.content[0].content.text == output.agent
     assert [(location.path, location.line) for location in locations] == [
         ("/tmp/src/file.py", 11),
         ("/tmp/src/other.py", 3),
     ]
+
+
+def test_empty_file_search_outputs_keep_friendly_messages():
+    input_model = Search.input.model_validate({"regex": "missing"})
+    request = projection_request(input_model, "Files-Search")
+    output = SearchContentOutput(root=Path("/tmp"), pattern="missing", groups=[])
+    output.request = request
+
+    assert output.agent == "No matches for 'missing'"
+    assert output.projection.content[0].content.text == output.agent
+
+    listing = SearchFilesOutput(path=Path("/tmp"), root=Path("/tmp"), files=[])
+    listing.request = request
+
+    assert listing.agent == "No files found in /tmp"
+    assert listing.projection.content[0].content.text == listing.agent
 
 
 def test_skills_load_input_titles_skill_ids():
@@ -169,6 +232,35 @@ def test_web_fetch_input_projects_urls():
 
     assert result.title == "Fetching `https://example.com`"
     assert result.content[0].content.text == "https://example.com"
+
+
+def test_web_fetch_title_counts_multiple_urls():
+    input_model = Fetch.input.model_validate(
+        {"urls": ["https://one.example", "https://two.example"]}
+    )
+
+    assert input_model.title == "Fetching 2 URLs"
+
+
+def test_web_request_titles_identify_tool_method_and_endpoint():
+    input_model = Request.input.model_validate(
+        {"url": "https://example.com/api", "method": Method.GET}
+    )
+    input_model.request = SimpleNamespace(tool_name="Web-Request", raw_input={}, cwd=None)
+    endpoint_input = EndpointInput(endpoint="/api", method=Method.POST)
+    endpoint_input.request = SimpleNamespace(tool_name="Web-Child-API", raw_input={}, cwd=None)
+
+    assert input_model.title == "Web-Request **GET** `https://example.com/api`"
+    assert endpoint_input.title == "Web-Child-API **POST** `/api`"
+
+
+def test_request_response_title_shows_http_status_code():
+    input_model = Request.input.model_validate({"url": "https://example.com"})
+    request = projection_request(input_model, "Web-Request")
+    output = Response(status_code=200, headers={}, body={"ok": True})
+    output.request = request
+
+    assert output.title == "Web-Request **GET** `https://example.com` → `200`"
 
 
 def test_web_fetch_output_projects_markdown_and_resource_link():
@@ -205,6 +297,7 @@ def test_research_output_projects_answer_and_source_links():
 
     result = output.projection
 
+    assert result.title == "Research **QUICK** `research question` → `completed` → 1 source"
     assert result.content[0].content.text == "Research summary."
     assert result.content[1].content.text == "A concise answer."
     assert result.content[2].content.type == "resource_link"
@@ -221,7 +314,7 @@ def test_terminal_tools_select_specific_output_subclasses():
     assert Status.Output is StatusOutput
 
 
-def test_terminal_output_projects_terminal_summary_command_and_log(tmp_path):
+def test_terminal_output_projects_terminal_summary_and_status_title(tmp_path):
     output_path = Path(tmp_path) / "terminal.log"
     output_path.write_text("printed")
     terminal = Terminal(
@@ -241,13 +334,21 @@ def test_terminal_output_projects_terminal_summary_command_and_log(tmp_path):
     result = output.projection
 
     assert RunCode.Output is RunCodeOutput
-    assert result.content[0].type == "terminal"
-    assert result.content[0].terminal_id == "abcd"
-    assert result.content[1].type == "diff"
-    assert result.content[1].path == str(output_path)
-    assert result.content[1].new_text == "printed"
-    assert "Terminal `abcd`" in result.content[2].content.text
-    assert "```python\nprint('ok')\n```" == result.content[3].content.text
-    assert "## Tail" not in result.content[2].content.text
+    assert len(result.content) == 3
+    assert result.content[0].type == "content"
+    assert "Terminal `abcd`" in result.content[0].content.text
+    assert result.content[1].content.text == "```python\nprint('ok')\n```"
+    assert result.content[2].type == "diff"
+    assert result.content[2].path == str(output_path)
+    assert result.content[2].new_text == "printed"
     assert "## Tail" in output.agent
     assert result.locations[0].path == str(output_path)
+    assert result.title == "Running Python code `print('ok')` → `completed`"
+
+    status_input = Status.input.model_validate({"terminal_id": "abcd"})
+    status_request = projection_request(status_input, "Terminals-Status")
+    status_output = StatusOutput(terminal=terminal, cwd_default=Path(tmp_path))
+    status_output.request = status_request
+
+    assert status_output.title.startswith("Checking terminal `abcd` → `completed` `")
+    assert status_output.preview(status_output.command, limit=20) in status_output.title

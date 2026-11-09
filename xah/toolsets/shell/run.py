@@ -98,7 +98,7 @@ class Input(InputBase):
 
     @property
     def title(self):
-        return f"Running shell script `{self.preview(self.script, limit=80)}`"
+        return f"Running shell script `{self.preview(self.script, limit=20)}`"
 
     @property
     def content(self):

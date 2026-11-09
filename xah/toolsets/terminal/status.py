@@ -1,15 +1,18 @@
 from pydantic import Field
+from corio import Constants
 from corio.function import ccp
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 
-from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds
 from xah.toolsets.terminal.base import TerminalManagementTool, TerminalOutput, TerminalStatuses
 
 
 class StatusOutput(TerminalOutput):
-    pass
+    @property
+    def title(self) -> str:
+        command = self.preview(self.command, limit=20)
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} `{self.terminal.status}` `{command}`"
 
 
 class Input(InputBase):
@@ -19,7 +22,7 @@ class Input(InputBase):
     def title(self):
         if self.terminal_id is None:
             return "Listing terminal statuses"
-        return f"Checking terminal **{self.terminal_id}**"
+        return f"Checking terminal `{self.terminal_id}`"
 
     @property
     def projection(self):
@@ -37,10 +40,6 @@ class Status(Input, TerminalManagementTool):
 
     EVENT = "finished"
 
-    @classes
-    def Validators(cls):
-        return [ExistingTerminal]
-
     async def run(self) -> str | TerminalStatuses:
         if self.terminal_id is None:
             return TerminalStatuses(
@@ -49,15 +48,3 @@ class Status(Input, TerminalManagementTool):
             )
 
         return self.output
-
-
-class ExistingTerminal(Status):
-    async def validate(self):
-        if self.terminal_id is None:
-            return
-
-        if self.terminal_id not in self.terminals.id:
-            self.validation.messages.errors.append(
-                f"Terminal with ID '{self.terminal_id}' not found"
-            )
-            self.validation.abort = True

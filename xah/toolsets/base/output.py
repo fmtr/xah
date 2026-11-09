@@ -43,8 +43,7 @@ class Output(InputOutputBase, dm.Base):
 
     @property
     def title(self) -> str:
-        output_repr = self.inline_code(self.output_repr)
-        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {output_repr}"
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {self.inline_code(str(self.status))}"
 
     @property
     def content(self) -> list[ProjectionContent]:

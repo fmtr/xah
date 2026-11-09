@@ -16,7 +16,7 @@ class Input(InputOutputBase, dm.Base):
 
     @property
     def title(self) -> str:
-        serialized = self.preview(self.serialized_text, limit=100)
+        serialized = self.preview(self.serialized_text, limit=20)
         return f"{self.request.tool_name}({self.inline_code(serialized)})"
 
     @property

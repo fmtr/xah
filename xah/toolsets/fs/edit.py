@@ -3,37 +3,43 @@ from typing import Annotated
 
 from xah.class_collections import classes
 from pydantic import Field
-from pydantic.json_schema import SkipJsonSchema
 
 from corio import Path, strings
 from acp.schema import FileEditToolCallContent
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
-from xah.toolsets.base.output import OutputString
+from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
-class FileEditOutput(OutputString):
-    location_line: SkipJsonSchema[int | None] = Field(default=None, exclude=True)
+
+class FileEditOutput(Output):
+    path: Path
+    old_text: str
+    new_text: str
+    occurrence_count: int
+    location_line: int
 
     @property
-    def projection(self):
-        request = self.request
-        input = request.input
-        location = self.tool_location(input.path, line=self.location_line)
-        path = location.path
-        return AcpToolProjection(
-            content=[
-                FileEditToolCallContent(type="diff", path=path, old_text=input.old_text, new_text=input.new_text),
-                #self.content_block(self.output)
+    def agent(self) -> str:
+        count = strings.suffix_plural(self.occurrence_count, "occurrence")
+        return f"Edited {self.path}: replaced {count}"
 
+    @property
+    def content(self):
+        return [
+            FileEditToolCallContent(
+                type="diff",
+                path=self.locations[0].path,
+                old_text=self.old_text,
+                new_text=self.new_text,
+            ),
+        ]
 
-            ],
-            locations=[location],
-            title=self.title,
-            status=request.status,
-        )
+    @property
+    def locations(self):
+        return [self.tool_location(self.path, line=self.location_line)]
 
 
 class Input(InputBase):
@@ -50,7 +56,6 @@ class Input(InputBase):
 
     @property
     def projection(self):
-        request = self.request
         location = self.tool_location(self.path)
         return AcpToolProjection(
             content=[FileEditToolCallContent(type="diff", path=location.path, old_text=self.old_text, new_text=self.new_text)],
@@ -82,7 +87,10 @@ class Edit(Tool, Input):
         self.path.write_text(self.updated)
         count = occurrences if self.replace_all else 1
         return FileEditOutput(
-            output=f"Edited {self.path}: replaced {strings.suffix_plural(count, 'occurrence')}",
+            path=self.path,
+            old_text=self.old_text,
+            new_text=self.new_text,
+            occurrence_count=count,
             location_line=location_line,
         )
 

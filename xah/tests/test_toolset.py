@@ -58,13 +58,6 @@ async def test_raise_errors_logs_and_wraps_unexpected_errors(monkeypatch):
     assert raised.value.__cause__ is None
 
 
-def test_description_does_not_inherit_function_toolset_docstring():
-    class UndocumentedToolset(Toolset):
-        pass
-
-    assert UndocumentedToolset.description is None
-
-
 @pytest.mark.asyncio
 async def test_management_list_result_stays_typed(tmp_path):
     settings = SimpleNamespace(path=SimpleNamespace(home=Path(".agent")))

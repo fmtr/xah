@@ -7,8 +7,24 @@ from corio import Path
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.output import Output
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
+
+
+class MoveOutput(Output):
+    source: Path
+    target: Path
+    is_copy: bool
+
+    @property
+    def agent(self) -> str:
+        action = "Copied" if self.is_copy else "Moved"
+        return f"{action} '{self.source}' to '{self.target}'."
+
+    @property
+    def content(self):
+        return [self.content_block(self.agent)]
 
 
 class Input(InputBase):
@@ -45,17 +61,15 @@ class Move(Tool, Input):
             self.source = self.resolve(self.source, Permissions(Permissions.Write))
         return self
 
-    async def run(self) -> str:
+    async def run(self) -> MoveOutput:
         if self.is_copy:
             operation = self.source.copy
-            action = "Copied"
         else:
             operation = self.source.move
-            action = "Moved"
 
         try:
             operation(self.target)
         except OSError as error:
             raise ModelRetry(str(error)) from error
 
-        return f"{action} '{self.source}' to '{self.target}'."
+        return MoveOutput(source=self.source, target=self.target, is_copy=self.is_copy)

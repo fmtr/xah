@@ -21,7 +21,7 @@ class Input(InputBase):
     def title(self):
         if not self.args:
             return "Running Python"
-        args = strings.join(self.args, sep=" ")
+        args = self.preview(strings.join(self.args, sep=" "), limit=20)
         return f"Running Python `{args}`"
 
     @property

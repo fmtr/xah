@@ -4,7 +4,7 @@ import weakref
 
 import pytest
 from corio import Path
-from pydantic_ai import RunContext
+from pydantic_ai import ModelRetry, RunContext
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
@@ -82,15 +82,22 @@ async def test_toolset_releases_tool_after_terminal_finishes(tmp_path, monkeypat
     assert tool_ref() is None
 
 
-def test_terminal_status_rejects_an_unknown_terminal_id(tmp_path):
+@pytest.mark.parametrize("tool_class", [Status, Kill])
+def test_terminal_management_tools_report_unknown_ids_to_the_agent(tmp_path, tool_class):
     runtime = harness(Path(tmp_path))
     toolset = runtime.deps.toolsets.all.cls[Terminals]
-    status = Status(ctx=context(runtime), toolset=toolset, terminal_id="unknown")
+    ctx = context(runtime)
+    tool_name = toolset.get_name(tool_class)
+    tools = asyncio.run(toolset.get_tools(ctx))
 
-    asyncio.run(status.validate())
-
-    assert status.validation.messages.errors == ["Terminal with ID 'unknown' not found"]
-    assert status.validation.abort
+    with pytest.raises(ModelRetry, match="Terminal with ID 'unknown' not found"):
+        asyncio.run(
+            toolset.validate(
+                ctx,
+                tools[tool_name].tool_def,
+                {"terminal_id": "unknown"},
+            )
+        )
 
 
 def test_terminal_kill_operates_on_a_background_shell_process(tmp_path):

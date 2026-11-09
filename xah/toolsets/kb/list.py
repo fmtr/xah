@@ -13,14 +13,6 @@ class KnowledgeCollectionsOutput(Output):
         return self.model_dump(mode="json")["collections"]
 
     @property
-    def title(self) -> str:
-        collection_ids = strings.join_natural(
-            (collection.id for collection in self.collections),
-            mask="`{}`",
-        )
-        return f"Listed collections {collection_ids}"
-
-    @property
     def content(self):
         return [
             self.content_block(

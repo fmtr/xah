@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from corio import Constants, strings
+from corio import strings
 
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.toolsets.base.output import Output
@@ -17,11 +17,6 @@ class FetchOutput(Output):
     @property
     def agent(self) -> list[dict]:
         return self.model_dump(mode="json")["results"]
-
-    @property
-    def title(self) -> str:
-        page_count = strings.suffix_plural(len(self.results), "page")
-        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {page_count}"
 
     @property
     def projection(self):
@@ -54,8 +49,9 @@ class Input(InputBase):
 
     @property
     def title(self):
-        urls = strings.join_natural(self.urls, mask="`{}`")
-        return f"Fetching {urls}"
+        if len(self.urls) == 1:
+            return f"Fetching `{self.urls[0]}`"
+        return f"Fetching {len(self.urls)} URLs"
 
     @property
     def projection(self):

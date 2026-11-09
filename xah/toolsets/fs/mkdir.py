@@ -6,8 +6,21 @@ from corio import Path
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.output import Output
 from xah.toolsets.base.tool import Kinds, Tool
 from xah.toolsets.fs.permissions import Permissions
+
+
+class MkdirOutput(Output):
+    path: Path
+
+    @property
+    def agent(self) -> str:
+        return f"Created directory '{self.path}'."
+
+    @property
+    def content(self):
+        return [self.content_block(self.agent)]
 
 
 class Input(InputBase):
@@ -32,6 +45,6 @@ class Mkdir(Tool, Input):
 
     KIND = Kinds.EDIT
 
-    async def run(self) -> str:
+    async def run(self) -> MkdirOutput:
         self.path.mkdirf()
-        return f"Created directory '{self.path}'."
+        return MkdirOutput(path=self.path)

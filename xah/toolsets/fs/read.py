@@ -5,39 +5,58 @@ from pydantic import Field
 from pydantic_acp.projection import ToolProjection as AcpToolProjection
 from pydantic_ai import ModelRetry
 
-from corio import Path, dm, strings
+from corio import Constants, Path, dm, strings
 from corio.function import ccp, cp
 from xah.class_collections import classes
-from xah.toolsets.base.output import OutputString
+from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds
 from xah.toolsets.fs.file import FileTool
 from xah.toolsets.fs.permissions import Permissions
 
 
-class FileReadOutput(OutputString):
+class ReadLineData(dm.Base):
+    number: int
+    text: str
+
+
+class FileReadOutput(Output):
+    path: Path
+    lines: list[ReadLineData]
+    number_width: int
+
+    @property
+    def agent(self) -> str:
+        return "\n".join(
+            f"{line.number:0{self.number_width}d}:{line.text}"
+            for line in self.lines
+        )
+
+    @property
+    def title(self) -> str:
+        preview = self.inline_code(self.preview(self.agent, limit=20))
+        return f"{self.request.input.title} {Constants.ARROW_RIGHT} {preview} {Constants.ARROW_RIGHT} {self.inline_code(str(self.status))}"
+
+    @property
+    def content(self):
+        return [
+            FileEditToolCallContent(
+                type="diff",
+                path=self.locations[0].path,
+                old_text="",
+                new_text=self.agent,
+            ),
+        ]
+
+    @property
+    def locations(self):
+        return [self.tool_location(self.path, line=self.first_line)]
+
     @property
     def first_line(self) -> int | None:
-        offset = self.request.input.offset
-        if offset >= 0:
-            return offset
-
-        line, separator, _ = self.output.partition(":")
-        if separator and line.isdigit():
-            return int(line) - 1
+        if self.lines:
+            return self.lines[0].number - 1
         return None
-
-    @property
-    def projection(self):
-        request = self.request
-        path = request.input.path
-        location = self.tool_location(path, line=self.first_line)
-        return AcpToolProjection(
-            content=[FileEditToolCallContent(type="diff", path=location.path, old_text="", new_text=self.output)],
-            locations=[location],
-            title=self.title,
-            status=request.status,
-        )
 
 
 class Line(dm.Base):
@@ -108,7 +127,7 @@ class Read(FileTool, Input):
     MAX_OUTPUT_LENGTH: ClassVar[int] = 50_000
     EXTERNALIZE_OUTPUT: ClassVar[bool] = False
 
-    async def run(self) -> str:
+    async def run(self) -> FileReadOutput:
         with self.path.open(errors="replace") as file:
             total_line_count = sum(1 for _ in file)
 
@@ -150,11 +169,6 @@ class Read(FileTool, Input):
                 output_length += len(line.text)
 
         width = len(str(total_line_count)) or 1
-        output = "\n".join(
-            f"{number:0{width}d}:{line.text}"
-            for number, line in lines.items()
-        )
-
         if truncated_lines:
             line_numbers = strings.join_natural(str(number) for number in truncated_lines)
             line_count = strings.suffix_plural(len(truncated_lines), "line")
@@ -165,12 +179,14 @@ class Read(FileTool, Input):
             line_count = strings.suffix_plural(omitted_line_count, "line")
             message = strings.Mask("Not all lines were shown because the file contains extremely long lines; {line_count} were omitted.").format(line_count=line_count)
             self.feedback(str(message))
-            return FileReadOutput(output=output)
 
         remaining = total_line_count - (start_offset + self.limit)
-        if remaining <= 0:
-            return FileReadOutput(output=output)
+        if not output_limit_reached and remaining > 0:
+            remaining_count = strings.suffix_plural(remaining, "line")
+            self.feedback(f"The file contains {remaining_count} beyond the displayed range.")
 
-        remaining_count = strings.suffix_plural(remaining, "line")
-        self.feedback(f"The file contains {remaining_count} beyond the displayed range.")
-        return FileReadOutput(output=output)
+        read_lines = [
+            ReadLineData(number=line.num, text=line.text)
+            for line in lines.values()
+        ]
+        return FileReadOutput(path=self.path, lines=read_lines, number_width=width)

@@ -15,8 +15,16 @@ class DocumentChunksOutput(Output):
     chunks: list[Document]
 
     @property
-    def agent(self) -> list[dict]:
+    def agent(self) -> list[dict] | str:
+        if not self.chunks:
+            return "No chunks were found for the requested document."
         return self.model_dump(mode="json")["chunks"]
+
+    @property
+    def content(self):
+        if not self.chunks:
+            return [self.content_block(self.agent)]
+        return super().content
 
 
 class Input(InputBase):
@@ -30,8 +38,8 @@ class Input(InputBase):
 
     @property
     def title(self):
-        chunks = strings.join_natural(str(chunk) for chunk in self.chunks)
-        return f"Getting chunks {chunks} from `{self.document_id}`"
+        chunk_count = strings.suffix_plural(len(self.chunks), "chunk")
+        return f"Getting {chunk_count} from knowledge `{self.collection_id}` for `{self.document_id}`"
 
     @property
     def projection(self):

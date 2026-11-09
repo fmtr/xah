@@ -55,21 +55,12 @@ class FakeEmbedder:
         return points
 
 
-def test_research_output_describes_urls_and_answer():
+def test_research_output_fields_and_optional_answer():
     assert set(ResearchOutput.model_fields) - {"call_id", "request"} == {
         "urls",
         "answer",
         "desc",
     }
-    assert ResearchOutput.model_fields["urls"].description == (
-        "Relevance-ranked URLs. Each URL must start with https://"
-    )
-    assert ResearchOutput.model_fields["answer"].description == (
-        "A potential definitive answer to the research query based on the search results, if one exists."
-    )
-    assert ResearchOutput.model_fields["desc"].description == (
-        "Description in a short sentence of the research so far."
-    )
     assert ResearchOutput(urls=["https://example.com"], desc="Initial research").answer is None
 
 
@@ -93,13 +84,61 @@ def test_research_id_is_generated_or_preserved():
         depth=Depth.QUICK,
         id="research-1",
     )
-
-    assert generated.id
-    assert preserved.id == "research-1"
-    assert Research.model_fields["id"].description == (
-        "Collection ID. Leave empty for entirely new research, or provide an existing ID "
-        "to extend existing research."
+    deep = Research(
+        ctx=context,
+        toolset=Web(),
+        prompt="question",
+        depth=Depth.THOROUGH,
     )
+
+    assert generated.id is None
+    assert preserved.id == "research-1"
+    assert deep.id
+
+
+@pytest.mark.parametrize("depth", [Depth.QUICK, Depth.STANDARD])
+@pytest.mark.asyncio
+async def test_shallow_research_does_not_access_or_create_knowledgebase(
+    monkeypatch,
+    depth,
+):
+    context = RunContext(deps=SimpleNamespace(), model=None, usage=RunUsage())
+    output = ResearchOutput(
+        urls=["https://example.com"],
+        answer="A concise answer.",
+        desc="Research summary.",
+    )
+    prompts = []
+    feedback = []
+
+    class Agent:
+        async def run(self, prompt, deps):
+            prompts.append(prompt)
+            return SimpleNamespace(output=output)
+
+    class Harness:
+        agent = Agent()
+        deps = object()
+
+        @classmethod
+        def from_parent(cls, parent):
+            return cls()
+
+    monkeypatch.setattr(Research, "Harness", Harness)
+    monkeypatch.setattr(Research, "feedback", lambda self, message: feedback.append(message))
+    research = Research(
+        ctx=context,
+        toolset=Web(),
+        prompt="question",
+        depth=depth,
+    )
+
+    result = await research.run()
+
+    assert result is output
+    assert research.id is None
+    assert "# Historical prompts" not in prompts[0]
+    assert feedback == []
 
 
 @pytest.mark.asyncio

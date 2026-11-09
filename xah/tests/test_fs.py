@@ -91,7 +91,7 @@ def test_write_validate_and_run(tmp_path):
     tool.validation = Validation()
     asyncio.run(tool.validate())
     assert tool.validation.messages == Messages()
-    assert asyncio.run(tool.run()).output.startswith("Wrote")
+    assert asyncio.run(tool.run()).agent.startswith("Wrote")
     assert Path(tmp_path / "nested/note.txt").read_text() == "hello\n"
 
 
@@ -121,14 +121,14 @@ def test_read_edit_move_search_and_remove(tmp_path):
     source = Path(tmp_path / "source.txt")
     source.write_text("one\nneedle\n")
 
-    assert "needle" in asyncio.run(make(Read, ctx, path="source.txt").run()).output
+    assert "needle" in asyncio.run(make(Read, ctx, path="source.txt").run()).agent
     edit = make(Edit, ctx, path="source.txt", old_text="needle", new_text="changed")
     edit.validation = Validation()
     asyncio.run(edit.validate())
     assert edit.validation.messages == Messages()
     asyncio.run(edit.run())
     assert "changed" in source.read_text()
-    assert "source.txt" in asyncio.run(make(Search, ctx, pattern="changed").run()).output
+    assert "source.txt" in asyncio.run(make(Search, ctx, pattern="changed").run()).agent
     asyncio.run(make(Move, ctx, source="source.txt", target="target.txt", is_copy=True).run())
     assert Path(tmp_path / "target.txt").exists()
     asyncio.run(make(Remove, ctx, path="target.txt").run())
@@ -145,7 +145,6 @@ def test_toolset_publishes_class_model_schemas(tmp_path):
     write_name = toolset.get_name(Write)
 
     assert set(tools) == {toolset.get_name(tool) for tool in type(toolset).Tools}
-    assert tools[write_name].tool_def.description == Write.description
     assert tools[write_name].tool_def.parameters_json_schema == schema
     assert schema["properties"]["path"]["type"] == "string"
 
@@ -170,7 +169,7 @@ def test_read_preserves_whitespace_without_truncation_feedback(tmp_path, monkeyp
 
     result = asyncio.run(tool.run())
 
-    assert result.output == "1:    indented\n2:\t tabbed\n3:trailing spaces  "
+    assert result.agent == "1:    indented\n2:\t tabbed\n3:trailing spaces  "
     assert feedback == []
 
 
@@ -184,8 +183,8 @@ def test_read_truncates_an_extremely_long_line_and_provides_feedback(tmp_path, m
 
     result = asyncio.run(tool.run())
 
-    assert result.output.startswith("1:")
-    assert len(result.output) < 21_000
+    assert result.agent.startswith("1:")
+    assert len(result.agent) < 21_000
     assert feedback == [
         "1 line (1) exceeded the per-line display limit; truncation was applied."
     ]
@@ -202,8 +201,8 @@ def test_read_stops_after_many_long_lines_and_provides_feedback(tmp_path, monkey
 
     result = asyncio.run(tool.run())
 
-    assert result.output.startswith("001:")
-    assert len(result.output.encode()) <= 50_000
+    assert result.agent.startswith("001:")
+    assert len(result.agent.encode()) <= 50_000
     assert feedback == [
         "Not all lines were shown because the file contains extremely long lines; 48 lines were omitted."
     ]

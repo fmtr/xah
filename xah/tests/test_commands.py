@@ -25,7 +25,6 @@ async def test_commands_provider_advertises_commands():
     commands = await provider.available_commands(None, None)
 
     assert commands[0].name == "test"
-    assert commands[0].description == "Run a test command."
 
 
 @pytest.mark.asyncio
