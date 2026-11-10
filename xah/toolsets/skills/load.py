@@ -1,21 +1,54 @@
-from cached_classproperty import cached_classproperty
-from xah.class_collections import classes
 from pydantic import Field
-from pydantic_ai import ModelRetry
 
 from corio import strings
+from corio.function import cp
 from corio.iterator import IterDiffer
+from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.output import Output
+from xah.toolsets.base.projection.base import ProjectionContent
 from xah.toolsets.base.tool import Kinds, Tool
 
 
 class Input(InputBase):
     skill_ids: list[str] = Field(description="Full list of relevant skill IDs to load in one call.")
 
-    @property
-    def title(self):
+    @cp
+    def title(self) -> str:
         skill_ids = strings.join_natural(self.skill_ids, mask="`{}`")
         return f"Loading skills {skill_ids}"
+
+
+class SkillsOutput(Output):
+    skill_ids: list[str]
+    loaded: list[str]
+
+    @cp
+    def differ(self) -> IterDiffer[str]:
+        return IterDiffer(before=self.loaded, after=self.skill_ids)
+
+    @cp
+    def new(self) -> list[str]:
+        return sorted(self.differ.added)
+
+    @cp
+    def agent(self) -> str:
+        messages = []
+
+        if self.new:
+            skill_count = strings.suffix_plural(len(self.new), "skill")
+            skill_ids = strings.join_natural(self.new, mask=strings.MASK_QUOTE)
+            messages.append(
+                strings.Mask("""
+                    Loaded {skill_count} into context: {skill_ids}.
+                """).format(skill_count=skill_count, skill_ids=skill_ids)
+            )
+
+        return strings.trim(*messages)
+
+    @cp
+    def content(self) -> list[ProjectionContent]:
+        return [self.content_block(self.agent)]
 
 
 class Load(Tool, Input):
@@ -25,48 +58,62 @@ class Load(Tool, Input):
 
     @classes
     def Validators(cls):
-        return [CheckDupes]
+        return [ValidSkillIDs]
 
-    async def run(self) -> str:
-        from xah.toolsets.skills.list import List
+    @cp
+    def loaded(self) -> list[str]:
+        return sorted(skill.id for skill in self.toolset.skills if skill.is_loaded)
 
-        diff = IterDiffer(before=self.toolset.skills.id.keys(), after=self.skill_ids)
-        if diff.added:
-            valid = strings.join_natural(sorted(diff.before))
-            invalid = strings.join_natural(sorted(diff.added))
-            list_name = self.toolset.get_name(List)
-            message = strings.Mask("""
-                Invalid skill IDs: {invalid}.
-                Choose IDs shown by {list_name}: {valid}.
-            """).format(
-                invalid=invalid,
-                list_name=list_name,
-                valid=valid,
-            )
-            raise ModelRetry(str(message))
-        skills = [self.toolset.skills.id[skill_id] for skill_id in self.skill_ids]
-        self.toolset.history |= set(self.skill_ids)
-        skill_text = strings.trim(*(skill.text for skill in skills))
-        message = strings.Mask("""
-            # Skills
+    @cp
+    def known(self) -> list[str]:
+        return sorted(skill.id for skill in self.toolset.skills)
 
-            Below are the skills you selected.
+    @cp
+    def differ(self) -> IterDiffer[str]:
+        return IterDiffer(before=self.loaded, after=self.skill_ids)
 
-            {skill_text}
-        """).format(skill_text=skill_text)
-        return str(message)
+    @cp
+    def new(self) -> list[str]:
+        return sorted(self.differ.added)
+
+    @cp
+    def dupes(self) -> list[str]:
+        return sorted(self.differ.same)
+
+    @cp
+    def invalids(self) -> list[str]:
+        return sorted(IterDiffer(before=self.known, after=self.skill_ids).added)
+
+    async def run(self) -> SkillsOutput:
+        output = SkillsOutput(skill_ids=self.skill_ids, loaded=self.loaded)
+        for skill_id in self.new:
+            self.toolset.skills.id[skill_id].is_loaded = True
+        return output
 
 
-class CheckDupes(Load):
+class ValidSkillIDs(Load):
     async def validate(self):
-        diff = IterDiffer(before=self.toolset.history, after=self.skill_ids)
-        if not diff.same:
-            return
+        if self.invalids:
+            invalid_ids = strings.join_natural(self.invalids, mask=strings.MASK_QUOTE)
+            known_ids = strings.join_natural(
+                self.known,
+                mask=strings.MASK_QUOTE,
+                if_empty="none",
+            )
+            message = strings.Mask("""
+                Invalid skill IDs: {invalid_ids}.
+                Choose IDs shown in the skill instructions: {known_ids}.
+            """).format(invalid_ids=invalid_ids, known_ids=known_ids)
+            self.validation.messages.errors.append(message)
 
+        if self.dupes:
+            dupes = strings.join_natural(self.dupes, mask=strings.MASK_QUOTE)
+            skills = strings.suffix_plural(len(self.dupes), "skill", full=False)
+            message = strings.Mask("""
+                Already-loaded {skills}: {dupes}.
+                Do not request them again. They are already in context and do not need to be loaded or read on each turn.
+            """).format(skills=skills, dupes=dupes)
+            self.validation.messages.errors.append(message)
 
-        skills=strings.suffix_plural(count=len(diff.same),name='skill',full=False)
-        dupes = strings.join_natural(sorted(diff.same), mask=strings.MASK_QUOTE)
-        message = strings.Mask("""
-            The {skills} {dupes} have already been loaded.
-        """).format(skills=skills,dupes=dupes)
-        raise ModelRetry(str(message))
+        if self.validation.messages.errors:
+            self.validation.abort = True

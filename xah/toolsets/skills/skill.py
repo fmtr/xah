@@ -1,11 +1,13 @@
 from dataclasses import dataclass
-from pydantic_deep import Skill as UpstreamSkill
+
 from corio import Path, strings
+from pydantic_deep import Skill as UpstreamSkill
 
 
 @dataclass(kw_only=True)
 class Skill(UpstreamSkill):
     root: Path | None = None
+    is_loaded: bool = False
 
     @property
     def id(self) -> str:
@@ -15,8 +17,10 @@ class Skill(UpstreamSkill):
 
     @property
     def text(self) -> str:
-        return strings.trim(f"## {self.id}", self.content)
+        if self.is_loaded:
+            return self.content
+        return self.description
 
     @property
-    def text_description(self) -> str:
-        return strings.trim(f"## {self.id}", self.description)
+    def instruction(self) -> str:
+        return strings.trim(f"## {self.id}", self.text)

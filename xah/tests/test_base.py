@@ -160,7 +160,6 @@ def test_harness_tools_have_semantic_kinds():
         "Python-Run": "other",
         "Python-RunCode": "other",
         "Python-Test": "other",
-        "Skills-List": "read",
         "Skills-Load": "read",
         "Todo-Read": "think",
         "Todo-Write": "think",
