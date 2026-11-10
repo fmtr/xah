@@ -18,6 +18,19 @@ def context():
     return RunContext(deps=deps, model=None, usage=RunUsage())
 
 
+def test_instructions_are_a_property_without_context():
+    ctx = context()
+    toolset = ctx.deps.toolsets.cls[Todo]
+    toolset.list.items.append(TodoItem(content="one"))
+
+    instructions = toolset.list.instructions
+
+    assert len(instructions) == 1
+    assert "one" in instructions[0].content
+    assert instructions[0].dynamic
+    assert asyncio.run(toolset.get_instructions(ctx)) == instructions
+
+
 def test_read_returns_structured_items_and_flattens_for_agent():
     ctx = context()
     toolset = ctx.deps.toolsets.cls[Todo]

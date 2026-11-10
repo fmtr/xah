@@ -1,8 +1,5 @@
 from collections import Counter
-from typing import Any
-
 from pydantic import Field
-from pydantic_ai import RunContext
 from pydantic_ai.messages import InstructionPart
 
 from corio import strings
@@ -63,8 +60,8 @@ class TodoList(Output):
         if self.all_completed:
             tool.feedback("All tasks are completed; respond to the user.")
 
-    async def get_instructions(self, ctx: RunContext[Any]) -> list[InstructionPart]:
-        del ctx
+    @property
+    def instructions(self) -> list[InstructionPart]:
         if not self.items:
             return [InstructionPart(content=TODO_SYSTEM_PROMPT, dynamic=True)]
 

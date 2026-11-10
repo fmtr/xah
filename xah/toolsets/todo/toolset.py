@@ -25,4 +25,4 @@ class Todo(Toolset):
         return TodoList()
 
     async def get_instructions(self, ctx: RunContext[Any]) -> list[InstructionPart]:
-        return await self.list.get_instructions(ctx)
+        return self.list.instructions
