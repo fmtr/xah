@@ -3,7 +3,7 @@ requires = ["setuptools>=82", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.corio.metadata]
-version = "0.0.20"
+version = "0.0.21"
 port = 10
 base = "python"
 description = "An extensible AI agent harness"
@@ -47,7 +47,7 @@ pass_env = ["PLAYWRIGHT_BROWSERS_PATH"]
 
 [project]
 name = "xah"
-version = "0.0.20"
+version = "0.0.21"
 description = "An extensible AI agent harness"
 readme = "README.md"
 license = "Apache-2.0"
