@@ -19,6 +19,7 @@ class AdapterModel(AcpAdapterModel):
     PROVIDER_NAME: ClassVar[str] = "openai"
     MODEL_SETTINGS: ClassVar[ModelSettings] = ModelSettings()
     MODEL_KWARGS: ClassVar[dict[str, Any]] = {}
+    CONTEXT_COMPACTION_THRESHOLD: ClassVar[float] = 0.8
 
     def __init__(self, id: str | None = None, *, settings: Any = None) -> None:
         self.settings = settings
@@ -58,10 +59,13 @@ class AdapterModel(AcpAdapterModel):
 
 class AdapterModelOpenAI(AdapterModel):
     """Configure models served by OpenAI's provider."""
+
+    CONTEXT_COMPACTION_THRESHOLD: ClassVar[float] = 2 / 3
     MODEL_SETTINGS = ModelSettings(
         openai_reasoning_effort="medium",
         openai_reasoning_summary="detailed",
     )
+
 
 class Luna(AdapterModelOpenAI):
     NAME = "gpt-6-luna"

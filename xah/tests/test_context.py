@@ -2,8 +2,16 @@ import asyncio
 from types import SimpleNamespace
 
 from pydantic_ai import RunContext
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    SystemPromptPart,
+    TextPart,
+    UserPromptPart,
+)
 from pydantic_ai.usage import RunUsage
 
+from xah.caps.context import AgentSummaryContextManager
 from xah.server.acp.usage import UsageReporter, UsageReporterRegistry
 from xah.toolsets.context.compact import Compact
 from xah.toolsets.context.toolset import Context
@@ -11,10 +19,10 @@ from xah.toolsets.context.toolset import Context
 
 def test_compact_requests_context_manager_compaction():
     context_manager = SimpleNamespace()
-    context_manager.request_compact = lambda *, focus: setattr(
+    context_manager.request_compact_with_summary = lambda summary: setattr(
         context_manager,
-        "focus",
-        focus,
+        "summary",
+        summary,
     )
     ctx = RunContext(
         deps=SimpleNamespace(context_manager=context_manager),
@@ -22,11 +30,112 @@ def test_compact_requests_context_manager_compaction():
         usage=RunUsage(),
     )
     toolset = Context()
+    summary = "Original goal, work completed, and remaining work."
 
-    result = asyncio.run(Compact(ctx=ctx, toolset=toolset, focus="the goal").run())
+    result = asyncio.run(Compact(ctx=ctx, toolset=toolset, summary=summary).run())
 
-    assert context_manager.focus == "the goal"
-    assert "Focus: the goal" in result
+    assert context_manager.summary == summary
+    assert "supplied summary" in result
+
+
+def test_context_manager_repeats_threshold_warning_without_secondary_summary(monkeypatch):
+    warnings = []
+    context_toolset = SimpleNamespace(
+        feedback=lambda ctx, message: warnings.append(message),
+    )
+    deps = SimpleNamespace(
+        models=SimpleNamespace(
+            current=SimpleNamespace(CONTEXT_COMPACTION_THRESHOLD=0.75),
+        ),
+        toolsets=SimpleNamespace(all=SimpleNamespace(cls={Context: context_toolset})),
+    )
+    context_manager = AgentSummaryContextManager(
+        max_tokens=1000,
+        compress_threshold=0.5,
+        token_counter=lambda messages: 800,
+    )
+    messages = [
+        ModelRequest(parts=[UserPromptPart(content="Original task.")]),
+        ModelResponse(parts=[TextPart(content="Progress so far.")]),
+        ModelRequest(parts=[UserPromptPart(content="Continue.")]),
+    ]
+    request_context = SimpleNamespace(messages=messages)
+    ctx = RunContext(deps=deps, model=None, usage=RunUsage())
+
+    async def unexpected_summary(*args, **kwargs):
+        raise AssertionError("Threshold warnings must not invoke a secondary summarizer.")
+
+    assert context_manager._summarization_processor is not None
+    monkeypatch.setattr(
+        context_manager._summarization_processor,
+        "_create_summary",
+        unexpected_summary,
+    )
+
+    asyncio.run(context_manager.before_model_request(ctx, request_context))
+    asyncio.run(context_manager.before_model_request(ctx, request_context))
+
+    warning = Context.COMPACTION_REQUIRED_MESSAGE.format(
+        usage=0.8,
+        toolset_name=Context.name,
+        tool_name=Context.get_name(Compact),
+    )
+    assert "500–1,000-word" not in warning
+    normalized_warning = " ".join(warning.split())
+    activation_instruction = f"Activate the {Context.name} toolset."
+    definition_instruction = f"Carefully read the {Context.get_name(Compact)} tool definition"
+    call_instruction = f"Then call {Context.get_name(Compact)}"
+    assert normalized_warning.index(activation_instruction) < normalized_warning.index(
+        definition_instruction
+    ) < normalized_warning.index(call_instruction)
+    summary_description = Compact.model_fields["summary"].description
+    assert "500–1,000-word" in summary_description
+    assert "URLs" in summary_description
+    assert warnings == [warning, warning]
+    assert request_context.messages is messages
+    assert context_manager.compression_count == 0
+
+
+def test_agent_summary_context_manager_replaces_history_without_summarizer(monkeypatch):
+    changes = []
+    context_manager = AgentSummaryContextManager(
+        max_tokens=1000,
+        token_counter=lambda messages: len(messages) * 100,
+        on_before_compress=lambda messages, cutoff: changes.append(("before", cutoff)),
+        on_after_compress=lambda messages, summarized, summary: changes.append(
+            ("after", summarized, summary)
+        ),
+    )
+    system = SystemPromptPart(content="Keep the harness instructions.")
+    messages = [
+        ModelRequest(parts=[system, UserPromptPart(content="Fix the project.")]),
+        ModelResponse(parts=[TextPart(content="I inspected the project.")]),
+        ModelRequest(parts=[UserPromptPart(content="Continue the fix.")]),
+    ]
+    request_context = SimpleNamespace(messages=messages)
+    summary = "Background: fix the project. Done: inspected it. Next: make the change."
+
+    async def unexpected_summary(*args, **kwargs):
+        raise AssertionError("The supplied summary should bypass the summarization model.")
+
+    assert context_manager._summarization_processor is not None
+    monkeypatch.setattr(
+        context_manager._summarization_processor,
+        "_create_summary",
+        unexpected_summary,
+    )
+    context_manager.request_compact_with_summary(summary)
+    ctx = RunContext(deps=None, model=None, usage=RunUsage())
+
+    asyncio.run(context_manager.before_model_request(ctx, request_context))
+
+    compacted = request_context.messages
+    assert len(compacted) == 2
+    assert compacted[0].parts[0] == system
+    assert compacted[0].parts[1].content.endswith(summary)
+    assert compacted[1] == messages[2]
+    assert changes == [("before", 2), ("after", True, summary)]
+    assert context_manager.compression_count == 1
 
 
 def test_usage_reporter_keeps_latest_context_usage():

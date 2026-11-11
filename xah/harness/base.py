@@ -20,9 +20,10 @@ from pydantic_acp import (
     ModelSelectionState,
 )
 from pydantic_acp.projection import DefaultToolClassifier, ProjectionAwareToolClassifier
-from pydantic_deep import ContextManagerCapability, StuckLoopDetection
+from pydantic_deep import StuckLoopDetection
 
 from xah.paths import paths
+from xah.caps.context import AgentSummaryContextManager
 from xah.caps.traffic import ModelTrafficLogger
 from xah.instructions.base import Instruction
 from xah.class_collections import classes
@@ -369,7 +370,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
 
     @cached_property
     def context_manager(self):
-        return ContextManagerCapability(
+        return AgentSummaryContextManager(
             include_compact_tool=False,
             on_usage_update=self.session_usage_reporter.report,
             on_after_compress=self.after_compress,

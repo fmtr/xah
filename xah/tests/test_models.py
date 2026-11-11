@@ -3,6 +3,11 @@ import sys
 from xah import models
 
 
+def test_adapter_context_compaction_threshold_defaults_by_model_family():
+    assert models.AdapterModel.CONTEXT_COMPACTION_THRESHOLD == 0.8
+    assert models.AdapterModelOpenAI.CONTEXT_COMPACTION_THRESHOLD == 2 / 3
+
+
 def test_model_adapters_accept_model_id_without_a_model_class():
     adapter = models.AdapterModelOpenAI(id="gpt-test")
 

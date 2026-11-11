@@ -8,8 +8,9 @@ from typing import Any, Self, Sequence
 from corio import Path
 from corio.iterator import ilist
 from pydantic_acp import AdapterModel
-from pydantic_deep import ContextManagerCapability, DeepAgentDeps
+from pydantic_deep import DeepAgentDeps
 
+from xah.caps.context import AgentSummaryContextManager
 from xah.settings import Settings
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
 from xah.harness.manager import ToolsetsManager, ToolsetsManagerAgent
@@ -21,7 +22,7 @@ class HarnessAgentDeps(DeepAgentDeps):
     cwd_default: Path = field(default_factory=Path.cwd)
     toolsets_classes: Sequence[type[ToolsetBase[Self]]] = field(default_factory=tuple)
     model: AdapterModel | None = None
-    context_manager: ContextManagerCapability | None = field(default=None, kw_only=True)
+    context_manager: AgentSummaryContextManager | None = field(default=None, kw_only=True)
     _config_update: Callable[[], Awaitable[None]] | None = field(default=None, kw_only=True)
 
     @cached_property

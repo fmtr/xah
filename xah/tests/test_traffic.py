@@ -143,10 +143,8 @@ def test_model_traffic_logger_logs_compacted_history(monkeypatch):
     context_manager.max_tokens = 100_000
     context_manager._resolved_max_tokens = 100_000
     context_manager._summarization_processor.max_input_tokens = 100_000
-    context_manager._summarization_processor._summarization_agent = Agent(
-        TestModel(custom_output_text="Preserve the original task and its decision."),
-    )
-    context_manager.request_compact(focus="the original task")
+    summary = "Preserve the original task and its decision."
+    context_manager.request_compact_with_summary(summary)
 
     old_request = ModelRequest(parts=[UserPromptPart("The original task was to fix the logger.")])
     old_response = ModelResponse(parts=[TextPart("I inspected the logger.")], model_name="test-model")
@@ -164,7 +162,7 @@ def test_model_traffic_logger_logs_compacted_history(monkeypatch):
     entries = [yml.from_yaml(item) for item in captured]
     compactions = [entry for entry in entries if entry["event"] == "context-compaction"]
     assert len(compactions) == 1
-    assert compactions[0]["summary"] == "Preserve the original task and its decision."
+    assert compactions[0]["summary"] == summary
     assert compressed == [True]
     messages = compactions[0]["messages"]
     assert len(messages) == 2

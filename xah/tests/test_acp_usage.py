@@ -2,6 +2,7 @@ import asyncio
 import sys
 from functools import cached_property
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import patch
 
 from acp.schema import TextContentBlock, UsageUpdate
@@ -10,6 +11,7 @@ from pydantic_acp import AdapterModel
 from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 
+from xah.caps.context import AgentSummaryContextManager
 from xah.harness.base import HarnessAcp
 from xah.server.acp.usage import UsageReporterRegistry
 
@@ -23,11 +25,14 @@ class RecordingClient:
 
 
 def test_acp_session_emits_context_usage_update(tmp_path):
+    class TestAdapterModel(AdapterModel):
+        CONTEXT_COMPACTION_THRESHOLD: ClassVar[float] = 0.8
+
     class TestHarnessAcp(HarnessAcp):
         @cached_property
         def models(self):
             return ilist([
-                AdapterModel(
+                TestAdapterModel(
                     model_id="test",
                     name="test",
                     override=TestModel(custom_output_text="fixed response"),
@@ -50,12 +55,12 @@ def test_acp_session_emits_context_usage_update(tmp_path):
     )
     with patch.object(sys, "argv", [sys.argv[0]]):
         assert any(
-            type(capability).__name__ == "ContextManagerCapability"
+            isinstance(capability, AgentSummaryContextManager)
             for capability in harness.agent_capabilities
         )
         configured_agent = harness.agent
         assert any(
-            type(capability).__name__ == "ContextManagerCapability"
+            isinstance(capability, AgentSummaryContextManager)
             for capability in configured_agent._root_capability.capabilities
         )
         agent = harness.acp_agent
