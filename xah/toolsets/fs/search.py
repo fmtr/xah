@@ -108,10 +108,24 @@ class SearcherBase:
         self.feedback = feedback
 
     @cached_property
+    def search_root(self) -> Path:
+        if self.path.is_dir():
+            return self.path
+        return self.path.parent
+
+    @cached_property
     def search_kwargs(self):
         search_kwargs = dict(no_ignore=True, hidden=True)
         if self.glob and self.glob != "*":
-            search_kwargs |= dict(globs=[self.glob])
+            glob = self.glob if "/" in self.glob else f"**/{self.glob}"
+            root = self.search_root.resolve()
+            absolute_root = root.as_posix().lstrip("/")
+            relative_root = root.relative_to(Path.cwd(), walk_up=True).as_posix()
+            absolute_glob = f"**/{absolute_root}/{glob}"
+            if not absolute_root:
+                absolute_glob = f"**/{glob}"
+            relative_glob = glob if relative_root == "." else f"**/{relative_root}/{glob}"
+            search_kwargs |= dict(globs=[absolute_glob, relative_glob])
         return search_kwargs
 
     def report_result_cap(self) -> None:
@@ -152,9 +166,10 @@ class SearcherFiles(SearcherBase):
         return {"max_count": self.MAX_RESULTS + 1, **self.search_kwargs}
 
     def output(self, entries) -> SearchFilesOutput:
-        root = self.path if self.path.is_dir() else self.path.parent
+        root = self.search_root
+        absolute_root = root.resolve()
         files = [
-            SearchFile(path=entry.relative_to(root), size=entry.stat().st_size)
+            SearchFile(path=entry.resolve().relative_to(absolute_root), size=entry.stat().st_size)
             for entry in entries[:self.MAX_RESULTS]
         ]
         if len(entries) > self.MAX_RESULTS:
@@ -187,7 +202,7 @@ class SearcherContent(SearcherBase):
             matches = result.matches[:remaining]
             groups.append(
                 SearchMatchGroup(
-                    path=result.path.relative_to(self.path),
+                    path=result.path.resolve().relative_to(self.path.resolve()),
                     matches=[
                         SearchMatch(
                             line_number=match.line_number,

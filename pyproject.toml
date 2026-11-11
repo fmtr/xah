@@ -34,6 +34,9 @@ editable = true
 [tool.coverage.run]
 omit = ["xah/examples/*"]
 
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
 [tool.tox]
 requires = ["tox>=4.22", "tox-uv>=1"]
 env_list = ["xah"]

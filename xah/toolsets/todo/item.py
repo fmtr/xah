@@ -42,7 +42,8 @@ class TodoItem(Output):
 
     @property
     def title(self) -> str:
-        return f"Updated todo `{self.id}` to `{self.todo_status}`"
+        content_preview = self.preview(self.delegated_content, limit=20)
+        return f"Updated todo `{content_preview}` to `{self.todo_status}`"
 
     @property
     def content(self) -> list[ProjectionContent]:
