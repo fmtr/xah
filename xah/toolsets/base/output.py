@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any, Self
+from typing import Any, Self
 
 from acp.schema import ToolCallLocation, ToolCallStatus
 from pydantic import Field
@@ -12,10 +12,6 @@ from corio import Constants, dm, strings
 from xah.toolsets.base.projection.base import InputOutputBase, ProjectionContent
 from xah.toolsets.base.projection.input import ProjectionRequestInput
 from xah.toolsets.base.projection.output import ProjectionRequestOutput
-
-if TYPE_CHECKING:
-    from xah.toolsets.base.tool import Tool
-
 
 class Status(StrEnum):
     IN_PROGRESS = auto()
@@ -72,27 +68,6 @@ class Output(InputOutputBase, dm.Base):
         if isinstance(result, str):
             return OutputString(output=result)
         return result
-
-    def externalize(self, tool: Tool) -> Any:
-        if not tool.EXTERNALIZE_OUTPUT:
-            return self.agent
-
-        suffix = "txt" if isinstance(self, OutputString) else "json"
-        serialized = self.serialized_text
-
-        if len(serialized) <= tool.toolset.MAX_INLINE_OUTPUT_LENGTH:
-            return self.agent
-
-        directory = tool.ctx.deps.artifacts_dir
-        directory.mkdirf()
-        artifact = directory / f"{tool.call_id}.{suffix}"
-        artifact.write_text(serialized)
-
-        return strings.trim(f"""
-            Tool produced too much output.
-            Use regular file tools to inspect the full output: {artifact}
-        """)
-
 
 class OutputString(Output):
     output: str

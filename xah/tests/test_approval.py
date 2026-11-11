@@ -13,6 +13,7 @@ from corio.iterator import ilist
 from xah.class_collections import classes
 from xah.constants import HARNESS_FEEDBACK
 from xah.options import base as options
+from xah.toolsets.base.output import OutputString
 from xah.toolsets.base.tool import Tool
 from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.web.request import Response
@@ -105,12 +106,17 @@ def test_externalize_output_serializes_pydantic_response(tmp_path):
     instance = ApprovalTool(ctx=ctx, toolset=toolset, value="result")
     toolset.MAX_INLINE_OUTPUT_LENGTH = 0
     result = Response(status_code=200, headers={}, body={"ok": True})
+    result.call_id = instance.call_id
 
-    output = result.externalize(instance)
+    externalized = toolset.externalize_output(result, instance)
 
     artifact = Path(tmp_path) / ".agent" / "artifacts" / "call-1.json"
     assert artifact.read_json() == result.model_dump(mode="json")
-    assert "Use regular file tools to inspect the full output" in output
+    assert isinstance(externalized, OutputString)
+    assert externalized.call_id == result.call_id
+    assert externalized.request is result.request
+    assert "Use regular file tools to inspect the full output" in externalized.agent
+    assert str(artifact) in externalized.agent
 
 
 def test_tool_feedback_enqueues_system_prompt():

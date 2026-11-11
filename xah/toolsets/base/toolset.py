@@ -24,7 +24,12 @@ from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
 from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
-from xah.toolsets.base.output import InvalidInputOutput, Output, ProjectionErrorOutput
+from xah.toolsets.base.output import (
+    InvalidInputOutput,
+    Output,
+    OutputString,
+    ProjectionErrorOutput,
+)
 from xah.toolsets.base.input import Input
 from xah.toolsets.base.projection.input import ProjectionRequestInput
 from xah.toolsets.base.projection.output import ProjectionRequestOutput
@@ -382,6 +387,29 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         finally:
             self.instances.remove(instance)
 
+    def externalize_output(self, output: Output, tool: Tool) -> Output:
+        if not tool.EXTERNALIZE_OUTPUT:
+            return output
+
+        serialized = output.serialized_text
+        if len(serialized) <= self.MAX_INLINE_OUTPUT_LENGTH:
+            return output
+
+        directory = tool.ctx.deps.artifacts_dir
+        directory.mkdirf()
+        suffix = "txt" if isinstance(output, OutputString) else "json"
+        artifact = directory / f"{tool.call_id}.{suffix}"
+        artifact.write_text(serialized)
+        message = strings.trim(f"""
+            Tool produced too much output.
+            Use regular file tools to inspect the full output: {artifact}
+        """)
+        return OutputString(
+            output=message,
+            call_id=output.call_id,
+            request=output.request,
+        )
+
     async def call_tool(
         self,
         name: str,
@@ -412,6 +440,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
         output = Output.from_result(run_result)
         output.call_id = ctx.tool_call_id
+        output = self.externalize_output(output, instance)
         if self.outputs is not None:
             self.outputs.append(output)
-        return output.externalize(instance)
+        return output.agent

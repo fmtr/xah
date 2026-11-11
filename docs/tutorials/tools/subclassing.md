@@ -57,9 +57,10 @@ class SearchTool(Tool, SearchInput):
 
 An input request provides the tool and toolset classes, raw input, working
 directory, and computed tool name. An output request also provides the
-validated `Input`, serialized output, and call status. This lets output
-projections use the original structured result even when `agent` returns a
-flattened value or Xah externalizes a large result for the model.
+validated `Input`, serialized output, and call status. ACP projections use the
+structured result when `agent` returns a flattened value. When Xah externalizes
+an oversized result, the projection uses the short artifact-link output instead
+of sending the original content to the client.
 
 `Output.agent` returns the structured output object by default. Override it
 only when the model should receive another representation, such as a list or
