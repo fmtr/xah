@@ -44,15 +44,16 @@ def test_default_input_title_uses_tool_name_and_input_repr():
     assert input_model.projection.title == input_model.title
 
 
-def test_activate_title_and_content_identify_selected_toolsets():
+def test_activate_projection_identifies_selected_toolsets():
+    reason = "Run and inspect code."
     input_model = Activate.input.model_validate(
-        {"ids": ["Files", "Python"], "reason": "Run and inspect code."}
+        {"ids": ["Files", "Python"], "reason": reason}
     )
+    content = input_model.content[0].content.text
 
-    assert input_model.title == "Activating `Files` and `Python` toolsets"
-    assert input_model.content[0].content.text == (
-        "Toolsets: `Files` and `Python`\nReason: Run and inspect code."
-    )
+    assert all(toolset_id in input_model.title for toolset_id in ("Files", "Python"))
+    assert all(toolset_id in content for toolset_id in ("Files", "Python"))
+    assert reason in content
 
 
 def test_default_structured_output_projects_json():

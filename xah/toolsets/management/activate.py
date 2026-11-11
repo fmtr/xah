@@ -22,7 +22,7 @@ class Input(InputBase):
     def title(self) -> str:
         ids = strings.join_natural(self.ids, mask="`{}`")
         toolsets = strings.suffix_plural(len(self.ids), "toolset", full=False)
-        return f"Activating {ids} {toolsets}"
+        return f"Activating {toolsets} {ids}"
 
     @cp
     def content(self) -> list[ProjectionContent]:
