@@ -5,8 +5,10 @@ custom harness can enable the toolsets it needs through its `Toolsets` definitio
 
 ## Toolsets
 
-- **Context** — Manage the conversation context, including compacting it when
-  needed.
+- **Context** — Manage the conversation context. When usage reaches the
+  configured threshold, the agent is prompted to write a continuation summary;
+  compaction replaces older history with that summary while preserving system
+  instructions and recent messages.
 - **Files** — Read, write, edit, move, search, create, and remove files and
   directories.
 - **Knowledgebase** — Search and retrieve web pages and fixed collections.
