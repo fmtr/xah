@@ -1,8 +1,9 @@
 import asyncio
 from types import SimpleNamespace
 
+import pytest
 from corio import Path
-from pydantic_ai import RunContext
+from pydantic_ai import ModelRetry, RunContext
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
@@ -15,7 +16,12 @@ from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.fs.toolset import Files
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.todo.toolset import Todo
-from xah.toolsets.management.activate import Activate, ApproveRequestables
+from xah.toolsets.management.activate import (
+    Activate,
+    ActivationOutput,
+    ApproveRequestables,
+    RejectAlreadyActive,
+)
 from xah.harness.manager import ToolsetsManager, ToolsetsManagerAgent
 from xah.toolsets.management.toolset import Management
 
@@ -200,7 +206,7 @@ def test_approving_activation_only_changes_requestable_toolset_policies():
     assert shell.options.cls[options.Policy].value == options.Policies.APPROVAL
 
 
-def test_activate_reactivates_toolsets_and_reports_already_active(monkeypatch):
+def test_activate_rejects_already_active_toolsets():
     parent = SimpleNamespace(
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
@@ -213,41 +219,41 @@ def test_activate_reactivates_toolsets_and_reports_already_active(monkeypatch):
     context = RunContext(
         deps=SimpleNamespace(toolsets=deps), model=TestModel(), usage=RunUsage()
     )
-    feedback = []
-    monkeypatch.setattr(
-        Activate, "feedback", lambda self, message: feedback.append(message)
-    )
-    tool = Activate(
+
+    activation = Activate(
         ctx=context,
         toolset=management,
-        ids=[Management.name, Files.name],
+        ids=[Files.name],
         reason="Test activation",
     )
+    result = asyncio.run(activation.run())
 
-    result = asyncio.run(tool.run())
-
-    assert management.activated
+    assert isinstance(result, ActivationOutput)
+    assert result.agent == 'Activated 1 toolset: "Files".'
+    assert result.content[0].content.text == result.agent
     assert files.activated
     assert management.toolsets == [Files]
-    assert "Management" in feedback[0]
-    assert "until further notice" in feedback[0]
-    assert result == 'The following toolsets have been activated: "Files" and "Management"'
+    assert Activate.Validators == [RejectAlreadyActive, ApproveRequestables]
 
-    repeated_tool = Activate(
-        ctx=context,
-        toolset=management,
-        ids=[Management.name, Files.name],
-        reason="Test repeated activation",
-    )
-    repeated_result = asyncio.run(repeated_tool.run())
+    tools = asyncio.run(management.get_tools(context))
+    tool_def = tools[management.get_name(Activate)].tool_def
+    with pytest.raises(ModelRetry, match="Already-active toolsets") as error:
+        asyncio.run(
+            management.validate(
+                context,
+                tool_def,
+                {"ids": [Files.name], "reason": "Test repeated activation"},
+            )
+        )
 
-    assert repeated_result == result
+    activate_name = management.get_name(Activate)
+    assert f"Do not call `{activate_name}` for them again" in str(error.value)
+    assert "never keep re-enabling" in str(error.value)
     assert management.toolsets == [Files]
-    assert "Files" in feedback[1]
     assert "activate" not in Activate.model_fields
 
 
-def test_activate_feedbacks_unknown_ids_while_activating_known_ids(monkeypatch):
+def test_activate_output_reports_unknown_ids_while_activating_known_ids():
     parent = SimpleNamespace(
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
@@ -259,10 +265,6 @@ def test_activate_feedbacks_unknown_ids_while_activating_known_ids(monkeypatch):
     files.activated = False
     context = RunContext(
         deps=SimpleNamespace(toolsets=deps), model=TestModel(), usage=RunUsage()
-    )
-    feedback = []
-    monkeypatch.setattr(
-        Activate, "feedback", lambda self, message: feedback.append(message)
     )
     tool = Activate(
         ctx=context,
@@ -274,8 +276,7 @@ def test_activate_feedbacks_unknown_ids_while_activating_known_ids(monkeypatch):
     result = asyncio.run(tool.run())
 
     assert files.activated
-    assert feedback == [
-        "The following toolset IDs do not exist: \"Missing\".\n"
-        "You can use the List tool to check available toolset IDs."
-    ]
-    assert result == 'The following toolsets have been activated: "Files"'
+    assert isinstance(result, ActivationOutput)
+    assert 'Activated 1 toolset: "Files".' in result.agent
+    assert 'The following toolset IDs are not available: "Missing".' in result.agent
+    assert f"Use IDs from the `{management.name}` instructions." in result.agent

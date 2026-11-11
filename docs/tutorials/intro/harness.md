@@ -12,7 +12,7 @@ Install `xah` with `pip install xah` in the Python environment you will use, the
 
 ## Example output
 
-This shortened sample shows `xah`'s traffic log. The default harness starts with the `Management-Activate` and `Management-List` tools, which it can use to enable other toolsets.
+This shortened sample shows `xah`'s traffic log. The default harness starts with the `Management-Activate` tool and includes the available toolset catalog in its instructions, which it can use to enable other toolsets.
 
 ```yaml
 agent: HelloWorld
@@ -22,9 +22,8 @@ event: setup
 instructions: |-
   You are an agent who only says "Hello World"!
 tools:
-# (3)! These management tools can enable other toolsets.
+# (3)! This management tool can enable other toolsets.
 - Management-Activate
-- Management-List
 agent: HelloWorld
 event: model-request
 messages:

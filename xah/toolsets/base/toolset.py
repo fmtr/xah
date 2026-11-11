@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import traceback
+from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, ClassVar, Generic, TypedDict, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 from cached_classproperty import cached_classproperty
 from pydantic import ValidationError, ConfigDict
@@ -33,12 +34,34 @@ from xah.toolsets.base.tool import Tool, ToolState, Validation
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
 
 
-class ToolsetInfo(TypedDict):
+@dataclass(kw_only=True)
+class ToolsetInfo:
     active: bool
     name: str
     desc: str | None
     protected: bool
     tools: list[str]
+
+    @property
+    def instruction(self) -> str:
+        status = "Active" if self.active else "Inactive"
+        access = (
+            "Requires approval to activate"
+            if self.protected
+            else "No additional approval required to activate"
+        )
+        tool_names = strings.join_natural(
+            [f"{self.name}-{tool}" for tool in self.tools],
+            mask="`{}`",
+            if_empty="none",
+        )
+        details = [
+            self.desc or "",
+            f"- Status: {status}",
+            f"- Access: {access}",
+            f"- Tools: {tool_names}",
+        ]
+        return strings.trim(f"## {self.name}", *details)
 
 
 class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):

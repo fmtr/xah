@@ -8,10 +8,9 @@ from pydantic_ai.exceptions import UserError
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
-from xah.toolsets.base.tool import ToolState
 from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.fs.toolset import Files
-from xah.toolsets.management.list import List, ListOutput
+from xah.toolsets.management.activate import Activate
 from xah.toolsets.management.toolset import Management
 
 
@@ -59,75 +58,33 @@ async def test_raise_errors_logs_and_wraps_unexpected_errors(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_management_list_result_stays_typed(tmp_path):
+async def test_management_instructions_list_toolsets_individually(tmp_path):
     settings = SimpleNamespace(path=SimpleNamespace(home=Path(".agent")))
     management = Management(settings=settings, cwd=Path(tmp_path))
-    files = Files(settings=settings, cwd=Path(tmp_path))
-    deps = SimpleNamespace(
-        toolsets=SimpleNamespace(permitted=ilist([management, files])),
-        settings=settings,
-        cwd_default=Path(tmp_path),
-    )
+    files = Files(settings=settings, cwd=Path(tmp_path), activated=False)
     ctx = RunContext(
-        deps=deps,
+        deps=SimpleNamespace(
+            toolsets=SimpleNamespace(permitted=ilist([management, files]))
+        ),
         model=TestModel(),
         usage=RunUsage(),
         tool_call_id="call-1",
     )
-    tools = await management.get_tools(ctx)
-    name = management.get_name(List)
 
-    result = await management.call_tool(name, {}, ctx, tools[name])
+    instructions = await management.get_instructions(ctx)
 
-    assert result == [management.info, files.info]
-    progress = type(management).project_progress(
-        name,
-        raw_input={},
-        raw_output=ListOutput(toolsets=result),
-        serialized_output="[]",
-        status="completed",
-    )
-
-    assert progress.title.startswith("Listing toolsets →")
-    assert progress.status == "completed"
-
-
-@pytest.mark.asyncio
-async def test_management_list_feedbacks_after_first_call_and_resets_after_compress(
-    monkeypatch, tmp_path
-):
-    settings = SimpleNamespace(path=SimpleNamespace(home=Path(".agent")))
-    management = Management(settings=settings, cwd=Path(tmp_path))
-    files = Files(settings=settings, cwd=Path(tmp_path))
-    deps = SimpleNamespace(toolsets=SimpleNamespace(permitted=ilist([management, files])))
-    ctx = RunContext(
-        deps=deps,
-        model=TestModel(),
-        usage=RunUsage(),
-        tool_call_id="call-1",
-    )
-    feedback = []
-    monkeypatch.setattr(List, "feedback", lambda self, message: feedback.append(message))
-    tool = List(
-        ctx=ctx,
-        toolset=management,
-        state=management.state_for(List, List),
-    )
-
-    first_result = await tool.run()
-
-    assert isinstance(tool.state, ToolState)
-    assert tool.state.called
-    assert first_result.toolsets == [management.info, files.info]
-    assert await tool.run() == first_result
-    assert feedback == [
-        "You have already listed the toolsets. These will not change during a given session."
-    ]
-
-    tool.state.after_compress()
-
-    assert not tool.state.called
-    assert await tool.run() == first_result
+    assert Management.get_tool("List", None) is None
+    assert Management.get_tool("Activate") is Activate
+    assert len(instructions) == 3
+    assert all(instruction.dynamic for instruction in instructions)
+    assert "## Available Toolsets" in instructions[0].content
+    assert f"`{management.get_name(Activate)}`" in instructions[0].content
+    assert "do not reactivate them" in instructions[0].content
+    assert "## Management" in instructions[1].content
+    assert "## Files" in instructions[2].content
+    assert "Status: Active" in instructions[1].content
+    assert "Status: Inactive" in instructions[2].content
+    assert "Files-Read" in instructions[2].content
 
 
 def test_feedback_logs_messages_without_active_run(monkeypatch):

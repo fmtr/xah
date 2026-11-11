@@ -166,7 +166,6 @@ def test_harness_tools_have_semantic_kinds():
         "Todo-UpdateStatus": "think",
         "Utils-Sleep": "other",
         "Context-Compact": "think",
-        "Management-List": "read",
         "Management-Activate": "switch_mode",
     }
 
