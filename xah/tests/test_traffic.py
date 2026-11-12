@@ -187,6 +187,7 @@ def test_model_traffic_logger_logs_compacted_history(monkeypatch):
     )
 
     ctx = SimpleNamespace(
+        messages=request_context.messages,
         deps=SimpleNamespace(
             models=SimpleNamespace(
                 current=SimpleNamespace(CONTEXT_COMPACTION_THRESHOLD=0.8),

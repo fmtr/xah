@@ -1,11 +1,14 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from pydantic_ai import RunContext
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
+    ModelResponse,
     SystemPromptPart,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 from pydantic_ai_summarization import DEFAULT_CONTINUATION_PROMPT, async_count_tokens
@@ -67,11 +70,59 @@ class AgentSummaryContextManager(ContextManagerCapability):
             new_total = await async_count_tokens(self.token_counter, messages)
             new_usage = new_total / max_tokens
             self._compacted_at_threshold = new_usage >= threshold
+            ctx.messages[:] = messages
             if self.on_usage_update is not None:
                 self.on_usage_update(new_usage, new_total, max_tokens)
 
         request_context.messages = messages
         return request_context
+
+    @property
+    def _compact_tool_name(self) -> str:
+        return Context.get_name(Compact)
+
+    def _without_compact_tool_exchange(
+        self,
+        messages: list[ModelMessage],
+    ) -> list[ModelMessage]:
+        compact_tool_name = self._compact_tool_name
+        compact_call_ids = {
+            part.tool_call_id
+            for message in messages
+            if isinstance(message, ModelResponse)
+            for part in message.parts
+            if isinstance(part, ToolCallPart) and part.tool_name == compact_tool_name
+        }
+        if not compact_call_ids:
+            return messages
+
+        compacted: list[ModelMessage] = []
+        for message in messages:
+            if isinstance(message, ModelResponse):
+                parts = [
+                    part
+                    for part in message.parts
+                    if not (
+                        isinstance(part, ToolCallPart)
+                        and part.tool_name == compact_tool_name
+                        and part.tool_call_id in compact_call_ids
+                    )
+                ]
+            else:
+                parts = [
+                    part
+                    for part in message.parts
+                    if not (
+                        isinstance(part, ToolReturnPart)
+                        and part.tool_name == compact_tool_name
+                        and part.tool_call_id in compact_call_ids
+                    )
+                ]
+            if not parts:
+                continue
+            compacted.append(replace(message, parts=parts))
+
+        return compacted
 
     async def _run_compression(
         self,
@@ -94,8 +145,12 @@ class AgentSummaryContextManager(ContextManagerCapability):
             self.on_before_compress(messages, plan.cutoff_index)
 
         summary_part = UserPromptPart(content=f"{DEFAULT_CONTINUATION_PROMPT}{summary}")
-        summary_message = ModelRequest(parts=[*plan.system_parts, summary_part])
-        messages = [summary_message, *plan.preserved_messages]
+        continuation_part = UserPromptPart(
+            content="The summary above is the current state. Continue the original task from here.",
+        )
+        preserved_messages = self._without_compact_tool_exchange(plan.preserved_messages)
+        summary_message = ModelRequest(parts=[*plan.system_parts, summary_part, continuation_part])
+        messages = [summary_message, *preserved_messages]
         self._compression_count += 1
 
         if self.on_after_compress is None:
