@@ -122,6 +122,10 @@ class AgentSummaryContextManager(ContextManagerCapability):
                 continue
             compacted.append(replace(message, parts=parts))
 
+        # Removing a final compact-tool result can leave its response dangling.
+        if compacted and isinstance(compacted[-1], ModelResponse):
+            compacted.pop()
+
         return compacted
 
     async def _run_compression(

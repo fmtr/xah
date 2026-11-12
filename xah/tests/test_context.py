@@ -45,6 +45,58 @@ def test_compact_requests_context_manager_compaction():
     assert "supplied summary" in result
 
 
+def test_compaction_keeps_history_ending_with_model_request(monkeypatch):
+    context_manager = AgentSummaryContextManager(
+        max_tokens=1000,
+        compress_threshold=0.5,
+        token_counter=lambda messages: len(messages),
+    )
+    tool_name = Context.get_name(Compact)
+    summary = "Synthetic continuation summary."
+    compact_call = ToolCallPart(
+        tool_name=tool_name,
+        args={"summary": summary},
+        tool_call_id="compact-call",
+    )
+    # Removing the compact tool call and its result leaves this response at the tail.
+    history = [
+        ModelRequest(parts=[UserPromptPart("Continue the synthetic task.")]),
+        ModelResponse(parts=[TextPart("Compacting now."), compact_call]),
+        ModelRequest(
+            parts=[
+                ToolReturnPart(
+                    tool_name=tool_name,
+                    content="Compaction requested.",
+                    tool_call_id="compact-call",
+                ),
+            ],
+        ),
+    ]
+
+    async def plan_compression(messages, *, force):
+        return SimpleNamespace(
+            cutoff_index=1,
+            system_parts=[],
+            preserved_messages=messages[1:],
+        )
+
+    monkeypatch.setattr(
+        context_manager._summarization_processor,
+        "plan_compression",
+        plan_compression,
+    )
+    request_context = SimpleNamespace(messages=history)
+    deps = SimpleNamespace(
+        models=SimpleNamespace(current=SimpleNamespace(CONTEXT_COMPACTION_THRESHOLD=0.75)),
+    )
+    ctx = RunContext(deps=deps, model=None, usage=RunUsage())
+    context_manager.request_compact_with_summary(summary)
+
+    asyncio.run(context_manager.before_model_request(ctx, request_context))
+
+    assert isinstance(request_context.messages[-1], ModelRequest)
+
+
 def test_compaction_removes_its_context_tool_exchange():
     context_manager = AgentSummaryContextManager(max_tokens=1000, compress_threshold=0.5)
     deps = SimpleNamespace(
