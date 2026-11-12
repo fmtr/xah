@@ -10,8 +10,8 @@ from cached_classproperty import cached_classproperty
 import corio
 from corio import PackagePaths, Path
 from corio.function import ccp
-from corio.iterator import enlist, ilist, strip_none
-from pydantic_ai import Agent, RunContext
+from corio.iterator import ilist, strip_none
+from pydantic_ai import Agent
 from pydantic_ai.capabilities import Thinking
 from pydantic_acp import (
     AdapterConfig,
@@ -25,7 +25,7 @@ from pydantic_deep import StuckLoopDetection
 from xah.paths import paths
 from xah.caps.context import AgentSummaryContextManager
 from xah.caps.traffic import ModelTrafficLogger
-from xah.instructions.base import Instruction
+from xah.instructions.registry import Instructions as InstructionRegistry
 from xah.class_collections import classes
 from xah.harness.deps import HarnessAgentDeps, HarnessDeps
 from xah.models import AdapterModel, Luna
@@ -183,19 +183,9 @@ class HarnessBase(Generic[AgentDepsT]):
             capabilities=self.agent_capabilities,
             retries=self.retries,
         )
-        agent.instructions(self.get_instructions)
+        InstructionRegistry.register(agent, type(self))
         agent.description = self.description
         return agent
-
-    @classmethod
-    async def get_instructions(cls, ctx: RunContext[AgentDepsT]) -> str:
-        instructions = []
-        for instruction_type in cls.Instructions:
-            instruction = instruction_type(ctx=ctx, harness_type=cls)
-            passages = enlist(await instruction.run())
-            instructions.extend(passages)
-
-        return "\n\n".join(instructions)
 
     @classmethod
     def from_parent(cls, parent: HarnessDeps) -> Self:
@@ -428,7 +418,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             capabilities=self.agent_capabilities,
             retries=self.retries,
         )
-        agent.instructions(self.get_instructions)
+        InstructionRegistry.register(agent, type(self))
         agent.description = self.description
         return agent
 

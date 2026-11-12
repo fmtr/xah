@@ -1,4 +1,1 @@
 HARNESS_FEEDBACK = "[HARNESS FEEDBACK]"
-
-TODO_STATE_START = "<todo-state>"
-TODO_STATE_END = "</todo-state>"

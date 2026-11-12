@@ -4,7 +4,6 @@ from pydantic_ai.messages import InstructionPart
 
 from corio import strings
 from corio.iterator import ilist
-from xah.constants import TODO_STATE_END, TODO_STATE_START
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.projection.base import ProjectionContent
 from xah.toolsets.base.tool import Tool
@@ -66,16 +65,5 @@ class TodoList(Output):
             return [InstructionPart(content=TODO_SYSTEM_PROMPT, dynamic=True)]
 
         body = strings.join((f"- {todo.text}" for todo in self.items), sep="\n")
-        text = strings.Mask("""
-            {system_prompt}
-
-            {state_start}
-            {body}
-            {state_end}
-        """).format(
-            system_prompt=TODO_SYSTEM_PROMPT,
-            state_start=TODO_STATE_START,
-            body=body,
-            state_end=TODO_STATE_END,
-        )
+        text = strings.trim(TODO_SYSTEM_PROMPT, body)
         return [InstructionPart(content=text, dynamic=True)]

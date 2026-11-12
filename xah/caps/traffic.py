@@ -18,14 +18,9 @@ from pydantic_deep import DeepAgentDeps
 
 from corio import logs, yml
 from corio.jsn import to_json
-from xah.constants import TODO_STATE_END, TODO_STATE_START
 from xah.obs import logger
 
 
-TODO_STATE_PATTERN = re.compile(
-    f"{re.escape(TODO_STATE_START)}(.*?){re.escape(TODO_STATE_END)}",
-    re.DOTALL,
-)
 UNREADABLE_CHARACTER_PATTERN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\ufeff]")
 
 
@@ -200,9 +195,8 @@ class EventPartDeserializer:
 
 @dataclass(frozen=True)
 class SetupSnapshot:
-    instructions: str
+    instructions: dict[str, dict[str, Any]]
     tools: tuple[str, ...]
-    todos: str
 
     @classmethod
     def from_context(cls, request_context: ModelRequestContext) -> "SetupSnapshot":
@@ -212,30 +206,43 @@ class SetupSnapshot:
         return cls(
             instructions=instructions.instructions,
             tools=tuple(sorted(parameters.tool_defs)),
-            todos=instructions.todos,
         )
 
     def changes(self, previous: "SetupSnapshot | None") -> dict[str, Any]:
         if previous is None:
             return self.initial_data
         changes: dict[str, Any] = {}
-        if self.instructions != previous.instructions:
-            changes["instructions"] = self.instructions
+        changed_instructions = [
+            instruction
+            for key, instruction in self.instructions.items()
+            if instruction != previous.instructions.get(key)
+            and (instruction["content"] or previous.instructions.get(key, {}).get("content"))
+        ]
+        removed_instructions = [
+            key
+            for key, instruction in previous.instructions.items()
+            if key not in self.instructions and instruction["content"]
+        ]
+        if changed_instructions:
+            changes["instructions"] = changed_instructions
+        if removed_instructions:
+            changes["removed_instructions"] = removed_instructions
         if self.tools != previous.tools:
             changes["tools"] = list(self.tools)
-        if self.todos != previous.todos:
-            changes["todos"] = self.todos
         return changes
 
     @property
     def initial_data(self) -> dict[str, Any]:
         data: dict[str, Any] = {}
-        if self.instructions:
-            data["instructions"] = self.instructions
+        instructions = [
+            instruction
+            for instruction in self.instructions.values()
+            if instruction["content"]
+        ]
+        if instructions:
+            data["instructions"] = instructions
         if self.tools:
             data["tools"] = list(self.tools)
-        if self.todos:
-            data["todos"] = self.todos
         return data
 
 
@@ -244,34 +251,30 @@ class InstructionDeserializer:
     parts: list[InstructionPart]
 
     @property
-    def instruction_texts(self) -> tuple[str, ...]:
-        texts = [self.instruction_content(part) for part in self.parts]
-        return tuple(text for text in texts if text)
-
-    @property
-    def instructions(self) -> str:
-        texts = tuple(dict.fromkeys(self.instruction_texts))
-        texts = tuple(
-            text
-            for text in texts
-            if not any(text != other and text in other for other in texts)
-        )
-        return "\n\n".join(texts)
-
-    @property
-    def todos(self) -> str:
-        blocks = [
-            match.group(1).strip()
-            for part in self.parts
-            for match in TODO_STATE_PATTERN.finditer(part.content)
-            if match.group(1).strip()
-        ]
-        return "\n\n".join(blocks)
+    def instructions(self) -> dict[str, dict[str, Any]]:
+        instructions: dict[str, dict[str, Any]] = {}
+        for index, part in enumerate(self.parts):
+            identifier = str(part.id) if part.id is not None else None
+            key = identifier or f"unattributed:{index}"
+            content = self.instruction_content(part)
+            if identifier is None and not content:
+                continue
+            if key in instructions:
+                previous_content = instructions[key]["content"]
+                content = "\n\n".join(filter(None, (previous_content, content)))
+            else:
+                instructions[key] = {"content": ""}
+                if part.id is not None:
+                    instructions[key]["id"] = identifier
+                    instructions[key]["source"] = str(part.id.source)
+                if part.name is not None:
+                    instructions[key]["name"] = part.name
+            instructions[key]["content"] = content
+        return instructions
 
     @staticmethod
     def instruction_content(part: InstructionPart) -> str:
-        content = TODO_STATE_PATTERN.sub("", part.content)
-        return re.sub(r"\n{3,}", "\n\n", content).strip()
+        return re.sub(r"\n{3,}", "\n\n", part.content).strip()
 
 @dataclass
 class SetupTracker:

@@ -28,6 +28,7 @@ from xah.harness.base import (
 )
 from xah.instructions.time import Time
 from xah.instructions.agent import Agent
+from xah.instructions.registry import Instructions as InstructionRegistry
 from xah.harness.deps import HarnessDeps
 from xah.options.provider import ConfigOptionsProvider
 from xah.paths import paths
@@ -90,7 +91,14 @@ def test_harness_instructions_load_home_and_project_files(tmp_path):
         usage_reporters=UsageReporterRegistry(),
     )
 
-    result = asyncio.run(harness.get_instructions(SimpleNamespace(deps=harness.deps)))
+    async def get_instructions():
+        ctx = SimpleNamespace(deps=harness.deps)
+        return [
+            await InstructionRegistry.from_ctx(ctx, type(harness), instruction_type)
+            for instruction_type in type(harness).Instructions
+        ]
+
+    result = "\n\n".join(filter(None, asyncio.run(get_instructions())))
 
     assert "home instructions" not in result
     assert "project instructions" in result
@@ -108,7 +116,9 @@ def test_harness_instructions_ignore_missing_files(tmp_path):
     )
 
     context = SimpleNamespace(deps=harness.deps)
-    assert asyncio.run(Agent(ctx=context, harness_type=type(harness)).run()) == []
+    assert asyncio.run(
+        InstructionRegistry.from_ctx(context, type(harness), Agent)
+    ) == ""
 
 
 def test_time_instruction_is_registered_and_reports_local_time(monkeypatch):
