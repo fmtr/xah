@@ -84,7 +84,7 @@ class HarnessBase(Generic[AgentDepsT]):
     title = "Xah"
     description = "Root/orchestrator agent"
     instructions = f"""
-        You are {paths.name} v{paths.metadata.version}: {paths.metadata.description}.
+        You are {paths.name} v{paths.metadata.version_dev}: {paths.metadata.description}.
         Developed by {paths.metadata.org_friendly}.
         """
     deps_type = cast(type[AgentDepsT], HarnessAgentDeps)
@@ -104,7 +104,7 @@ class HarnessBase(Generic[AgentDepsT]):
     @ccp
     def launch_message(cls) -> str:
         return (
-            f"Launching {paths.name} v{paths.metadata.version} "
+            f"Launching {paths.name} v{paths.metadata.version_dev} "
             f"(corio v{corio.get_version()})"
         )
 

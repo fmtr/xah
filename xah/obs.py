@@ -8,7 +8,7 @@ debug.trace()
 logger = logs.get_logger(
     name=paths.name,
     stream=Constants.DEVELOPMENT,
-    version=paths.metadata.version,
+    version=paths.metadata.version_dev,
 )
 
 # ACP's optional telemetry creates duplicate console spans when Logfire is active.
