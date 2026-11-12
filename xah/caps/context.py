@@ -19,6 +19,7 @@ from xah.toolsets.context.toolset import Context
 class AgentSummaryContextManager(ContextManagerCapability):
     _requested_summary: str | None = field(default=None, init=False, repr=False)
     _resolved_model_id: str | None = field(default=None, init=False, repr=False)
+    _compacted_at_threshold: bool = field(default=False, init=False, repr=False)
 
     def request_compact_with_summary(self, summary: str) -> None:
         self._requested_summary = summary
@@ -42,8 +43,11 @@ class AgentSummaryContextManager(ContextManagerCapability):
         if self.on_usage_update is not None:
             self.on_usage_update(usage, total, max_tokens)
 
-        if self._requested_summary is None:
-            threshold = ctx.deps.models.current.CONTEXT_COMPACTION_THRESHOLD
+        threshold = ctx.deps.models.current.CONTEXT_COMPACTION_THRESHOLD
+        if usage < threshold:
+            self._compacted_at_threshold = False
+
+        if self._requested_summary is None and not self._compacted_at_threshold:
             if usage >= threshold:
                 context_toolset = ctx.deps.toolsets.all.cls[Context]
                 message = Context.COMPACTION_REQUIRED_MESSAGE.format(
@@ -62,6 +66,7 @@ class AgentSummaryContextManager(ContextManagerCapability):
         if messages is not request_context.messages:
             new_total = await async_count_tokens(self.token_counter, messages)
             new_usage = new_total / max_tokens
+            self._compacted_at_threshold = new_usage >= threshold
             if self.on_usage_update is not None:
                 self.on_usage_update(new_usage, new_total, max_tokens)
 

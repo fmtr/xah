@@ -10,6 +10,7 @@ from pydantic_ai.messages import (
     InstructionPart,
     ModelRequest,
     ModelResponse,
+    SystemPromptPart,
     TextPart,
     ThinkingPart,
     ToolCallPart,
@@ -36,13 +37,13 @@ def captured_logger(monkeypatch):
 
 def test_model_traffic_logger_logs_every_message_once(monkeypatch):
     capability, captured = captured_logger(monkeypatch)
-    request = ModelRequest(parts=[UserPromptPart('{"task": "fix it"}')])
+    request = ModelRequest(parts=[UserPromptPart('{"task": "synthetic"}')])
     response = ModelResponse(
         parts=[
-            ThinkingPart("Inspecting the logger."),
+            ThinkingPart("Processing sample input."),
             ToolCallPart(
                 tool_name="write_file",
-                args=json.dumps(json.dumps({"path": "traffic.py"})),
+                args=json.dumps(json.dumps({"path": "sample.txt"})),
                 tool_call_id="call-1",
             ),
         ],
@@ -98,19 +99,19 @@ def test_model_traffic_logger_logs_every_message_once(monkeypatch):
             "agent": "root",
             "event": "model-request",
             "model": "test-model",
-            "messages": [{"kind": "user-prompt", "content": {"task": "fix it"}}],
+            "messages": [{"kind": "user-prompt", "content": {"task": "synthetic"}}],
         },
         {
             "agent": "root",
             "event": "model-response",
             "model": "test-model",
             "messages": [
-                {"kind": "thinking", "content": "Inspecting the logger."},
+                {"kind": "thinking", "content": "Processing sample input."},
                 {
                     "kind": "tool-call",
                     "tool_name": "write_file",
                     "tool_call_id": "call-1",
-                    "args": {"path": "traffic.py"},
+                    "args": {"path": "sample.txt"},
                 },
             ],
         },
@@ -132,6 +133,37 @@ def test_model_traffic_logger_logs_every_message_once(monkeypatch):
     ]
 
 
+def test_model_traffic_logger_records_feedback_added_before_the_model_call(monkeypatch):
+    capability, captured = captured_logger(monkeypatch)
+    warning = "Context usage is high; compact before continuing."
+    request_context = SimpleNamespace(
+        messages=[ModelRequest(parts=[UserPromptPart("Synthetic task alpha.")])],
+        model=SimpleNamespace(model_name="test-model"),
+        model_request_parameters=SimpleNamespace(instruction_parts=[], tool_defs={}),
+    )
+    ctx = SimpleNamespace(run_id="run-1")
+
+    async def handler(context):
+        context.messages = [
+            ModelRequest(
+                parts=[
+                    *context.messages[0].parts,
+                    SystemPromptPart(content=warning),
+                ]
+            )
+        ]
+        return ModelResponse(parts=[TextPart("Done.")], model_name="test-model")
+
+    asyncio.run(capability.wrap_model_request(ctx, request_context=request_context, handler=handler))
+
+    entries = [yml.from_yaml(item) for item in captured]
+    request = next(entry for entry in entries if entry["event"] == "model-request")
+    assert any(
+        part["kind"] == "system-prompt" and part["content"] == warning
+        for part in request["messages"]
+    )
+
+
 def test_model_traffic_logger_logs_compacted_history(monkeypatch):
     capability, captured = captured_logger(monkeypatch)
     harness = HarnessAcp.__new__(HarnessAcp)
@@ -143,19 +175,27 @@ def test_model_traffic_logger_logs_compacted_history(monkeypatch):
     context_manager.max_tokens = 100_000
     context_manager._resolved_max_tokens = 100_000
     context_manager._summarization_processor.max_input_tokens = 100_000
-    summary = "Preserve the original task and its decision."
+    summary = "Synthetic summary: preserve state and next action."
     context_manager.request_compact_with_summary(summary)
 
-    old_request = ModelRequest(parts=[UserPromptPart("The original task was to fix the logger.")])
-    old_response = ModelResponse(parts=[TextPart("I inspected the logger.")], model_name="test-model")
-    current_request = ModelRequest(parts=[UserPromptPart("Continue fixing it.")])
+    old_request = ModelRequest(parts=[UserPromptPart("Synthetic task alpha.")])
+    old_response = ModelResponse(parts=[TextPart("Synthetic step one complete.")], model_name="test-model")
+    current_request = ModelRequest(parts=[UserPromptPart("Continue synthetic task.")])
     request_context = SimpleNamespace(
         messages=[old_request, old_response, current_request],
         model=SimpleNamespace(model_name="test-model"),
     )
 
+    ctx = SimpleNamespace(
+        deps=SimpleNamespace(
+            models=SimpleNamespace(
+                current=SimpleNamespace(CONTEXT_COMPACTION_THRESHOLD=0.8),
+            ),
+        ),
+    )
+
     async def run():
-        await context_manager.before_model_request(SimpleNamespace(), request_context)
+        await context_manager.before_model_request(ctx, request_context)
 
     asyncio.run(run())
 
@@ -168,12 +208,10 @@ def test_model_traffic_logger_logs_compacted_history(monkeypatch):
     assert len(messages) == 2
     assert messages[0]["kind"] == "request"
     assert messages[0]["parts"][0]["part_kind"] == "user-prompt"
-    assert messages[0]["parts"][0]["content"].endswith(
-        "Preserve the original task and its decision."
-    )
+    assert messages[0]["parts"][0]["content"].endswith(summary)
     assert messages[1]["kind"] == "request"
     assert messages[1]["parts"][0]["part_kind"] == "user-prompt"
-    assert messages[1]["parts"][0]["content"] == "Continue fixing it."
+    assert messages[1]["parts"][0]["content"] == "Continue synthetic task."
 
 
 def test_model_traffic_logger_does_not_log_failed_compaction(monkeypatch):

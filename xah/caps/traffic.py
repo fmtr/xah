@@ -377,8 +377,8 @@ class ModelTrafficLogger(AbstractCapability[DeepAgentDeps]):
         handler,
     ) -> ModelResponse:
         self.log_setup(request_context)
-        self.log_request(request_context)
         response = await handler(request_context)
+        self.log_request(request_context)
         self.log_response(response)
         self.request_signature = None
         return response

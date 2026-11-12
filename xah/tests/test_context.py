@@ -30,7 +30,7 @@ def test_compact_requests_context_manager_compaction():
         usage=RunUsage(),
     )
     toolset = Context()
-    summary = "Original goal, work completed, and remaining work."
+    summary = "Synthetic summary payload for the test."
 
     result = asyncio.run(Compact(ctx=ctx, toolset=toolset, summary=summary).run())
 
@@ -38,7 +38,7 @@ def test_compact_requests_context_manager_compaction():
     assert "supplied summary" in result
 
 
-def test_context_manager_repeats_threshold_warning_without_secondary_summary(monkeypatch):
+def test_context_manager_warns_once_per_above_threshold_episode(monkeypatch):
     warnings = []
     context_toolset = SimpleNamespace(
         feedback=lambda ctx, message: warnings.append(message),
@@ -49,15 +49,16 @@ def test_context_manager_repeats_threshold_warning_without_secondary_summary(mon
         ),
         toolsets=SimpleNamespace(all=SimpleNamespace(cls={Context: context_toolset})),
     )
+    token_count = {"value": 800}
     context_manager = AgentSummaryContextManager(
         max_tokens=1000,
         compress_threshold=0.5,
-        token_counter=lambda messages: 800,
+        token_counter=lambda messages: token_count["value"],
     )
     messages = [
-        ModelRequest(parts=[UserPromptPart(content="Original task.")]),
-        ModelResponse(parts=[TextPart(content="Progress so far.")]),
-        ModelRequest(parts=[UserPromptPart(content="Continue.")]),
+        ModelRequest(parts=[UserPromptPart(content="Synthetic task alpha.")]),
+        ModelResponse(parts=[TextPart(content="Synthetic step one complete.")]),
+        ModelRequest(parts=[UserPromptPart(content="Continue synthetic task.")]),
     ]
     request_context = SimpleNamespace(messages=messages)
     ctx = RunContext(deps=deps, model=None, usage=RunUsage())
@@ -73,6 +74,24 @@ def test_context_manager_repeats_threshold_warning_without_secondary_summary(mon
     )
 
     asyncio.run(context_manager.before_model_request(ctx, request_context))
+    asyncio.run(context_manager.before_model_request(ctx, request_context))
+    assert len(warnings) == 2
+
+    summary = "Synthetic summary: step one complete; step two remains."
+    context_manager.request_compact_with_summary(summary)
+    asyncio.run(context_manager.before_model_request(ctx, request_context))
+    compacted = request_context.messages
+    assert len(compacted) == 2
+    assert compacted[0].parts[-1].content.endswith(summary)
+    assert context_manager.compression_count == 1
+    assert len(warnings) == 2
+
+    asyncio.run(context_manager.before_model_request(ctx, request_context))
+    assert len(warnings) == 2
+
+    token_count["value"] = 500
+    asyncio.run(context_manager.before_model_request(ctx, request_context))
+    token_count["value"] = 800
     asyncio.run(context_manager.before_model_request(ctx, request_context))
 
     warning = Context.COMPACTION_REQUIRED_MESSAGE.format(
@@ -91,9 +110,8 @@ def test_context_manager_repeats_threshold_warning_without_secondary_summary(mon
     summary_description = Compact.model_fields["summary"].description
     assert "500–1,000-word" in summary_description
     assert "URLs" in summary_description
-    assert warnings == [warning, warning]
-    assert request_context.messages is messages
-    assert context_manager.compression_count == 0
+    assert warnings == [warning, warning, warning]
+    assert request_context.messages is compacted
 
 
 def test_agent_summary_context_manager_replaces_history_without_summarizer(monkeypatch):
@@ -108,12 +126,12 @@ def test_agent_summary_context_manager_replaces_history_without_summarizer(monke
     )
     system = SystemPromptPart(content="Keep the harness instructions.")
     messages = [
-        ModelRequest(parts=[system, UserPromptPart(content="Fix the project.")]),
-        ModelResponse(parts=[TextPart(content="I inspected the project.")]),
-        ModelRequest(parts=[UserPromptPart(content="Continue the fix.")]),
+        ModelRequest(parts=[system, UserPromptPart(content="Synthetic task alpha.")]),
+        ModelResponse(parts=[TextPart(content="Synthetic step one complete.")]),
+        ModelRequest(parts=[UserPromptPart(content="Continue synthetic task.")]),
     ]
     request_context = SimpleNamespace(messages=messages)
-    summary = "Background: fix the project. Done: inspected it. Next: make the change."
+    summary = "Synthetic summary: step one complete; step two remains."
 
     async def unexpected_summary(*args, **kwargs):
         raise AssertionError("The supplied summary should bypass the summarization model.")
@@ -125,7 +143,12 @@ def test_agent_summary_context_manager_replaces_history_without_summarizer(monke
         unexpected_summary,
     )
     context_manager.request_compact_with_summary(summary)
-    ctx = RunContext(deps=None, model=None, usage=RunUsage())
+    deps = SimpleNamespace(
+        models=SimpleNamespace(
+            current=SimpleNamespace(CONTEXT_COMPACTION_THRESHOLD=0.75),
+        ),
+    )
+    ctx = RunContext(deps=deps, model=None, usage=RunUsage())
 
     asyncio.run(context_manager.before_model_request(ctx, request_context))
 
