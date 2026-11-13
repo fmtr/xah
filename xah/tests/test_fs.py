@@ -9,8 +9,8 @@ from pydantic_ai.usage import RunUsage
 from corio import Path
 from corio.iterator import ilist
 from xah.options.path import PathCwd, PathRead, PathWrite
-from xah.toolsets.base.tool import Messages, Validation
-from xah.toolsets.fs.edit import Edit
+from xah.toolsets.base.tool import Messages, Validation, ValidationAbort
+from xah.toolsets.fs.edit import Edit, EditWarnings, ValidEdit
 from xah.toolsets.fs.write import FileWriteOutput
 from xah.toolsets.fs.mkdir import Mkdir
 from xah.toolsets.fs.move import Move
@@ -93,6 +93,45 @@ def test_write_validate_and_run(tmp_path):
     assert tool.validation.messages == Messages()
     assert asyncio.run(tool.run()).agent.startswith("Wrote")
     assert Path(tmp_path / "nested/note.txt").read_text() == "hello\n"
+
+
+def test_validation_abort_records_message_and_skips_remaining_validators(
+    tmp_path,
+    monkeypatch,
+):
+    async def abort(self):
+        raise ValidationAbort("Validation cannot continue.")
+
+    later_validator_calls = []
+
+    async def later(self):
+        later_validator_calls.append(self)
+
+    monkeypatch.setattr(ValidEdit, "validate", abort)
+    monkeypatch.setattr(EditWarnings, "validate", later)
+    tool = make(Edit, context(tmp_path), path="note.txt", old_text="a", new_text="b")
+
+    asyncio.run(tool.validate())
+
+    assert tool.validation.abort
+    assert tool.validation.messages.errors == ["Validation cannot continue."]
+    assert later_validator_calls == []
+
+
+def test_empty_validation_abort_stops_validation_without_adding_an_error(
+    tmp_path,
+    monkeypatch,
+):
+    async def abort(self):
+        raise ValidationAbort()
+
+    monkeypatch.setattr(ValidEdit, "validate", abort)
+    tool = make(Edit, context(tmp_path), path="note.txt", old_text="a", new_text="b")
+
+    asyncio.run(tool.validate())
+
+    assert tool.validation.abort
+    assert tool.validation.messages.errors == []
 
 
 def test_permission_failure_occurs_during_model_validation(tmp_path):

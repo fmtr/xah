@@ -7,7 +7,7 @@ from xah.class_collections import classes
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.projection.base import ProjectionContent
-from xah.toolsets.base.tool import Kinds, Tool
+from xah.toolsets.base.tool import Kinds, Tool, ValidationAbort
 
 
 class Input(InputBase):
@@ -115,5 +115,5 @@ class ValidSkillIDs(Load):
             """).format(skills=skills, dupes=dupes)
             self.validation.messages.errors.append(message)
 
-        if self.validation.messages.errors:
-            self.validation.abort = True
+        if self.invalids or self.dupes:
+            raise ValidationAbort()

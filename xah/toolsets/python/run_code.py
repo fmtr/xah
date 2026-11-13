@@ -7,6 +7,7 @@ from xah.class_collections import classes
 from pydantic import Field
 from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import ValidationAbort
 
 from corio.shell.dsl import arg, shell
 from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
@@ -54,5 +55,4 @@ class CodeLength(RunCode):
     async def validate(self):
         if len(self.code) > self.MAX_CODE_LENGTH:
             message = f"This tool is limited to {self.MAX_CODE_LENGTH} characters. Write longer code to a .py file and run it with Python."
-            self.validation.messages.errors.append(message)
-            self.validation.abort = True
+            raise ValidationAbort(message)

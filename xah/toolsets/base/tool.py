@@ -55,6 +55,10 @@ class Messages(dm.Base):
     warnings: MessageList = Field(default_factory=MessageList)
 
 
+class ValidationAbort(Exception):
+    """Signal that validation must stop and report an error."""
+
+
 class Validation(dm.Base):
     messages: Messages = Field(default_factory=Messages)
     approval: bool = False
@@ -208,7 +212,12 @@ class Tool(dm.Base):
     async def validate(self):
         self.validation.approval = self.approval
         for validator in self.validators:
-            await validator.validate()
+            try:
+                await validator.validate()
+            except ValidationAbort as exception:
+                if message := str(exception):
+                    self.validation.messages.errors.append(message)
+                self.validation.abort = True
             if self.validation.abort:
                 break
 

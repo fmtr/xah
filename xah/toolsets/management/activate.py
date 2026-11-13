@@ -8,7 +8,7 @@ from xah.options.base import Policy
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.projection.base import ProjectionContent
-from xah.toolsets.base.tool import Kinds, Tool
+from xah.toolsets.base.tool import Kinds, Tool, ValidationAbort
 from xah.toolsets.base.toolset import Toolset
 
 
@@ -142,8 +142,7 @@ class RejectAlreadyActive(Activate):
             names=names,
             activate_name=activate_name,
         )
-        self.validation.messages.errors.append(msg)
-        self.validation.abort = True
+        raise ValidationAbort(msg)
 
 
 class ApproveRequestables(Activate):

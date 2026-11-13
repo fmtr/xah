@@ -15,7 +15,7 @@ from xah.class_collections import classes
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.projection.base import ProjectionContent
 from xah.toolsets.base.input import Input as InputBase
-from xah.toolsets.base.tool import Kinds, Tool
+from xah.toolsets.base.tool import Kinds, Tool, ValidationAbort
 
 from xah.toolsets.terminal.terminal import Terminal
 
@@ -239,7 +239,6 @@ class ExistingTerminal(TerminalManagementTool):
             return
 
         if self.terminal_id not in self.terminals.id:
-            self.validation.messages.errors.append(
+            raise ValidationAbort(
                 f"Terminal with ID '{self.terminal_id}' not found"
             )
-            self.validation.abort = True

@@ -8,7 +8,7 @@ from corio import Path, strings
 from acp.schema import FileEditToolCallContent
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.input import Input as InputBase
-from xah.toolsets.base.tool import Kinds, Tool
+from xah.toolsets.base.tool import Kinds, Tool, ValidationAbort
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.fs.similarity import SimilarityValidator
 
@@ -97,26 +97,19 @@ class Edit(Tool, Input):
 class ValidEdit(Edit):
     async def validate(self):
         if not self.path.is_file():
-            self.validation.messages.errors.append(f'Path "{self.path}" does not exist.')
-            self.validation.abort = True
-            return
+            raise ValidationAbort(f'Path "{self.path}" does not exist.')
         if not self.old_text:
-            self.validation.messages.errors.append("Old text must not be empty.")
-            self.validation.abort = True
-            return
+            raise ValidationAbort("Old text must not be empty.")
 
         occurrences = self.current.count(self.old_text)
         if not occurrences:
-            self.validation.messages.errors.append(f"String {self.old_text!r} not found in file")
-            self.validation.abort = True
-            return
+            raise ValidationAbort(f"String {self.old_text!r} not found in file")
 
         if occurrences > 1 and not self.replace_all:
             occurrence_count = strings.suffix_plural(occurrences, "time")
-            self.validation.messages.errors.append(
+            raise ValidationAbort(
                 f"String found {occurrence_count}. Use replace_all or provide more context."
             )
-            self.validation.abort = True
 
 
 

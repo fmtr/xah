@@ -6,6 +6,7 @@ from pydantic import Field
 from corio import strings
 from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.tool import ValidationAbort
 from corio.shell.dsl import shell
 from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
 
@@ -49,22 +50,17 @@ class Run(TerminalTool, Input):
 class ValidArguments(Run):
     async def validate(self):
         if not self.args:
-            self.validation.messages.errors.append("No arguments provided.")
-            self.validation.abort = True
-            return
+            raise ValidationAbort("No arguments provided.")
 
         if self.args[0].lower() in {"python", "python3"}:
-            self.validation.messages.errors.append(
+            raise ValidationAbort(
                 "Do not include Python itself. Pass only arguments to Python."
             )
-            self.validation.abort = True
-            return
 
         if "-c" in self.args:
             from xah.toolsets.python.run_code import RunCode
 
             run_code_name = self.toolset.get_name(RunCode)
             message = f"Use {run_code_name} for a short Python code fragment. Write longer code to a .py file and run that file."
-            self.validation.messages.errors.append(message)
-            self.validation.abort = True
+            raise ValidationAbort(message)
 
