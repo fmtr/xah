@@ -131,7 +131,9 @@ class Read(FileTool, Input):
         if self.offset < 0:
             start_offset = max(total_line_count + self.offset, 0)
 
-        if self.offset >= total_line_count and self.offset >= 0:
+        is_empty_file_start = total_line_count == 0 and self.offset == 0
+        is_past_file = self.offset >= total_line_count and self.offset >= 0
+        if is_past_file and not is_empty_file_start:
             line_count = strings.suffix_plural(total_line_count, "line")
             message = f"Offset {self.offset} exceeds the file length of {line_count}."
             raise ModelRetry(message)

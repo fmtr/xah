@@ -226,7 +226,11 @@ class SearcherContent(SearcherBase):
 
 class Input(InputBase):
     glob: str | None = Field(default=None, description="Glob to filter search paths/filenames.")
-    regex: str | None = Field(default=None, description="Regex to search **inside** files. Leave empty to search only paths.")
+    regex: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Regex to search **inside** files. Omit it to list paths only.",
+    )
     path: Annotated[Path | None, Permissions(Permissions.Read)] = Field(
         default=None,
         description="Directory or file to search.",
