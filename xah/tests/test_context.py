@@ -42,7 +42,8 @@ def test_compact_requests_context_manager_compaction():
     result = asyncio.run(Compact(ctx=ctx, toolset=toolset, summary=summary).run())
 
     assert context_manager.summary == summary
-    assert "supplied summary" in result
+    assert result.agent == summary
+    assert [block.content.text for block in result.content] == [summary]
 
 
 def test_compaction_keeps_history_ending_with_model_request(monkeypatch):
@@ -127,7 +128,7 @@ def test_compaction_removes_its_context_tool_exchange():
                 parts=[
                     ToolReturnPart(
                         tool_name=tool_name,
-                        content=tool_result,
+                        content=tool_result.agent,
                         tool_call_id=tool_call_id,
                     ),
                 ],

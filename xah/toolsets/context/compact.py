@@ -1,6 +1,7 @@
 from corio import strings
 from pydantic import Field
 from xah.toolsets.base.input import Input as InputBase
+from xah.toolsets.base.output import OutputString
 from xah.toolsets.base.tool import Kinds, Tool
 
 
@@ -29,9 +30,6 @@ class Compact(Tool, Input):
 
     KIND = Kinds.THINK
 
-    async def run(self) -> str:
+    async def run(self) -> OutputString:
         self.ctx.deps.context_manager.request_compact_with_summary(self.summary)
-        return strings.trim("""
-            Conversation compaction requested. The supplied summary will be applied before
-            the next model request.
-        """)
+        return OutputString(output=self.summary)
