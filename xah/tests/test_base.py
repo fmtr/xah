@@ -10,7 +10,6 @@ from typing import Annotated, ClassVar
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import humanize
 import pytest
 from cached_classproperty import cached_classproperty
 from corio import Path, dt
@@ -124,14 +123,12 @@ def test_harness_instructions_ignore_missing_files(tmp_path):
 def test_time_instruction_is_registered_and_reports_local_time(monkeypatch):
     fixed_now = datetime(2026, 10, 31, 20, 21, tzinfo=timezone.utc)
     monkeypatch.setattr(dt, "now", lambda: fixed_now)
-    monkeypatch.setattr(humanize, "naturaldate", lambda value: "today")
-
     instruction = Time(ctx=None, harness_type=Harness)
     result = asyncio.run(instruction.run())
 
     local_now = fixed_now.astimezone()
-    expected_time = local_now.strftime("%I:%M %p %Z")
-    assert result == f"Current local time: {expected_time} (today)."
+    expected_datetime = local_now.strftime("%A, %B %d, %Y %H:%M %Z")
+    assert result == f"Current local time: {expected_datetime}."
     assert Time in Harness.Instructions
 
 
