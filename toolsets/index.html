@@ -407,6 +407,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#file-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#shell-and-background-terminals" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -433,6 +444,8 @@
   
     
     
+      
+        
       
         
       
@@ -1125,6 +1138,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../changelog/0.0.28/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.0.28
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../changelog/0.0.3/" class="md-nav__link">
         
   
@@ -1752,6 +1793,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#file-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#shell-and-background-terminals" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1791,8 +1843,8 @@ custom harness can enable the toolsets it needs through its <code>Toolsets</code
   configured threshold, the agent is prompted to write a continuation summary.
   Compaction replaces older history with that summary, preserves system
   instructions, and continues later tool rounds from the compacted conversation.</li>
-<li><strong>Files</strong> — Read, write, edit, move, search, create, and remove files and
-  directories.</li>
+<li><strong>Files</strong> — Read file and directory metadata; read, write, edit, move, search,
+  create, and remove files and directories.</li>
 <li><strong>Knowledgebase</strong> — Search and retrieve web pages and fixed collections.</li>
 <li><strong>Management</strong> — List available toolsets and activate them at runtime.</li>
 <li><strong>Python</strong> — Run Python code, manage packages, and run tests.</li>
@@ -1805,6 +1857,11 @@ custom harness can enable the toolsets it needs through its <code>Toolsets</code
   duration.</li>
 <li><strong>Web</strong> — Search and research the web.</li>
 </ul>
+<h2 id="file-metadata">File metadata</h2>
+<p>The Files toolset's read-only <code>Metadata</code> tool accepts a path relative to the
+working directory. It reports the file or directory type, size, owner and group
+names and IDs, permission bits, and modification time without reading the
+contents.</p>
 <p>The default <code>xah</code> harness enables Context, Files, Terminals, Shell, Python,
 Skills, Todo, Utils, and Management. Knowledgebase, Subagent, and Web are also
 included in the built-in catalogue and can be enabled by a custom harness when
