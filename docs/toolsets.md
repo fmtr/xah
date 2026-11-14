@@ -9,8 +9,8 @@ custom harness can enable the toolsets it needs through its `Toolsets` definitio
   configured threshold, the agent is prompted to write a continuation summary.
   Compaction replaces older history with that summary, preserves system
   instructions, and continues later tool rounds from the compacted conversation.
-- **Files** — Read, write, edit, move, search, create, and remove files and
-  directories.
+- **Files** — Read file and directory metadata; read, write, edit, move, search,
+  create, and remove files and directories.
 - **Knowledgebase** — Search and retrieve web pages and fixed collections.
 - **Management** — List available toolsets and activate them at runtime.
 - **Python** — Run Python code, manage packages, and run tests.
@@ -22,6 +22,13 @@ custom harness can enable the toolsets it needs through its `Toolsets` definitio
 - **Utils** — General-purpose utilities, including pausing execution for a fixed
   duration.
 - **Web** — Search and research the web.
+
+## File metadata
+
+The Files toolset's read-only `Metadata` tool accepts a path relative to the
+working directory. It reports the file or directory type, size, owner and group
+names and IDs, permission bits, and modification time without reading the
+contents.
 
 The default `xah` harness enables Context, Files, Terminals, Shell, Python,
 Skills, Todo, Utils, and Management. Knowledgebase, Subagent, and Web are also
