@@ -54,7 +54,19 @@ version = "0.0.27"
 description = "An extensible AI agent harness"
 readme = "README.md"
 license = "Apache-2.0"
-keywords = []
+keywords = ["AI", "agent", "agent harness", "agent framework", "ACP", "Pydantic AI"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 requires-python = ">=3.12,<3.15"
 dependencies = ["acpremote>=1.12.0,<2.0.0", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.17.11", "debugpy", "fastmcp==3.4.4", "humanize", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]"]
 
@@ -69,6 +81,9 @@ email = "innovative.fowler@mask.pro.fmtr.dev"
 
 [project.urls]
 Homepage = "https://github.com/fmtr/xah"
+Documentation = "https://fmtr.github.io/xah/"
+Source = "https://github.com/fmtr/xah"
+Issues = "https://github.com/fmtr/xah/issues"
 
 [project.scripts]
 xah = "xah.entrypoint:main"
