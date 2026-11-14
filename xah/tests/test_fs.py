@@ -11,6 +11,7 @@ from corio.iterator import ilist
 from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.toolsets.base.tool import Messages, Validation, ValidationAbort
 from xah.toolsets.fs.edit import Edit, EditWarnings, ValidEdit
+from xah.toolsets.fs.metadata import FileType, Metadata
 from xah.toolsets.fs.write import FileWriteOutput
 from xah.toolsets.fs.mkdir import Mkdir
 from xah.toolsets.fs.move import Move
@@ -153,6 +154,40 @@ def test_env_file_requires_approval(tmp_path):
     assert tool.validation.messages.approval == [
         f'Accessing secrets file: "{Path(tmp_path / ".env").resolve()}"'
     ]
+
+
+def test_metadata_reads_file_and_directory_details(tmp_path):
+    ctx = context(tmp_path)
+    file_path = Path(tmp_path / "note.txt")
+    file_path.write_text("hello")
+    directory_path = Path(tmp_path / "folder")
+    directory_path.mkdir()
+
+    file_tool = make(Metadata, ctx, path="note.txt")
+    file_metadata = asyncio.run(file_tool.run())
+    directory_metadata = asyncio.run(make(Metadata, ctx, path="folder").run())
+
+    assert file_tool.title == "Reading filesystem metadata for `note.txt`"
+    assert "Path:" not in file_metadata.agent
+    assert file_metadata.file_type is FileType.FILE
+    assert file_metadata.size_bytes == 5
+    assert file_metadata.owner
+    assert file_metadata.owner_id == file_path.stat().st_uid
+    assert file_metadata.group
+    assert file_metadata.group_id == file_path.stat().st_gid
+    assert len(file_metadata.permissions) == 9
+    assert f"Permissions: {file_metadata.permissions}" in file_metadata.agent
+    assert file_metadata.modified_at.tzinfo is not None
+    assert file_metadata.agent.startswith("Type: file")
+    assert directory_metadata.file_type is FileType.DIRECTORY
+    assert directory_metadata.size_bytes == directory_path.stat().st_size
+
+
+def test_metadata_requires_read_permission(tmp_path):
+    ctx = context(tmp_path)
+
+    with pytest.raises(ValidationError, match="PathRead permission"):
+        make(Metadata, ctx, path="../outside.txt")
 
 
 def test_read_edit_move_search_and_remove(tmp_path):

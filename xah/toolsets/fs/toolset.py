@@ -6,13 +6,14 @@ from xah.toolsets.base.toolset import Toolset
 
 
 class Files(Toolset):
-    """Filesystem reading, writing, editing, moving, and searching tools."""
+    """Filesystem metadata, reading, writing, editing, moving, and searching tools."""
 
     POLICY = options.Policy.Policies.AUTO
 
     @classes
     def Tools(cls):
         from xah.toolsets.fs.edit import Edit
+        from xah.toolsets.fs.metadata import Metadata
         from xah.toolsets.fs.mkdir import Mkdir
         from xah.toolsets.fs.move import Move
         from xah.toolsets.fs.read import Read
@@ -21,4 +22,4 @@ class Files(Toolset):
         from xah.toolsets.fs.search import Search
         from xah.toolsets.fs.write import Write
 
-        return [Read, ReadLine, Write, Edit, Move, Search, Mkdir, Remove]
+        return [Read, ReadLine, Metadata, Write, Edit, Move, Search, Mkdir, Remove]
