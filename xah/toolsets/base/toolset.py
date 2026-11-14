@@ -41,32 +41,17 @@ AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
 
 @dataclass(kw_only=True)
 class ToolsetInfo:
-    active: bool
     name: str
     desc: str | None
-    protected: bool
     tools: list[str]
 
     @property
     def instruction(self) -> str:
-        status = "Active" if self.active else "Inactive"
-        access = (
-            "Requires approval to activate"
-            if self.protected
-            else "No additional approval required to activate"
-        )
-        tool_names = strings.join_natural(
-            [f"{self.name}-{tool}" for tool in self.tools],
-            mask="`{}`",
-            if_empty="none",
-        )
-        details = [
-            self.desc or "",
-            f"- Status: {status}",
-            f"- Access: {access}",
-            f"- Tools: {tool_names}",
-        ]
-        return strings.trim(f"## {self.name}", *details)
+        details = [f"Toolset ID: **{self.name}**", self.desc or ""]
+        if self.tools:
+            tool_names = strings.trim(*(f"- `{tool}`" for tool in self.tools))
+            details.extend(("**Contains**", tool_names))
+        return strings.trim(*details)
 
 
 class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
@@ -100,10 +85,8 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     @cp
     def info(self) -> ToolsetInfo:
         return ToolsetInfo(
-            active=self.activated,
             name=self.name,
             desc=self.description,
-            protected=self.options.cls[options.Policy].value == options.Policy.Policies.REQUESTABLE,
             tools=[tool_class.suffix for tool_class in self.Tools],
         )
 
@@ -400,9 +383,11 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         suffix = "txt" if isinstance(output, OutputString) else "json"
         artifact = directory / f"{tool.call_id}.{suffix}"
         artifact.write_text(serialized)
+        from xah.toolsets.fs.toolset import Files
+
         message = strings.trim(f"""
-            Tool produced too much output.
-            Use regular file tools to inspect the full output: {artifact}
+            Tool completed successfully. Full output saved to: `{artifact}`
+            Use `{Files.name}` tools to inspect its output.
         """)
         return OutputString(
             output=message,

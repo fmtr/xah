@@ -61,10 +61,15 @@ async def test_raise_errors_logs_and_wraps_unexpected_errors(monkeypatch):
 async def test_management_instructions_list_toolsets_individually(tmp_path):
     settings = SimpleNamespace(path=SimpleNamespace(home=Path(".agent")))
     management = Management(settings=settings, cwd=Path(tmp_path))
-    files = Files(settings=settings, cwd=Path(tmp_path), activated=False)
+    files = Files(settings=settings, cwd=Path(tmp_path), activated=True)
+
+    class InactiveFiles(Files):
+        pass
+
+    inactive = InactiveFiles(settings=settings, cwd=Path(tmp_path), activated=False)
     ctx = RunContext(
         deps=SimpleNamespace(
-            toolsets=SimpleNamespace(permitted=ilist([management, files]))
+            toolsets=SimpleNamespace(permitted=ilist([management, files, inactive]))
         ),
         model=TestModel(),
         usage=RunUsage(),
@@ -75,16 +80,30 @@ async def test_management_instructions_list_toolsets_individually(tmp_path):
 
     assert Management.get_tool("List", None) is None
     assert Management.get_tool("Activate") is Activate
-    assert len(instructions) == 3
+    activate_name = management.get_name(Activate)
+    assert len(instructions) == 2
+    activated, available = instructions
     assert all(instruction.dynamic for instruction in instructions)
-    assert "## Available Toolsets" in instructions[0].content
-    assert f"`{management.get_name(Activate)}`" in instructions[0].content
-    assert "do not reactivate them" in instructions[0].content
-    assert "## Management" in instructions[1].content
-    assert "## Files" in instructions[2].content
-    assert "Status: Active" in instructions[1].content
-    assert "Status: Inactive" in instructions[2].content
-    assert "Files-Read" in instructions[2].content
+    assert "## Already Activated Toolsets" in activated.content
+    assert "## Available Toolsets" in available.content
+    assert "not yet activated, but are available" in available.content
+    assert "## Available but Not Activated Toolsets" not in available.content
+    assert f"`{activate_name}`" in available.content
+    assert "already activated and available" in activated.content
+    assert f"Never call `{activate_name}` for any listed ID again." in activated.content
+    assert "remain active for the entire session" in activated.content
+    assert "do not request activation on future turns" in activated.content
+    assert "Use their tools directly." in activated.content
+    assert "- `Files`" in activated.content
+    assert "Toolset ID: **InactiveFiles**" in available.content
+    assert "#### InactiveFiles" not in available.content
+    assert "Filesystem reading, writing, editing, moving, and searching tools." in available.content
+    assert "**Contains**" in available.content
+    assert "- `Read`" in available.content
+    assert "- `Write`" in available.content
+    assert "Status:" not in available.content
+    assert "Access:" not in available.content
+    assert "InactiveFiles-Read" not in available.content
 
 
 def test_feedback_logs_messages_without_active_run(monkeypatch):

@@ -115,7 +115,9 @@ def test_externalize_output_serializes_pydantic_response(tmp_path):
     assert isinstance(externalized, OutputString)
     assert externalized.call_id == result.call_id
     assert externalized.request is result.request
-    assert "Use regular file tools to inspect the full output" in externalized.agent
+    assert externalized.agent.startswith("Tool completed successfully.")
+    assert "Use `Files` tools to inspect its output." in externalized.agent
+    assert "produced too much output" not in externalized.agent
     assert str(artifact) in externalized.agent
 
 

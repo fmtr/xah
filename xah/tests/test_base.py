@@ -64,10 +64,8 @@ def test_toolset_activation_and_info():
 
     assert toolset.activated
     assert toolset.info == ToolsetInfo(
-        active=True,
         name=toolset.name,
         desc=toolset.description,
-        protected=False,
         tools=[],
     )
 
