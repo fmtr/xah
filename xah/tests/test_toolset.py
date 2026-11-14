@@ -97,7 +97,7 @@ async def test_management_instructions_list_toolsets_individually(tmp_path):
     assert "- `Files`" in activated.content
     assert "Toolset ID: **InactiveFiles**" in available.content
     assert "#### InactiveFiles" not in available.content
-    assert "Filesystem reading, writing, editing, moving, and searching tools." in available.content
+    assert "Filesystem metadata, reading, writing, editing, moving, and searching tools." in available.content
     assert "**Contains**" in available.content
     assert "- `Read`" in available.content
     assert "- `Write`" in available.content
