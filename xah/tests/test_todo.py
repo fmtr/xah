@@ -19,6 +19,14 @@ def context():
     return RunContext(deps=deps, model=None, usage=RunUsage())
 
 
+def test_todo_title_projection_shows_double_length_preview():
+    text = "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima"
+    item = TodoItem(content=text)
+
+    expected_preview = f"{text[:19]}…{text[-19:]}"
+    assert expected_preview in item.title
+
+
 @pytest.mark.asyncio
 async def test_instructions_reflect_current_todo_items():
     ctx = context()

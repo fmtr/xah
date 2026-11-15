@@ -12,6 +12,7 @@ from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.toolsets.base.tool import Messages, Validation, ValidationAbort
 from xah.toolsets.fs.edit import Edit, EditWarnings, ValidEdit
 from xah.toolsets.fs.metadata import FileType, Metadata
+from xah.toolsets.fs.move import Move
 from xah.toolsets.fs.write import FileWriteOutput
 from xah.toolsets.fs.read import Read
 from xah.toolsets.fs.search import Search
@@ -169,6 +170,33 @@ def test_metadata_reads_file_and_directory_details(tmp_path):
     assert file_metadata.modified_at.tzinfo is not None
     assert directory_metadata.file_type is FileType.DIRECTORY
     assert directory_metadata.size_bytes == directory_path.stat().st_size
+
+
+@pytest.mark.parametrize(
+    ("tool_class", "path_field", "extra_fields"),
+    [
+        pytest.param(Metadata, "path", {}, id="metadata"),
+        pytest.param(Search, "path", {}, id="search"),
+        pytest.param(Move, "source", {"target": "next.dat"}, id="move-source"),
+    ],
+)
+def test_read_permission_rejects_missing_paths(
+    tmp_path,
+    tool_class,
+    path_field,
+    extra_fields,
+):
+    ctx = context(tmp_path)
+    kwargs = {path_field: "absent.dat", **extra_fields}
+
+    with pytest.raises(ValidationError) as error:
+        make(tool_class, ctx, **kwargs)
+
+    missing_path = str(Path(tmp_path / "absent.dat").resolve())
+    message = Files.validation_error_message(error.value)
+
+    assert missing_path in message
+    assert not message.startswith(":")
 
 
 def test_metadata_requires_read_permission(tmp_path):

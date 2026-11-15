@@ -167,6 +167,8 @@ class Tool(dm.Base):
             permission = metadata.permission.__name__
             msg = f'Path "{path}" requires {permission} permission, but is outside "{allowed}".'
             raise ValueError(msg)
+        if metadata.permission is Permissions.Read and not path.exists():
+            raise ValueError(f'Path "{path}" does not exist.')
 
         return path
 

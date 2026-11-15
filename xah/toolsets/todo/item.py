@@ -42,7 +42,7 @@ class TodoItem(Output):
 
     @property
     def title(self) -> str:
-        content_preview = self.preview(self.delegated_content, limit=20)
+        content_preview = self.preview(self.delegated_content, limit=40)
         return f"Updated todo `{content_preview}` to `{self.todo_status}`"
 
     @property

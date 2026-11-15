@@ -314,8 +314,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
         for detail in details:
             location = ".".join(str(part) for part in detail["loc"])
             description = detail["msg"]
-            message = f"{location}: {description}"
-            messages.append(message)
+            messages.append(strings.join((location, description), sep=": "))
 
         return strings.trim(*messages)
 
