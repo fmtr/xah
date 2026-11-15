@@ -24,7 +24,7 @@ async def test_commands_provider_advertises_commands():
 
     commands = await provider.available_commands(None, None)
 
-    assert commands[0].name == "test"
+    assert [command.name for command in commands] == ["test"]
 
 
 @pytest.mark.asyncio
@@ -40,7 +40,9 @@ async def test_commands_provider_runs_command():
 
     result = await provider.handle_command(request)
 
-    assert result.text == "Test command: value='test', count=1, verbose=False."
+    assert "value='test'" in result.text
+    assert "count=1" in result.text
+    assert "verbose=False" in result.text
 
 
 @pytest.mark.asyncio
@@ -56,7 +58,9 @@ async def test_commands_provider_parses_cli_arguments():
 
     result = await provider.handle_command(request)
 
-    assert result.text == "Test command: value='Ada Lovelace', count=3, verbose=True."
+    assert "value='Ada Lovelace'" in result.text
+    assert "count=3" in result.text
+    assert "verbose=True" in result.text
 
 
 @pytest.mark.asyncio
@@ -72,4 +76,4 @@ async def test_commands_provider_runs_subcommand():
 
     result = await provider.handle_command(request)
 
-    assert result.text == "Sub-test command: value='Nested value'."
+    assert "value='Nested value'" in result.text

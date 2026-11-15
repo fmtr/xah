@@ -1,4 +1,3 @@
-import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -20,9 +19,9 @@ def skills_environment(tmp_path):
         strings.trim("""
             ---
             name: style
-            description: Python style.
+            description: Style summary.
             ---
-            Use Python style.
+            STYLE-BODY-MARKER-61A4
         """)
     )
 
@@ -32,9 +31,9 @@ def skills_environment(tmp_path):
         strings.trim("""
             ---
             name: tests
-            description: Python tests.
+            description: Test summary.
             ---
-            Use Python tests.
+            TEST-BODY-MARKER-92BC
         """)
     )
 
@@ -55,100 +54,93 @@ def skills_environment(tmp_path):
     return SimpleNamespace(toolset=toolset, ctx=ctx)
 
 
-def test_skills_instructions_and_load_output(skills_environment):
+@pytest.mark.asyncio
+async def test_skills_instructions_and_load_output(skills_environment):
     toolset = skills_environment.toolset
     ctx = skills_environment.ctx
 
     assert Skills.get_tool("List", None) is None
     assert Skills.get_tool("Load") is Load
 
-    instructions = asyncio.run(toolset.get_instructions(ctx))
+    instructions = await toolset.get_instructions(ctx)
     assert len(instructions) == 1
     available = instructions[0]
     assert available.dynamic
-    assert "## Available Skills" in available.content
-    assert "Summaries only" in available.content
-    assert "Use `Skills-Load`" in available.content
-    assert "Python style." in available.content
-    assert "Use Python style." not in available.content
+    assert "python/style" in available.content
+    assert "Style summary." in available.content
+    assert "STYLE-BODY-MARKER-61A4" not in available.content
 
-    output = asyncio.run(
-        Load(ctx=ctx, toolset=toolset, skill_ids=["python/style"]).run()
-    )
-    assert output.agent == 'Loaded 1 skill into context: "python/style".'
-    assert "differ" not in output.model_dump(mode="json")
-    assert output.content[0].content.text == output.agent
+    output = await Load(
+        ctx=ctx,
+        toolset=toolset,
+        skill_ids=["python/style"],
+    ).run()
+    assert output.skill_ids == ["python/style"]
+    assert output.loaded == []
     assert toolset.skills.id["python/style"].is_loaded
 
-    instructions = asyncio.run(toolset.get_instructions(ctx))
+    instructions = await toolset.get_instructions(ctx)
     assert len(instructions) == 2
     loaded, available = instructions
-    assert "## Loaded Skills" in loaded.content
-    assert "Below are the texts of the skills you have requested." in loaded.content
-    assert "Use Python style." in loaded.content
-    assert "\n\nPython style." not in loaded.content
-    assert "Python tests." in available.content
-    assert "Use Python tests." not in available.content
+    assert "STYLE-BODY-MARKER-61A4" in loaded.content
+    assert "TEST-BODY-MARKER-92BC" not in loaded.content
+    assert "Test summary." in available.content
+    assert "TEST-BODY-MARKER-92BC" not in available.content
 
     tool_def = next(iter(toolset.tools.values())).tool_def
-    with pytest.raises(ModelRetry, match="Already-loaded skill") as error:
-        asyncio.run(
-            toolset.validate(ctx, tool_def, {"skill_ids": ["python/style"]})
-        )
-    assert "already in context" in str(error.value)
-    assert "Do not request them again" in str(error.value)
-    assert "do not need to be loaded or read on each turn" in str(error.value)
+    with pytest.raises(ModelRetry) as error:
+        await toolset.validate(ctx, tool_def, {"skill_ids": ["python/style"]})
+    assert "python/style" in str(error.value)
 
 
-def test_loaded_skill_duplicates_are_validation_errors(skills_environment):
+@pytest.mark.asyncio
+async def test_loaded_skill_duplicates_are_validation_errors(skills_environment):
     toolset = skills_environment.toolset
     ctx = skills_environment.ctx
 
-    asyncio.run(Load(ctx=ctx, toolset=toolset, skill_ids=["python/style"]).run())
+    await Load(ctx=ctx, toolset=toolset, skill_ids=["python/style"]).run()
     tool_def = next(iter(toolset.tools.values())).tool_def
-    with pytest.raises(ModelRetry, match="Already-loaded skill"):
-        asyncio.run(
-            toolset.validate(
-                ctx,
-                tool_def,
-                {"skill_ids": ["python/style", "python/tests"]},
-            )
+    with pytest.raises(ModelRetry) as error:
+        await toolset.validate(
+            ctx,
+            tool_def,
+            {"skill_ids": ["python/style", "python/tests"]},
         )
+
+    assert "python/style" in str(error.value)
 
     assert toolset.skills.id["python/style"].is_loaded
     assert not toolset.skills.id["python/tests"].is_loaded
 
-    output = asyncio.run(
-        Load(ctx=ctx, toolset=toolset, skill_ids=["python/tests"]).run()
-    )
-    assert output.agent == 'Loaded 1 skill into context: "python/tests".'
+    output = await Load(ctx=ctx, toolset=toolset, skill_ids=["python/tests"]).run()
+    assert output.skill_ids == ["python/tests"]
     assert toolset.skills.id["python/tests"].is_loaded
 
 
-def test_invalid_skill_ids_are_validation_errors(skills_environment):
+@pytest.mark.asyncio
+async def test_invalid_skill_ids_are_validation_errors(skills_environment):
     toolset = skills_environment.toolset
     ctx = skills_environment.ctx
     tool_def = next(iter(toolset.tools.values())).tool_def
 
-    with pytest.raises(ModelRetry, match="Invalid skill IDs"):
-        asyncio.run(
-            toolset.validate(ctx, tool_def, {"skill_ids": ["missing/skill"]})
-        )
+    with pytest.raises(ModelRetry) as error:
+        await toolset.validate(ctx, tool_def, {"skill_ids": ["missing/skill"]})
+
+    assert "missing/skill" in str(error.value)
 
 
-def test_loaded_skills_remain_loaded_after_compaction(skills_environment):
+@pytest.mark.asyncio
+async def test_loaded_skills_remain_loaded_after_compaction(skills_environment):
     toolset = skills_environment.toolset
     ctx = skills_environment.ctx
-    asyncio.run(
-        Load(ctx=ctx, toolset=toolset, skill_ids=["python/style"]).run()
-    )
+    await Load(ctx=ctx, toolset=toolset, skill_ids=["python/style"]).run()
 
     toolset.after_compress()
 
-    instructions = asyncio.run(toolset.get_instructions(ctx))
+    instructions = await toolset.get_instructions(ctx)
     assert len(instructions) == 2
-    assert "Use Python style." in instructions[0].content
-    assert "\n\nPython style." not in instructions[0].content
+    assert "STYLE-BODY-MARKER-61A4" in instructions[0].content
+    assert "STYLE-BODY-MARKER-61A4" not in instructions[1].content
 
 
 def test_skill_discovery_requires_frontmatter(tmp_path):

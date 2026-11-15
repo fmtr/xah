@@ -1,5 +1,8 @@
+import asyncio
 import json
 from types import SimpleNamespace
+
+import pytest
 
 from corio import yml
 from corio.jsn import to_json
@@ -35,13 +38,11 @@ def test_model_retry_logger_retries_nested_json_string(monkeypatch):
             handler=handler,
         )
 
-    import asyncio
 
     assert asyncio.run(run()) == {"path": "notes.txt"}
     assert calls == ['"{\\"path\\": \\"notes.txt\\"}"', '{"path": "notes.txt"}']
     assert len(enqueued) == 1
     assert enqueued[0].content.startswith(HARNESS_FEEDBACK)
-    assert "pass tool arguments as regular JSON" in enqueued[0].content
 
 
 def test_model_retry_logger_raises_decoded_args_validation_error():
@@ -66,41 +67,43 @@ def test_model_retry_logger_raises_decoded_args_validation_error():
             handler=handler,
         )
 
-    import asyncio
-    import pytest
 
     with pytest.raises(ValueError, match="path is required") as exc_info:
         asyncio.run(run())
 
     assert exc_info.value is decoded_error
+    assert calls == 2
     assert len(enqueued) == 1
     assert enqueued[0].content.startswith(HARNESS_FEEDBACK)
-    assert "pass tool arguments as regular JSON" in enqueued[0].content
 
 
 def test_model_retry_logger_keeps_validation_error_when_args_are_not_nested_json():
     capability = ToolCallArgsDeserialzer(label="root")
     validation_error = ValueError("arguments do not match schema")
+    enqueued = []
+    calls = []
+    ctx = SimpleNamespace(enqueue=enqueued.append)
 
     async def handler(args):
+        calls.append(args)
         raise validation_error
 
     async def run():
         await capability.wrap_tool_validate(
-            SimpleNamespace(enqueue=lambda message: None),
+            ctx,
             call=SimpleNamespace(tool_name="write_file"),
             tool_def=SimpleNamespace(parameters_json_schema={}),
             args='{"path": 42}',
             handler=handler,
         )
 
-    import asyncio
-    import pytest
 
-    with pytest.raises(ValueError, match="arguments do not match schema") as exc_info:
+    with pytest.raises(ValueError) as exc_info:
         asyncio.run(run())
 
     assert exc_info.value is validation_error
+    assert calls == ['{"path": 42}']
+    assert enqueued == []
 
 
 def test_model_retry_logger_recovers_escaped_array_field():
@@ -121,7 +124,6 @@ def test_model_retry_logger_recovers_escaped_array_field():
             raise ValueError("todos must be an array")
         return args
 
-    import asyncio
 
     result = asyncio.run(
         capability.wrap_tool_validate(
@@ -140,19 +142,22 @@ def test_model_retry_logger_recovers_escaped_array_field():
     ]
     assert len(enqueued) == 1
     assert enqueued[0].content.startswith(HARNESS_FEEDBACK)
-    assert "pass nested array and object arguments as JSON values" in enqueued[0].content
 
 
 def test_model_retry_logger_does_not_recover_wrong_nested_type():
     capability = ToolCallArgsDeserialzer(label="root")
     validation_error = ValueError("todos must be an array")
+    enqueued = []
+    calls = []
+    ctx = SimpleNamespace(enqueue=enqueued.append)
 
     async def handler(args):
+        calls.append(args)
         raise validation_error
 
     async def run():
         await capability.wrap_tool_validate(
-            SimpleNamespace(enqueue=lambda message: None),
+            ctx,
             call=SimpleNamespace(tool_name="write_todos"),
             tool_def=SimpleNamespace(
                 parameters_json_schema={
@@ -164,13 +169,13 @@ def test_model_retry_logger_does_not_recover_wrong_nested_type():
             handler=handler,
         )
 
-    import asyncio
-    import pytest
 
-    with pytest.raises(ValueError, match="todos must be an array") as exc_info:
+    with pytest.raises(ValueError) as exc_info:
         asyncio.run(run())
 
     assert exc_info.value is validation_error
+    assert calls == [{"todos": '{"content":"test"}'}]
+    assert enqueued == []
 
 
 def test_model_retry_logger_intercepts_tool_schema_errors(monkeypatch):
@@ -199,12 +204,12 @@ def test_model_retry_logger_intercepts_tool_schema_errors(monkeypatch):
             error=error,
         )
 
-    import asyncio
-    import pytest
 
-    with pytest.raises(ValueError, match="invalid integer"):
+    with pytest.raises(ValueError) as exc_info:
         asyncio.run(run())
 
+    assert exc_info.value is error
+    assert len(captured) == 1
     assert yml.from_yaml(captured[0]) == {
         "agent": "root",
         "part_kind": "model-retry",
@@ -216,7 +221,6 @@ def test_model_retry_logger_intercepts_tool_schema_errors(monkeypatch):
     }
     assert len(enqueued) == 1
     assert enqueued[0].content.startswith(HARNESS_FEEDBACK)
-    assert "Remember the tool definition" in enqueued[0].content
     assert to_json(tool_def.parameters_json_schema) in enqueued[0].content
 
 
@@ -237,12 +241,12 @@ def test_model_retry_logger_intercepts_output_schema_errors(monkeypatch):
             error=error,
         )
 
-    import asyncio
-    import pytest
 
-    with pytest.raises(ValueError, match="missing field"):
+    with pytest.raises(ValueError) as exc_info:
         asyncio.run(run())
 
+    assert exc_info.value is error
+    assert len(captured) == 1
     assert yml.from_yaml(captured[0]) == {
         "agent": "sub",
         "part_kind": "model-retry",

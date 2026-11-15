@@ -22,6 +22,37 @@ def web():
     return toolset, ctx
 
 
+@pytest.mark.asyncio
+async def test_fetch_url_returns_normalized_readable_markdown(web, monkeypatch):
+    toolset, ctx = web
+    result = SimpleNamespace(
+        success=True,
+        status_code=200,
+        html="<html><body>visible</body></html>",
+        error_message=None,
+        markdown=SimpleNamespace(
+            fit_markdown="Readable\n\n\ntext",
+            raw_markdown="Raw markdown",
+        ),
+        metadata={"title": "Example page"},
+    )
+    crawler = SimpleNamespace(arun=AsyncMock(return_value=result))
+    fetch = Fetch(ctx=ctx, toolset=toolset, urls=["https://example.test"])
+    monkeypatch.setattr("xah.toolsets.web.base.is_blocked", lambda *_: (False, None))
+
+    fetched = await fetch.fetch_url(crawler, "https://example.test")
+
+    assert fetched == FetchResult(
+        url="https://example.test",
+        title="Example page",
+        text="Readable\n\ntext",
+    )
+    crawler.arun.assert_awaited_once_with(
+        "https://example.test",
+        config=fetch.config,
+    )
+
+
 def test_web_provides_tavily_client():
     assert isinstance(Web().client, AsyncTavilyClient)
 

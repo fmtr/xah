@@ -1,18 +1,28 @@
+import pytest
+
 from xah.options import base as options
 
 
-def test_policy_values_and_state():
+def test_policy_select_exposes_all_values_and_defaults_to_approval():
     policy = options.Policy.from_value("Files")
 
     assert policy.id == "Files/Policy"
     assert [choice.value for choice in policy.options] == options.Policy.VALUES
-
-    policy.current_value = options.Policy.Policies.FULL
-
-    assert not policy.approval
+    assert policy.current_value == options.Policy.Policies.APPROVAL
 
 
-def test_disabled_policy_is_not_enabled():
-    policy = options.Policy.from_value("Files", options.Policy.Policies.DISABLED)
+@pytest.mark.parametrize(
+    ("value", "enabled", "approval"),
+    [
+        (options.Policy.Policies.DISABLED, False, False),
+        (options.Policy.Policies.REQUESTABLE, True, False),
+        (options.Policy.Policies.APPROVAL, True, True),
+        (options.Policy.Policies.AUTO, True, False),
+        (options.Policy.Policies.FULL, True, False),
+    ],
+)
+def test_policy_flags_follow_the_selected_access_mode(value, enabled, approval):
+    policy = options.Policy.from_value("Files", value)
 
-    assert not policy.enabled
+    assert policy.enabled is enabled
+    assert policy.approval is approval

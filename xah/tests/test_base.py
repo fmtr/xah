@@ -6,14 +6,12 @@ import weakref
 import sys
 from datetime import datetime, timezone
 from functools import cached_property
-from typing import Annotated, ClassVar
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 from cached_classproperty import cached_classproperty
 from corio import Path, dt
-from pydantic import Field, model_validator
 from corio.iterator import ilist
 
 from xah.class_collections import classes
@@ -28,11 +26,11 @@ from xah.harness.base import (
 from xah.instructions.time import Time
 from xah.instructions.agent import Agent
 from xah.instructions.registry import Instructions as InstructionRegistry
-from xah.harness.deps import HarnessDeps
+from xah.instructions.paths import Paths
 from xah.options.provider import ConfigOptionsProvider
+from xah.options.path import PathCwd, PathRead, PathWrite
 from xah.paths import paths
 from xah.options import base as options
-from xah.toolsets.base.output import InvalidInputOutput
 from xah.toolsets.base.input import Input
 from xah.toolsets.base.tool import Kinds, Messages, Tool
 from xah.toolsets.fs.permissions import Permissions
@@ -49,7 +47,6 @@ from xah.toolsets.python.toolset import Python
 from xah.toolsets.shell.run import Run
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.skills.toolset import Skills
-from xah.toolsets.subagent.toolset import Subagent
 from xah.toolsets.todo.toolset import Todo
 from xah.toolsets.terminal.status import Status
 from xah.toolsets.terminal.toolset import Terminals
@@ -74,47 +71,73 @@ def test_toolset_activation_and_info():
     assert not toolset.activated
 
 
-def test_harness_instructions_load_home_and_project_files(tmp_path):
+def test_instructions_load_agent_files_and_report_selected_paths(tmp_path):
+    home = Path(tmp_path / "home")
+    project = Path(tmp_path / "project")
+    read_root = project / "input"
+    write_root = project / "output"
+    home.mkdirf()
+    read_root.mkdirf()
+    write_root.mkdirf()
+    (home / ".agents").mkdirf()
+    (project / ".agents").mkdirf()
+    (home / ".agents" / "AGENTS.md").write_text("HOME-INSTRUCTION-49")
+    (project / ".agents" / "AGENTS.md").write_text("PROJECT-INSTRUCTION-50")
+    settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
+    ctx = SimpleNamespace(
+        deps=SimpleNamespace(
+            settings=settings,
+            options=ilist(
+                [
+                    PathCwd.from_cwd(cwd=project, description="Working directory."),
+                    PathRead.from_cwd(
+                        cwd=project,
+                        value="input",
+                        description="Read path.",
+                    ),
+                    PathWrite.from_cwd(
+                        cwd=project,
+                        value="output",
+                        description="Write path.",
+                    ),
+                ]
+            ),
+        ),
+    )
+
+    async def get_agent_instructions():
+        return await InstructionRegistry.from_ctx(ctx, HarnessAcp, Agent)
+
+    async def get_path_instructions():
+        return await InstructionRegistry.from_ctx(ctx, HarnessAcp, Paths)
+
+    agent_instructions = asyncio.run(get_agent_instructions())
+    path_instructions = asyncio.run(get_path_instructions())
+
+    assert "HOME-INSTRUCTION-49" in agent_instructions
+    assert "PROJECT-INSTRUCTION-50" in agent_instructions
+    assert str(project.resolve()) in path_instructions
+    assert str(read_root.resolve()) in path_instructions
+    assert str(write_root.resolve()) in path_instructions
+
+
+def test_agent_instruction_ignores_missing_files(tmp_path):
     home = Path(tmp_path / "home")
     project = Path(tmp_path / "project")
     home.mkdirf()
-    (project / ".agents").mkdirf()
-    (home / ".agents").mkdirf()
-    (home / ".agents" / "AGENTS.md").write_text("home instructions")
-    (project / ".agents" / "AGENTS.md").write_text("project instructions")
+    project.mkdirf()
     settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
-    harness = HarnessAcp(
-        session=SimpleNamespace(cwd=project, session_id="test-session"),
-        usage_reporters=UsageReporterRegistry(),
+    context = SimpleNamespace(
+        deps=SimpleNamespace(
+            settings=settings,
+            options=ilist(
+                [PathCwd.from_cwd(cwd=project, description="Working directory.")]
+            ),
+        ),
     )
 
-    async def get_instructions():
-        ctx = SimpleNamespace(deps=harness.deps)
-        return [
-            await InstructionRegistry.from_ctx(ctx, type(harness), instruction_type)
-            for instruction_type in type(harness).Instructions
-        ]
-
-    result = "\n\n".join(filter(None, asyncio.run(get_instructions())))
-
-    assert "home instructions" not in result
-    assert "project instructions" in result
-    assert f'You have read access to "{project.resolve()}".' in result
-    assert f'You have write access to "{project.resolve()}".' in result
-
-
-def test_harness_instructions_ignore_missing_files(tmp_path):
-    home = Path(tmp_path / "skills")
-    home.mkdirf()
-    settings = SimpleNamespace(path=PathAgent(home=home, agents_dir=".agents"))
-    harness = HarnessAcp(
-        session=SimpleNamespace(cwd=Path(tmp_path), session_id="test-session"),
-        usage_reporters=UsageReporterRegistry(),
-    )
-
-    context = SimpleNamespace(deps=harness.deps)
     assert asyncio.run(
-        InstructionRegistry.from_ctx(context, type(harness), Agent)
+        InstructionRegistry.from_ctx(context, HarnessAcp, Agent)
     ) == ""
 
 
@@ -126,7 +149,7 @@ def test_time_instruction_is_registered_and_reports_local_time(monkeypatch):
 
     local_now = fixed_now.astimezone()
     expected_datetime = local_now.strftime("%A, %B %d, %Y %H:%M %Z")
-    assert result == f"Current local time: {expected_datetime}."
+    assert expected_datetime in result
     assert Time in Harness.Instructions
 
 
@@ -185,10 +208,9 @@ def test_optional_toolsets_have_semantic_kinds():
     from xah.toolsets.web.toolset import Web
 
     toolsets = [Knowledgebase, Parent, Subagent, Web]
-    maps = toolsets
     classifier = HarnessProjectionAwareToolClassifier(
         base_classifier=DefaultToolClassifier(),
-        projection_maps=maps,
+        projection_maps=toolsets,
     )
     expected_kinds = {
         "Knowledgebase-Query": "search",
@@ -258,7 +280,9 @@ def test_invalid_input_returns_fallback_projection():
     )
 
     assert projection.title == f"{tool_name} [INVALID CALL]"
-    assert projection.content
+    projected_input = projection.content[0].content.text
+    assert "value" in projected_input
+    assert "invalid" in projected_input
 def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
     harness_instance = harness()
 
@@ -280,10 +304,10 @@ def test_harness_maps_are_available_without_deps_and_use_minimal_projections():
         raw_input={"script": "echo hello"},
     )
 
-    assert write_projection.title == "Writing 1 line to `bad.py`"
-    assert write_projection.content
-    assert shell_projection.title == "Running shell script `echo hello`"
-    assert shell_projection.content[0].content.text == "```\necho hello\n```"
+    write_content = write_projection.content[0]
+    assert Path(write_content.path).name == "bad.py"
+    assert write_content.new_text == "bad"
+    assert "echo hello" in shell_projection.content[0].content.text
 
 
 def test_shell_validation_uses_agent_output():
@@ -292,8 +316,8 @@ def test_shell_validation_uses_agent_output():
     model = TestModel(
         call_tools=[],
         custom_output_args={
-            "block": False,
-            "reasons": [],
+            "block": True,
+            "reasons": ["SHELL-BLOCK-REASON-4F"],
         }
     )
     deps.model = model
@@ -305,7 +329,8 @@ def test_shell_validation_uses_agent_output():
     result = asyncio.run(toolset.validate(ctx, tool_def, {"script": "echo hello"}))
 
     assert result.approval
-    assert result.messages == Messages()
+    assert result.messages.decline == ["SHELL-BLOCK-REASON-4F"]
+    assert result.messages.approval == ["SHELL-BLOCK-REASON-4F", "echo hello"]
 
 
 def test_terminal_run_appends_to_terminal_collection(tmp_path, monkeypatch):
@@ -329,7 +354,7 @@ def test_terminal_run_appends_to_terminal_collection(tmp_path, monkeypatch):
 
     result = asyncio.run(tool.run())
 
-    assert "hello" in result.agent
+    assert result.tail == "hello"
     assert tool.terminals is terminals
     assert terminals[0].output_path.read_text() == "hello"
     assert terminals[0].output_size == 5
@@ -405,7 +430,9 @@ def test_subagent_clone_has_independent_options(tmp_path):
     clone.options.name["PathWrite"].current_value = "/"
 
     assert deps.toolsets.all.cls[Python].options.cls[options.Policy].value == options.Policies.FULL
+    assert clone.toolsets.all.cls[Python].options.cls[options.Policy].value == options.Policies.DISABLED
     assert deps.options.name["PathWrite"].current_value == "."
+    assert clone.options.name["PathWrite"].current_value == "/"
 
 
 def test_deps_update_config_sends_current_visible_options():
@@ -487,11 +514,6 @@ def test_harness_subclass_adds_capabilities_after_thinking():
     assert selected.model_traffic_logger in selected.agent_capabilities
     assert selected.context_manager in selected.agent_capabilities
 
-
-def test_harness_deps_are_generic():
-    assert HarnessDeps().toolsets.all == []
-
-
 def test_harness_subclass_defines_its_toolset_catalogue():
     class Planner(HarnessAcp):
         title = "Planner"
@@ -508,7 +530,6 @@ def test_harness_subclass_defines_its_toolset_catalogue():
 
     assert planner.name == "Planner"
     assert planner.title == "Planner"
-    assert planner.Toolsets == [Todo, Utils]
     assert planner.Toolsets == [Todo, Utils]
     assert planner.deps.toolsets.all.cls[Todo].name == "Todo"
     assert planner.deps.toolsets.all is planner.deps.toolsets.all

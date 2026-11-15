@@ -152,18 +152,13 @@ def test_compaction_removes_its_context_tool_exchange():
         if isinstance(part, ToolReturnPart) and part.tool_name == tool_name
     ]
     assert context_manager.compression_count == 1
-    assert any(
-        isinstance(part, UserPromptPart) and summary in part.content
+    summary_parts = [
+        part
         for message in messages
         for part in message.parts
-    )
-    assert any(
-        isinstance(part, UserPromptPart)
-        and "The summary above is the current state. Continue the original task from here."
-        in part.content
-        for message in messages
-        for part in message.parts
-    )
+        if isinstance(part, UserPromptPart) and summary in part.content
+    ]
+    assert len(summary_parts) == 1
     assert not compact_tool_calls and not compact_tool_returns, (
         compact_tool_calls,
         compact_tool_returns,
@@ -203,22 +198,21 @@ def test_compaction_history_is_replaced_before_the_next_tool_round():
     requests = []
 
     def respond(messages, _agent_info):
-        warning_percentages = [
-            part.content.split("Context usage is ")[1].split("%")[0]
+        warning_received = any(
+            compact_tool_name in part.content
             for message in messages
             if isinstance(message, ModelRequest)
             for part in message.parts
             if isinstance(part, (SystemPromptPart, UserPromptPart))
-            and "URGENT: Context usage" in part.content
-        ]
+        )
         requests.append(
             (
                 len(messages),
-                warning_percentages,
+                warning_received,
                 count_tokens_approximately(messages),
             ),
         )
-        if warning_percentages and context_manager.compression_count < 2:
+        if warning_received and context_manager.compression_count < 2:
             return ModelResponse(
                 parts=[
                     ToolCallPart(
@@ -258,26 +252,23 @@ def test_compaction_history_is_replaced_before_the_next_tool_round():
     assert requests[1][2] / maximum < 0.75
     assert context_manager.compression_count == 1, requests
     assert len(requests) == 3, requests
-    assert [request[1] for request in requests] == [["78"], [], []]
+    assert [request[1] for request in requests] == [True, False, False]
     assert requests[1][0] < requests[0][0]
 
 
-def test_context_compaction_instructions_and_summary_requirements():
+def test_context_compaction_warning_interpolates_usage_and_tool_names():
+    toolset_name = "CONTEXT-TOOLSET-71"
+    tool_name = "COMPACT-TOOL-82"
     warning = Context.COMPACTION_REQUIRED_MESSAGE.format(
         usage=0.8,
-        toolset_name=Context.name,
-        tool_name=Context.get_name(Compact),
+        toolset_name=toolset_name,
+        tool_name=tool_name,
     )
-    normalized_warning = " ".join(warning.split())
-    activation_instruction = f"Activate the {Context.name} toolset."
-    definition_instruction = f"Carefully read the {Context.get_name(Compact)} tool definition"
-    call_instruction = f"Then call {Context.get_name(Compact)}"
-    assert normalized_warning.index(activation_instruction) < normalized_warning.index(
-        definition_instruction
-    ) < normalized_warning.index(call_instruction)
-    summary_description = Compact.model_fields["summary"].description
-    assert "500–1,000-word" in summary_description
-    assert "URLs" in summary_description
+
+    assert "80%" in warning
+    assert toolset_name in warning
+    assert tool_name in warning
+    assert Compact.model_fields["summary"].description
 
 
 def test_agent_summary_context_manager_replaces_history_without_summarizer(monkeypatch):

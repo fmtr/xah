@@ -107,8 +107,8 @@ async def test_terminal_output_formats_lifecycle_for_agent(tmp_path):
     await terminal.start()
     output = TerminalOutput(terminal=terminal, cwd_default=Path(tmp_path))
     assert output.path == Path("terminal.log")
-    assert "running" in output.agent
-    assert "Last output:" in output.agent
+    assert "`test`" in output.agent
+    assert f"`{TerminalStatus.RUNNING}`" in output.agent
     await terminal.process
 
     assert "completed" in output.agent

@@ -13,6 +13,7 @@ from xah.toolsets.shell.run import Run
 from xah.toolsets.shell.toolset import Shell
 from xah.toolsets.terminal.kill import Kill
 from xah.toolsets.terminal.status import Status
+from xah.toolsets.terminal.terminal import TerminalStatus
 from xah.toolsets.terminal.toolset import Terminals
 
 
@@ -41,10 +42,11 @@ def test_short_terminal_does_not_notify_after_completion(tmp_path, monkeypatch):
         timeout=30,
     )
 
-    result = asyncio.run(tool.run())
+    asyncio.run(tool.run())
     terminal = runtime.deps.toolsets.all.cls[Terminals].terminals[0]
 
-    assert "terminal-e2e" in result.agent
+    assert terminal.tail() == "terminal-e2e"
+    assert terminal.status is TerminalStatus.COMPLETED
     assert terminal.on_status is None
 
 
@@ -69,7 +71,7 @@ async def test_toolset_releases_tool_after_terminal_finishes(tmp_path, monkeypat
     terminal = terminals[0]
     tool_ref = weakref.ref(terminal.on_status.__self__)
 
-    assert result.startswith(f"Terminal `{terminal.id}`")
+    assert terminal.id in result
     assert not toolset.instances
     assert terminal.status.value == "running"
     assert tool_ref() is not None
@@ -90,7 +92,7 @@ def test_terminal_management_tools_report_unknown_ids_to_the_agent(tmp_path, too
     tool_name = toolset.get_name(tool_class)
     tools = asyncio.run(toolset.get_tools(ctx))
 
-    with pytest.raises(ModelRetry, match="Terminal with ID 'unknown' not found"):
+    with pytest.raises(ModelRetry):
         asyncio.run(
             toolset.validate(
                 ctx,
@@ -99,9 +101,12 @@ def test_terminal_management_tools_report_unknown_ids_to_the_agent(tmp_path, too
             )
         )
 
+    assert not runtime.deps.toolsets.all.cls[Terminals].terminals
 
-def test_terminal_kill_operates_on_a_background_shell_process(tmp_path):
+
+def test_terminal_kill_operates_on_a_background_shell_process(tmp_path, monkeypatch):
     runtime = harness(Path(tmp_path))
+    monkeypatch.setattr(Run, "QUICK_COMPLETION_TIMEOUT", 0.05)
     toolset = runtime.deps.toolsets.all.cls[Shell]
     tool = Run(
         ctx=context(runtime),
@@ -116,5 +121,5 @@ def test_terminal_kill_operates_on_a_background_shell_process(tmp_path):
 
     kill_result = asyncio.run(kill.run())
 
-    assert result.agent.find(f"Terminal `{terminal.id}`") >= 0
-    assert "killed" in kill_result.agent
+    assert terminal.id in result.agent
+    assert kill_result.terminal.status is TerminalStatus.KILLED

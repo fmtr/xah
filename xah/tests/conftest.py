@@ -1,13 +1,10 @@
-import os
 import sys
 
 import pytest
 
 
-os.environ["OPENAI_API_KEY"] = "test"
-
-
 @pytest.fixture(autouse=True)
-def isolate_application_cli(monkeypatch):
-    """Keep pytest's arguments away from application settings parsers."""
+def isolate_application_settings(monkeypatch):
+    """Keep test values from leaking into application settings parsing."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
     monkeypatch.setattr(sys, "argv", [sys.argv[0]])

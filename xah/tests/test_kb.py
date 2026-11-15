@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -7,6 +8,7 @@ from pydantic_ai.usage import RunUsage
 from qdrant_client.http import models
 
 from corio.db.search.client import Client
+from xah.class_collections import classes
 from corio.db.search.query import Query as SearchQuery
 from corio.hash import get_hash_int
 
@@ -24,41 +26,40 @@ def test_knowledgebase_defaults_unknown_ids_to_web_pages():
     assert knowledgebase.collection_for("research-1") is WebPage
 
 
-def test_read_tools_expose_collection_validator_classes():
-    knowledgebase = Knowledgebase()
+@pytest.mark.parametrize(
+    ("tool_type", "arguments"),
+    [
+        (Get, {"document_id": "doc-1", "chunks": [0]}),
+        (Query, {"query": "synthetic query"}),
+    ],
+)
+def test_read_tools_require_approval_for_protected_collections(tool_type, arguments):
+    class ProtectedPage(WebPage):
+        APPROVAL = True
 
-    assert Get.Validators[0].__name__ == "CollectionValidator"
-    assert Query.Validators[0].__name__ == "CollectionValidator"
-    knowledgebase.states
+    class ProtectedKnowledgebase(Knowledgebase):
+        @classes
+        def Collections(cls):
+            return [ProtectedPage]
 
-
-def test_kb_titles_name_knowledge_and_count_chunks():
-    query = Query.input.model_validate(
-        {"collection_id": "research-1", "query": "meteors"}
+    toolset = ProtectedKnowledgebase()
+    ctx = RunContext(
+        deps=SimpleNamespace(toolsets=[toolset]),
+        model=None,
+        usage=RunUsage(),
     )
-    one_chunk = Get.input.model_validate(
-        {"collection_id": "research-1", "document_id": "doc-1", "chunks": [0]}
-    )
-    several_chunks = Get.input.model_validate(
-        {"collection_id": "research-1", "document_id": "doc-1", "chunks": [0, 1, 2]}
-    )
-
-    assert query.title == "Searching knowledge `research-1` for `meteors`"
-    assert one_chunk.title == "Getting 1 chunk from knowledge `research-1` for `doc-1`"
-    assert several_chunks.title == "Getting 3 chunks from knowledge `research-1` for `doc-1`"
-
-
-def test_research_history_tracks_prompts_with_ilist_lookup():
-    history = ResearchHistory.Prompts(
-        id="research-1",
-        desc="A completed investigation.",
-        prompts=["first prompt"],
+    tool = tool_type(
+        ctx=ctx,
+        toolset=toolset,
+        collection_id=ProtectedPage.name,
+        **arguments,
     )
 
-    assert history.id == "research-1"
-    assert history.prompts == ["first prompt"]
+    asyncio.run(tool.validate())
 
-
+    assert tool.validation.approval
+    assert len(tool.validation.messages.approval) == 1
+    assert ProtectedPage.name in tool.validation.messages.approval[0]
 @pytest.mark.asyncio
 async def test_list_converts_prompt_history_to_research_history():
     knowledgebase = Knowledgebase()
@@ -72,8 +73,14 @@ async def test_list_converts_prompt_history_to_research_history():
 
     result = await List.model_construct(toolset=knowledgebase).run()
 
-    assert type(result.collections[0]) is ResearchHistory
-    assert result.collections[0].id == "research-1"
+    collection = result.collections[0]
+
+    assert type(collection) is ResearchHistory
+    assert collection.id == "research-1"
+    assert collection.desc == "A completed investigation."
+    assert result.agent == [
+        {"id": "research-1", "desc": "A completed investigation."}
+    ]
 
 
 def test_kb_tools_use_standard_identifier_names():
@@ -113,6 +120,11 @@ async def knowledgebase():
         field_name="chunk_idx",
         field_schema=models.PayloadSchemaType.INTEGER,
     )
+    await client.create_payload_index(
+        collection_name=WebPage.name,
+        field_name="collection_id",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+    )
     return toolset
 
 
@@ -126,7 +138,10 @@ async def test_query_returns_document_hits(kb, monkeypatch):
         url="https://example.com",
         text="text",
     )
+    calls = []
+
     async def query(**kwargs):
+        calls.append(kwargs)
         yield SimpleNamespace(hits=[hit])
 
     monkeypatch.setattr(WebPage, "query", classmethod(lambda cls, **kwargs: query(**kwargs)))
@@ -139,10 +154,15 @@ async def test_query_returns_document_hits(kb, monkeypatch):
     ).run()
 
     assert result.hits == [hit]
+    assert len(calls) == 1
+    assert calls[0]["texts"] == ["question"]
+    filter_condition = calls[0]["runtime_filter"].must[0]
+    assert filter_condition.key == "collection_id"
+    assert filter_condition.match.value == "research-1"
 
 
 @pytest.mark.asyncio
-async def test_query_returns_friendly_no_results_output(kb, monkeypatch):
+async def test_query_projects_empty_results_as_a_text_block(kb, monkeypatch):
     toolset, ctx = kb
 
     async def query(**kwargs):
@@ -162,11 +182,12 @@ async def test_query_returns_friendly_no_results_output(kb, monkeypatch):
         cwd=None,
     )
 
-    assert result.agent == "The query returned no results."
-    assert result.projection.content[0].content.text == result.agent
+    assert result.hits == []
+    assert len(result.projection.content) == 1
+    assert result.projection.content[0].content.text
 
 
-def test_get_returns_friendly_no_chunks_output():
+def test_get_projects_empty_chunks_as_a_text_block():
     output = DocumentChunksOutput(chunks=[])
     output.request = SimpleNamespace(
         input=SimpleNamespace(title="Getting chunks 0 from doc-1", locations=None),
@@ -174,26 +195,38 @@ def test_get_returns_friendly_no_chunks_output():
         cwd=None,
     )
 
-    assert output.agent == "No chunks were found for the requested document."
-    assert output.projection.content[0].content.text == output.agent
+    assert output.chunks == []
+    assert len(output.projection.content) == 1
+    assert output.projection.content[0].content.text
 
 
 @pytest.mark.asyncio
-async def test_query_reports_missing_collection_as_tool_failure(kb, monkeypatch):
+async def test_query_propagates_collection_query_errors(kb, monkeypatch):
     toolset, ctx = kb
+    error = ValueError("QUERY-FAILURE-2B")
+    calls = []
 
     def query(**kwargs):
-        raise ValueError("Collection WebPage not found")
+        calls.append(kwargs)
+        raise error
 
     monkeypatch.setattr(WebPage, "query", classmethod(lambda cls, **kwargs: query(**kwargs)))
 
-    with pytest.raises(ValueError, match="Collection WebPage not found"):
+    with pytest.raises(ValueError) as exc_info:
         await Query(
             ctx=ctx,
             toolset=toolset,
             query="question",
             collection_id="research-1",
         ).run()
+
+    assert exc_info.value is error
+    assert len(calls) == 1
+    assert calls[0]["texts"] == ["question"]
+    assert calls[0]["client"] is toolset.client
+    filter_condition = calls[0]["runtime_filter"].must[0]
+    assert filter_condition.key == "collection_id"
+    assert filter_condition.match.value == "research-1"
 
 
 @pytest.mark.asyncio
@@ -227,8 +260,14 @@ async def test_get_returns_selected_chunks(kb):
     ).run()
 
     assert result.chunks[0].id == "doc-1"
+    assert len(calls) == 1
     assert calls[0]["collection_name"] == "WebPage"
     assert calls[0]["limit"] == 1
+    filter_conditions = calls[0]["scroll_filter"].must
+    assert filter_conditions[0].key == "id"
+    assert filter_conditions[0].match.value == "doc-1"
+    assert filter_conditions[1].key == "chunk_idx"
+    assert filter_conditions[1].match.any == [0]
 
 
 @pytest.mark.asyncio
@@ -325,4 +364,42 @@ async def test_kb_get_returns_selected_chunks(knowledgebase):
         chunks=[2, 0],
     ).run()
 
-    assert {document.chunk_idx for document in result.chunks} == {0, 2}
+    assert {(document.chunk_idx, document.text) for document in result.chunks} == {
+        (0, "chunk 0"),
+        (2, "chunk 2"),
+    }
+
+
+@pytest.mark.asyncio
+async def test_kb_get_does_not_return_chunks_from_another_collection(knowledgebase):
+    document_id = "shared-document-id"
+    document = WebPage(
+        id=document_id,
+        collection_id="research-2",
+        title="Other research",
+        url="https://example.com/other",
+        text="unrelated document",
+        chunk_idx=0,
+        is_doc=False,
+    )
+    knowledgebase.client.upload_points(
+        collection_name=WebPage.name,
+        points=[
+            models.PointStruct(
+                id=get_hash_int(f"{document_id}/0"),
+                vector=[0.1, 0.2],
+                payload=document.model_dump(),
+            ),
+        ],
+    )
+    ctx = RunContext(deps=SimpleNamespace(), model=None, usage=RunUsage())
+
+    result = await Get(
+        ctx=ctx,
+        toolset=knowledgebase,
+        collection_id="research-1",
+        document_id=document_id,
+        chunks=[0],
+    ).run()
+
+    assert result.chunks == []

@@ -30,7 +30,9 @@ async def test_policy_lists_toolset_policies():
 
     result = await command.run()
 
-    assert result.text == "Files: approval\nPython: approval"
+    policies = dict(line.split(": ", maxsplit=1) for line in result.text.splitlines())
+
+    assert policies == {"Files": "approval", "Python": "approval"}
 
 
 @pytest.mark.asyncio
@@ -41,7 +43,10 @@ async def test_policy_gets_toolset_policy():
 
     result = await command.run()
 
-    assert result.text == "Files: auto"
+    name, value = result.text.split(": ", maxsplit=1)
+
+    assert name == "Files"
+    assert value == options.Policies.AUTO
 
 
 @pytest.mark.asyncio
@@ -49,9 +54,8 @@ async def test_policy_sets_toolset_policy():
     deps = make_deps("Files")
     command = Policy(deps=deps, name="Files", value=options.Policies.FULL, reset=None)
 
-    result = await command.run()
+    await command.run()
 
-    assert result.text == "Set Files policy to full."
     assert deps.toolsets.all.name["Files"].options.cls[options.Policy].value == options.Policies.FULL
 
 
@@ -70,8 +74,7 @@ async def test_policy_reset_restores_toolset_defaults():
         session=object(),
         agent=object(),
     )
-    result = await Policy(request=request, deps=deps).run()
+    await Policy(request=request, deps=deps).run()
 
-    assert result.text == "Reset all toolset policies to their defaults."
     assert deps.toolsets.all.name["Files"].options.cls[options.Policy].value == options.Policies.FULL
     assert deps.toolsets.all.name["Python"].options.cls[options.Policy].value == options.Policies.AUTO

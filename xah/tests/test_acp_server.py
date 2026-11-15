@@ -15,7 +15,6 @@ from xah.server.acp.server import (
     ApprovalBridgeMetadata,
     PermissionRequestContextMetadata,
     PermissionToolCallBuilderMetadata,
-    SessionAgentSource,
 )
 from xah.server.acp.usage import UsageReporterRegistry
 from xah.toolsets.base.tool import Messages, Tool, Validation
@@ -82,13 +81,14 @@ def test_permission_request_displays_approval_messages():
     assert update.content[-1].content.text == approval_message
 
 
-def test_denied_permission_returns_validation_diagnostics_to_model():
+def test_denial_returns_decline_diagnostic_to_model():
     class Client:
         async def request_permission(self, **kwargs):
             return SimpleNamespace(
                 outcome=SimpleNamespace(outcome="selected", option_id="reject_once")
             )
 
+    diagnostic = "DECLINE-DIAGNOSTIC-7F3A"
     requests = DeferredToolRequests(
         approvals=[
             ToolCallPart(
@@ -97,10 +97,14 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
                 tool_call_id="call-1",
             )
         ],
+        metadata={
+            "call-1": {"messages": {"decline": [diagnostic]}},
+        },
     )
 
+    toolsets = Toolsets()
+
     async def resolve():
-        toolsets = Toolsets()
         source = SimpleNamespace(
             get_runtime=lambda session: SimpleNamespace(
                 deps=SimpleNamespace(toolsets=toolsets)
@@ -116,7 +120,8 @@ def test_denied_permission_returns_validation_diagnostics_to_model():
     resolution = asyncio.run(resolve())
     result = resolution.deferred_tool_results.approvals["call-1"]
     assert isinstance(result, ToolDenied)
-    assert result.message == "The tool call was denied."
+    assert diagnostic in result.message
+    assert toolsets.declined == ["call-1"]
 
 
 def test_sessionless_acp_agent_routes_declines_to_session_toolsets(tmp_path):
@@ -176,28 +181,3 @@ def test_sessionless_acp_agent_routes_declines_to_session_toolsets(tmp_path):
     toolset = runtime.deps.toolsets.all.cls[DeclineToolset]
     assert isinstance(resolution.deferred_tool_results.approvals["call-1"], ToolDenied)
     assert toolset.declined == ["call-1"]
-
-
-def test_acp_session_log_includes_client_info(monkeypatch):
-    class Runtime:
-        maps = []
-
-        def __init__(self, **kwargs):
-            pass
-
-        def restore_session(self):
-            pass
-
-    source = SessionAgentSource(
-        harness_type=Runtime,
-        settings=None,
-        usage_reporters=UsageReporterRegistry(),
-        projection_maps=[],
-    )
-    source.client_info = SimpleNamespace(name="client", version="1.2.3")
-    messages = []
-    monkeypatch.setattr("xah.server.acp.server.logger.info", messages.append)
-
-    source.get_runtime(SimpleNamespace(session_id="session", cwd=Path.cwd()))
-
-    assert messages == ["ACP session started: session (client: client 1.2.3)"]

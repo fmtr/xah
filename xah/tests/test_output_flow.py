@@ -105,8 +105,7 @@ async def test_bare_toolset_returns_agent_value_without_retaining_output(context
     assert "call_id" not in ExampleOutput(value="x").model_dump()
 
 
-@pytest.mark.asyncio
-async def test_acp_progress_handles_denied_call_without_registered_output(context):
+def test_acp_progress_handles_denied_call_without_registered_output(context):
     toolset = ExampleToolset()
     toolset.outputs = ilist()
     toolsets = SimpleNamespace(for_tool=lambda name: toolset)
@@ -124,7 +123,7 @@ async def test_acp_progress_handles_denied_call_without_registered_output(contex
     update = build_tool_progress_update(
         ToolReturnPart(
             tool_name=toolset.get_name(ExampleTool),
-            content="The tool call was denied.",
+            content="DENIED-CALL-6A",
             tool_call_id="call-1",
             outcome="denied",
         ),
@@ -141,8 +140,7 @@ async def test_acp_progress_handles_denied_call_without_registered_output(contex
     assert list(toolset.outputs) == []
 
 
-@pytest.mark.asyncio
-async def test_progress_projection_errors_preserve_tool_status():
+def test_progress_projection_errors_preserve_tool_status():
     tool_name = BrokenProjectionToolset.get_name(BrokenProjectionTool)
     output = BrokenProjectionOutput(value="result")
 
@@ -190,9 +188,9 @@ def test_invalid_input_projection_is_not_replaced_by_progress_validation():
     progress_update = build_tool_progress_update(
         ToolReturnPart(
             tool_name=tool_name,
-            content="Input validation failed.",
+            content="INPUT-VALIDATION-FAILURE-9D",
             tool_call_id="invalid-call",
-            outcome="success",
+            outcome="failure",
         ),
         classifier=classifier,
         cwd=None,
@@ -204,6 +202,7 @@ def test_invalid_input_projection_is_not_replaced_by_progress_validation():
 
     assert progress_update.title == start_update.title
     assert progress_update.content == start_update.content
+    assert progress_update.status == "failed"
 
 
 @pytest.mark.asyncio
@@ -266,7 +265,7 @@ async def test_acp_write_start_and_progress_preserve_supplied_content(tmp_path):
         serializer=DefaultOutputSerializer(),
         toolsets=toolsets,
     )
-    assert progress.title.startswith("Writing 1 line to `item.txt`")
+    assert progress.content[0].new_text == "alpha"
     assert progress.status == "completed"
 
 
@@ -307,5 +306,5 @@ async def test_acp_progress_uses_original_output_and_cleans_registry(context):
 
     assert isinstance(update, ToolCallProgress)
     assert update.status == "completed"
-    assert update.title.startswith(f"{toolset.get_name(ExampleTool)}(`{{}}`) →")
+    assert "agent value" in update.content[0].content.text
     assert list(toolset.outputs) == []

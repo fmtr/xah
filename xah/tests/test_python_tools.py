@@ -63,7 +63,7 @@ def test_tool_argument_errors_hide_context_and_external_urls(tmp_path):
     assert "ctx" not in message
     assert "deps" not in message
     assert "https://errors.pydantic.dev" not in message
-    assert message == "args: Field required"
+    assert "args" in message
 
 
 def test_basic_python_tool_expressions(tmp_path):
@@ -84,12 +84,14 @@ def test_basic_python_tool_expressions(tmp_path):
     assert make(PythonTest, ctx).expression.tokens(args_only=False) == ["python", "-m", "pytest"]
 
 
-def test_correctness_validator_runs_under_every_policy(tmp_path):
+def test_python_run_rejects_missing_arguments(tmp_path):
     ctx = context(tmp_path)
     tool = make(Run, ctx, args=[])
     tool.validation = Validation()
     asyncio.run(tool.validate())
-    assert tool.validation.messages.errors == ["No arguments provided."]
+
+    assert tool.validation.abort
+    assert len(tool.validation.messages.errors) == 1
 
 
 def test_run_code_has_no_length_limit(tmp_path):

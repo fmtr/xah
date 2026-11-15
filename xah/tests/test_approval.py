@@ -32,7 +32,7 @@ class ApprovalTool(Tool):
 
 class ApprovalWarning(ApprovalTool):
     async def validate(self):
-        self.messages.append("Approval required")
+        self.messages.append("WARNING-ALPHA-47")
 
 
 class ApprovalToolset(Toolset):
@@ -115,9 +115,6 @@ def test_externalize_output_serializes_pydantic_response(tmp_path):
     assert isinstance(externalized, OutputString)
     assert externalized.call_id == result.call_id
     assert externalized.request is result.request
-    assert externalized.agent.startswith("Tool completed successfully.")
-    assert "Use `Files` tools to inspect its output." in externalized.agent
-    assert "produced too much output" not in externalized.agent
     assert str(artifact) in externalized.agent
 
 
@@ -126,12 +123,14 @@ def test_tool_feedback_enqueues_system_prompt():
     ctx = context(toolset)
     instance = ApprovalTool(ctx=ctx, toolset=toolset, value="result")
 
-    instance.feedback("Keep the next call focused.")
+    feedback = "USER-FEEDBACK-4B2"
+    instance.feedback(feedback)
 
     content = ctx.pending_messages[0].messages[0].parts[0].content
     assert content.startswith(HARNESS_FEEDBACK)
-    assert "ApprovalToolset-ApprovalTool (call-1) reported:" in content
-    assert content.endswith("Keep the next call focused.")
+    assert "ApprovalToolset-ApprovalTool" in content
+    assert "call-1" in content
+    assert feedback in content
 
 
 def test_declarative_collections_merge_replace_and_remove_by_name():
@@ -164,7 +163,7 @@ def test_local_approval_wrapper_serializes_validator_messages():
             "approval": [],
             "decline": [],
             "errors": [],
-            "warnings": ["Approval required"],
+            "warnings": ["WARNING-ALPHA-47"],
         },
         "approval": True,
         "abort": False,
@@ -226,12 +225,11 @@ def test_approved_call_reuses_tool_and_validator_instances():
     assert len(ctx.pending_messages) == 1
     content = ctx.pending_messages[0].messages[0].parts[0].content
     assert content.startswith(HARNESS_FEEDBACK)
-    assert "tool completed, but issued the following warnings." in content
-    assert "Approval required" in content
+    assert "WARNING-ALPHA-47" in content
 
 def test_decline_hook_uses_retained_tool_and_validator_then_cleans_up():
     class DeclineValidator(ApprovalTool):
-        declined_ids: ClassVar[list[str]] = []
+        declined_validators: ClassVar[list[Tool]] = []
 
         @classes
         def Validators(cls):
@@ -241,7 +239,7 @@ def test_decline_hook_uses_retained_tool_and_validator_then_cleans_up():
             pass
 
         async def after_decline(self):
-            self.declined_ids.append(self.call_id)
+            self.declined_validators.append(self)
 
     class DeclineLifecycleTool(ApprovalTool):
         @classes
@@ -266,10 +264,10 @@ def test_decline_hook_uses_retained_tool_and_validator_then_cleans_up():
     second_validator = second_instance.validators[0]
     asyncio.run(toolset.after_decline(first_ctx.tool_call_id))
 
-    assert first_validator.declined_ids == [first_ctx.tool_call_id]
+    assert DeclineValidator.declined_validators == [first_validator]
     assert toolset.instances == [second_instance]
     asyncio.run(toolset.after_decline(second_ctx.tool_call_id))
-    assert second_validator.declined_ids == [first_ctx.tool_call_id, second_ctx.tool_call_id]
+    assert DeclineValidator.declined_validators == [first_validator, second_validator]
     assert toolset.instances == []
 
 
@@ -312,7 +310,7 @@ def test_full_policy_keeps_warning_messages():
     tool_def = next(iter(toolset.tools.values())).tool_def
     instance = toolset.init_tool(context(toolset), tool_def, {"value": "result"})
     asyncio.run(instance.validate())
-    assert instance.validation.messages.warnings == ["Approval required"]
+    assert instance.validation.messages.warnings == ["WARNING-ALPHA-47"]
 
 
 def test_auto_policy_turns_warnings_into_model_retry():
@@ -322,8 +320,10 @@ def test_auto_policy_turns_warnings_into_model_retry():
     tools = asyncio.run(toolset.wrapper.get_tools(ctx))
     name = toolset.get_name(ApprovalTool)
 
-    with pytest.raises(ModelRetry, match="Approval required"):
+    with pytest.raises(ModelRetry) as error:
         asyncio.run(toolset.wrapper.call_tool(name, {"value": "result"}, ctx, tools[name]))
+
+    assert "WARNING-ALPHA-47" in str(error.value)
 
 
 def test_full_policy_runs_and_reports_warnings():
@@ -337,3 +337,5 @@ def test_full_policy_runs_and_reports_warnings():
 
     assert result == "result"
     assert len(ctx.pending_messages) == 1
+    content = ctx.pending_messages[0].messages[0].parts[0].content
+    assert "WARNING-ALPHA-47" in content

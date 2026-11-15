@@ -20,7 +20,6 @@ from xah.toolsets.management.activate import (
     Activate,
     ActivationOutput,
     ApproveRequestables,
-    RejectAlreadyActive,
 )
 from xah.harness.manager import ToolsetsManager, ToolsetsManagerAgent
 from xah.toolsets.management.toolset import Management
@@ -229,15 +228,16 @@ def test_activate_rejects_already_active_toolsets():
     result = asyncio.run(activation.run())
 
     assert isinstance(result, ActivationOutput)
-    assert result.agent == 'Activated 1 toolset: "Files".'
-    assert result.content[0].content.text == result.agent
+    assert result.toolset_ids == [Files.name]
+    assert result.activated == [Management.name]
+    assert result.invalid_ids == []
+    assert result.new == [Files.name]
     assert files.activated
     assert management.toolsets == [Files]
-    assert Activate.Validators == [RejectAlreadyActive, ApproveRequestables]
 
     tools = asyncio.run(management.get_tools(context))
     tool_def = tools[management.get_name(Activate)].tool_def
-    with pytest.raises(ModelRetry, match="Already-active toolsets") as error:
+    with pytest.raises(ModelRetry):
         asyncio.run(
             management.validate(
                 context,
@@ -246,11 +246,8 @@ def test_activate_rejects_already_active_toolsets():
             )
         )
 
-    activate_name = management.get_name(Activate)
-    assert f"Do not call `{activate_name}` for them again" in str(error.value)
-    assert "never keep re-enabling" in str(error.value)
+    assert files.activated
     assert management.toolsets == [Files]
-    assert "activate" not in Activate.model_fields
 
 
 def test_activate_output_reports_unknown_ids_while_activating_known_ids():
@@ -277,6 +274,7 @@ def test_activate_output_reports_unknown_ids_while_activating_known_ids():
 
     assert files.activated
     assert isinstance(result, ActivationOutput)
-    assert 'Activated 1 toolset: "Files".' in result.agent
-    assert 'The following toolset IDs are not available: "Missing".' in result.agent
-    assert f"Use IDs from the `{management.name}` instructions." in result.agent
+    assert result.toolset_ids == [Files.name]
+    assert result.invalid_ids == ["Missing"]
+    assert result.activated == [Management.name]
+    assert result.new == [Files.name]

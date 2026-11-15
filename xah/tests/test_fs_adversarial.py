@@ -216,9 +216,13 @@ def test_every_file_tool_rejects_paths_outside_both_permissions(
 ):
     ctx = context(filesystem_tree)
     kwargs = {path_field: attacker_path, **extra_fields}
+    outside_credentials = filesystem_tree.parent / "outside/private/credentials.json"
+    original_credentials = outside_credentials.read_bytes()
 
-    with pytest.raises(ValidationError, match="permission"):
+    with pytest.raises(ValidationError):
         make(tool_class, ctx, **kwargs)
+
+    assert outside_credentials.read_bytes() == original_credentials
 
 
 @pytest.mark.parametrize(
@@ -240,8 +244,13 @@ def test_every_file_tool_rejects_a_symlink_that_resolves_outside_the_workspace(
         **extra_fields,
     }
 
-    with pytest.raises(ValidationError, match="permission"):
+    outside_credentials = filesystem_tree.parent / "outside/private/credentials.json"
+    original_credentials = outside_credentials.read_bytes()
+
+    with pytest.raises(ValidationError):
         make(tool_class, ctx, **kwargs)
+
+    assert outside_credentials.read_bytes() == original_credentials
 
 
 @pytest.mark.parametrize(
@@ -265,8 +274,13 @@ def test_mutating_tool_destinations_cannot_escape_write_permission(
         **extra_fields,
     }
 
-    with pytest.raises(ValidationError, match="PathWrite permission"):
+    outside_credentials = filesystem_tree.parent / "outside/private/credentials.json"
+    original_credentials = outside_credentials.read_bytes()
+
+    with pytest.raises(ValidationError):
         make(tool_class, context(filesystem_tree), **kwargs)
+
+    assert outside_credentials.read_bytes() == original_credentials
 
 
 @pytest.mark.parametrize(
@@ -298,8 +312,13 @@ def test_each_operation_enforces_its_read_or_write_root(
         make(tool_class, ctx, **kwargs)
         return
 
-    with pytest.raises(ValidationError, match="permission"):
+    outside_credentials = filesystem_tree.parent / "outside/private/credentials.json"
+    original_credentials = outside_credentials.read_bytes()
+
+    with pytest.raises(ValidationError):
         make(tool_class, ctx, **kwargs)
+
+    assert outside_credentials.read_bytes() == original_credentials
 
 
 @pytest.mark.parametrize(
@@ -327,7 +346,7 @@ def test_each_operation_enforces_its_read_or_write_root(
         pytest.param(-50, 1, f"1:{EVENT_LINES[0]}", id="negative-offset-before-file"),
     ],
 )
-def test_read_line_windows_match_real_ndjson_records(
+def test_read_windows_match_real_ndjson_records(
     filesystem_tree,
     offset,
     limit,
@@ -348,7 +367,7 @@ def test_reading_an_empty_file_at_offset_zero_returns_an_empty_result(filesystem
 def test_reading_an_empty_file_rejects_a_positive_offset(filesystem_tree):
     tool = make(Read, context(filesystem_tree), path="data/empty.csv", offset=1)
 
-    with pytest.raises(ModelRetry, match="Offset 1 exceeds the file length of 0 lines"):
+    with pytest.raises(ModelRetry):
         asyncio.run(tool.run())
 
 
@@ -400,8 +419,10 @@ def test_read_line_returns_requested_character_ranges(
     ],
 )
 def test_read_line_rejects_invalid_numeric_bounds(filesystem_tree, kwargs, field):
-    with pytest.raises(ValidationError, match=field):
+    with pytest.raises(ValidationError) as error:
         make(ReadLine, context(filesystem_tree), **kwargs)
+
+    assert error.value.errors()[0]["loc"] == (field,)
 
 
 @pytest.mark.parametrize(
@@ -572,14 +593,10 @@ def test_file_listing_globs_cannot_escape_the_selected_root(filesystem_tree, glo
 
 
 def test_search_rejects_an_empty_regex(filesystem_tree):
-    with pytest.raises(ValidationError, match="regex"):
+    with pytest.raises(ValidationError) as error:
         make(Search, context(filesystem_tree), path=".", regex="")
 
-
-def test_search_accepts_nonempty_regex_that_can_match_empty_text(filesystem_tree):
-    tool = make(Search, context(filesystem_tree), path=".", regex=".?")
-
-    assert tool.regex == ".?"
+    assert error.value.errors()[0]["loc"] == ("regex",)
 
 
 @pytest.mark.parametrize("regex", ["[", "(", r"(?P<duplicate>x)(?P<duplicate>y)"])

@@ -1,4 +1,5 @@
 from pydantic import Field
+from qdrant_client.http import models
 
 from xah.class_collections import classes
 from corio import strings
@@ -52,9 +53,21 @@ class Get(Tool, Input):
 
     async def run(self) -> DocumentChunksOutput:
         collection = self.toolset.collection_for(self.collection_id)
+        runtime_filter = None
+        if collection is WebPage:
+            runtime_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="collection_id",
+                        match=models.MatchValue(value=self.collection_id),
+                    )
+                ]
+            )
+
         chunks = await collection.get_chunks(
             client=self.toolset.client,
             id=self.document_id,
             chunks=self.chunks,
+            runtime_filter=runtime_filter,
         )
         return DocumentChunksOutput(chunks=chunks)

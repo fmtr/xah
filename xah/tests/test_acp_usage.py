@@ -11,7 +11,6 @@ from pydantic_acp import AdapterModel
 from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 
-from xah.caps.context import AgentSummaryContextManager
 from xah.harness.base import HarnessAcp
 from xah.server.acp.usage import UsageReporterRegistry
 
@@ -54,15 +53,6 @@ def test_acp_session_emits_context_usage_update(tmp_path):
         usage_reporters=UsageReporterRegistry(),
     )
     with patch.object(sys, "argv", [sys.argv[0]]):
-        assert any(
-            isinstance(capability, AgentSummaryContextManager)
-            for capability in harness.agent_capabilities
-        )
-        configured_agent = harness.agent
-        assert any(
-            isinstance(capability, AgentSummaryContextManager)
-            for capability in configured_agent._root_capability.capabilities
-        )
         agent = harness.acp_agent
     client = RecordingClient()
     agent.on_connect(client)

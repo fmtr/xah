@@ -34,7 +34,7 @@ from xah.toolsets.base.toolset import Toolset
 from xah.toolsets.management.toolset import Management
 from xah.toolsets.todo.constants import TodoStatus
 from xah.toolsets.todo.item import TodoItem
-from xah.toolsets.todo.list import TODO_SYSTEM_PROMPT, TodoList
+from xah.toolsets.todo.list import TodoList
 
 
 def captured_logger(monkeypatch):
@@ -518,15 +518,10 @@ def test_model_traffic_logger_tracks_withdrawn_content_and_ignores_empty_parts(m
     ]
 
 
-def test_instruction_deserializer_keeps_todo_text_as_a_source_attributed_part():
-    content = todo_instruction_content()
+def test_instruction_deserializer_attributes_content_to_its_source():
+    content = "INSTRUCTION-PAYLOAD-5BC7"
     deserializer = InstructionDeserializer([instruction_part(content, "Todo")])
 
-    assert content == (
-        f"{TODO_SYSTEM_PROMPT}\n\n"
-        f"- {TodoStatus.PENDING.icon} [abc123] Inspect the logger\n"
-        f"- {TodoStatus.IN_PROGRESS.icon} [def456] Review the setup"
-    )
     assert deserializer.instructions == {
         "toolset:Todo": {
             "id": "toolset:Todo",

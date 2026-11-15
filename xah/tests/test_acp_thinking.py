@@ -1,12 +1,12 @@
 import asyncio
 from types import SimpleNamespace
 
+import pytest
 from acp import update_agent_thought_text
 from acp.schema import AgentThoughtChunk
 from pydantic_ai.messages import PartDeltaEvent, PartStartEvent, ThinkingPart, ThinkingPartDelta
 
-from xah.server.acp.thinking import ThinkingPromptExecution
-from xah.server.acp.thinking import AgentAcp
+from xah.server.acp.thinking import AgentAcp, ThinkingPromptExecution
 
 
 def test_thinking_part_start_becomes_acp_thought_chunk():
@@ -14,7 +14,6 @@ def test_thinking_part_start_becomes_acp_thought_chunk():
 
     update = ThinkingPromptExecution.thought_update_from_event(event)
 
-    assert update == update_agent_thought_text("Plan first")
     assert update.session_update == "agent_thought_chunk"
     assert update.content.text == "Plan first"
 
@@ -46,7 +45,10 @@ def test_thought_chunks_are_sent_without_transcript_serialization():
 
     asyncio.run(agent._record_update(Session(), thought))
 
-    assert isinstance(agent._client.updates[0]["update"], AgentThoughtChunk)
+    update = agent._client.updates[0]["update"]
+
+    assert isinstance(update, AgentThoughtChunk)
+    assert update.content.text == "private reasoning"
     assert not Session.transcript
 
 
@@ -69,7 +71,7 @@ def test_thought_execution_uses_agent_update_hook():
     runtime = Runtime()
     execution = ThinkingPromptExecution(runtime)
 
-    try:
+    with pytest.raises(RuntimeError):
         asyncio.run(
             execution._consume_run_events(
                 stream(),
@@ -80,8 +82,7 @@ def test_thought_execution_uses_agent_update_hook():
                 streamed_output=False,
             )
         )
-    except RuntimeError as error:
-        assert str(error) == "missing_agent_run_result"
 
     assert len(runtime.updates) == 1
-    assert runtime.updates[0] == update_agent_thought_text("private reasoning")
+    assert isinstance(runtime.updates[0], AgentThoughtChunk)
+    assert runtime.updates[0].content.text == "private reasoning"

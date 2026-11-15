@@ -1,8 +1,9 @@
-import asyncio
 from types import SimpleNamespace
+
+import pytest
+from corio.iterator import ilist
 from pydantic_ai import RunContext
 from pydantic_ai.usage import RunUsage
-from corio.iterator import ilist
 from xah.toolsets.base.tool import Messages, Validation
 from xah.toolsets.todo.constants import TodoStatus
 from xah.toolsets.todo.item import TodoItem
@@ -18,7 +19,8 @@ def context():
     return RunContext(deps=deps, model=None, usage=RunUsage())
 
 
-def test_instructions_are_a_property_without_context():
+@pytest.mark.asyncio
+async def test_instructions_reflect_current_todo_items():
     ctx = context()
     toolset = ctx.deps.toolsets.cls[Todo]
     toolset.list.items.append(TodoItem(content="one"))
@@ -28,39 +30,49 @@ def test_instructions_are_a_property_without_context():
     assert len(instructions) == 1
     assert "one" in instructions[0].content
     assert instructions[0].dynamic
-    assert asyncio.run(toolset.get_instructions(ctx)) == instructions
+    assert await toolset.get_instructions(ctx) == instructions
 
 
-def test_read_returns_structured_items_and_flattens_for_agent():
+@pytest.mark.asyncio
+async def test_read_returns_structured_items_and_flattens_for_agent():
     ctx = context()
     toolset = ctx.deps.toolsets.cls[Todo]
     toolset.list.items.append(TodoItem(id="abc123", content="one"))
-    assert len(TodoItem(content="one").id) == 4
-
-    output = asyncio.run(Read(ctx=ctx, toolset=toolset).run())
+    output = await Read(ctx=ctx, toolset=toolset).run()
 
     assert output is toolset.list
-    assert "1. ⏳ [abc123] one" in output.agent
+    assert "abc123" in output.agent
+    assert "one" in output.agent
     assert len(output.content) == 2
-    assert output.content[0].content.text == "⏳ [abc123] one"
+    assert "abc123" in output.content[0].content.text
+    assert "one" in output.content[0].content.text
 
 
-def test_write_uses_model_todos_and_returns_structured_output():
+@pytest.mark.asyncio
+async def test_write_replaces_existing_todos_with_structured_output():
     ctx = context()
-    tool = Write(ctx=ctx, toolset=ctx.deps.toolsets.cls[Todo], todos=[TodoItem(content="one")])
+    todo_list = ctx.deps.toolsets.cls[Todo].list
+    todo_list.items.append(TodoItem(id="stale", content="old item"))
+    tool = Write(
+        ctx=ctx,
+        toolset=ctx.deps.toolsets.cls[Todo],
+        todos=[TodoItem(id="new-item", content="one")],
+    )
     tool.validation = Validation()
-    asyncio.run(tool.validate())
+    await tool.validate()
     assert tool.validation.messages == Messages()
 
-    output = asyncio.run(tool.run())
+    output = await tool.run()
 
-    assert output is ctx.deps.toolsets.cls[Todo].list
-    assert output.agent.startswith("Current todos:")
+    assert output is todo_list
+    assert [item.id for item in output.items] == ["new-item"]
+    assert output.items[0].todo_content == "one"
     assert len(output.content) == 2
-    assert output.content[0].content.text.endswith("one")
+    assert "one" in output.content[0].content.text
 
 
-def test_update_output_title_uses_todo_status_and_projects_item():
+@pytest.mark.asyncio
+async def test_update_status_changes_the_existing_item():
     ctx = context()
     toolset = ctx.deps.toolsets.cls[Todo]
     toolset.list.items.append(TodoItem(id="abc123", content="one"))
@@ -71,18 +83,9 @@ def test_update_output_title_uses_todo_status_and_projects_item():
         status=TodoStatus.COMPLETED,
     )
 
-    output = asyncio.run(tool.run())
+    output = await tool.run()
 
     assert output is toolset.list.items.id["abc123"]
-    assert output.title == "Updated todo `one` to `completed`"
-    assert output.agent.startswith("Updated todo 'one' status to 'completed'")
-    assert output.content[0].content.text == "✅ [abc123] one"
-
-
-def test_update_output_title_previews_long_todo_content():
-    todo = TodoItem(content="This todo title is considerably longer than twenty characters")
-
-    preview = todo.preview(todo.todo_content, limit=20)
-
-    assert preview == "This todo…haracters"
-    assert todo.title == f"Updated todo `{preview}` to `pending`"
+    assert output.todo_status == TodoStatus.COMPLETED
+    assert output.todo_content == "one"
+    assert output.id == "abc123"

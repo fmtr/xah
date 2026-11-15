@@ -36,4 +36,4 @@ def test_read_line_pages_long_lines(tmp_path, monkeypatch):
     result = asyncio.run(tool.run())
 
     assert result.agent == "1:abcdefghij"
-    assert feedback == ["The line contains 14380 characters beyond the displayed range."]
+    assert len(feedback) == 1

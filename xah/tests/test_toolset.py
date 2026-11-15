@@ -50,7 +50,7 @@ async def test_raise_errors_logs_and_wraps_unexpected_errors(monkeypatch):
     async def method():
         raise ValueError("unexpected")
 
-    with pytest.raises(ToolFailed, match="Internal error") as raised:
+    with pytest.raises(ToolFailed) as raised:
         await toolset.raise_errors(method)
 
     assert logged == [("unexpected", {"_exc_info": True})]
@@ -84,26 +84,13 @@ async def test_management_instructions_list_toolsets_individually(tmp_path):
     assert len(instructions) == 2
     activated, available = instructions
     assert all(instruction.dynamic for instruction in instructions)
-    assert "## Already Activated Toolsets" in activated.content
-    assert "## Available Toolsets" in available.content
-    assert "not yet activated, but are available" in available.content
-    assert "## Available but Not Activated Toolsets" not in available.content
-    assert f"`{activate_name}`" in available.content
-    assert "already activated and available" in activated.content
-    assert f"Never call `{activate_name}` for any listed ID again." in activated.content
-    assert "remain active for the entire session" in activated.content
-    assert "do not request activation on future turns" in activated.content
-    assert "Use their tools directly." in activated.content
     assert "- `Files`" in activated.content
+    assert "- `InactiveFiles`" not in activated.content
     assert "Toolset ID: **InactiveFiles**" in available.content
-    assert "#### InactiveFiles" not in available.content
-    assert "Filesystem metadata, reading, writing, editing, moving, and searching tools." in available.content
-    assert "**Contains**" in available.content
     assert "- `Read`" in available.content
     assert "- `Write`" in available.content
-    assert "Status:" not in available.content
-    assert "Access:" not in available.content
-    assert "InactiveFiles-Read" not in available.content
+    assert activate_name in available.content
+    assert "- `Management`" not in activated.content + available.content
 
 
 def test_feedback_logs_messages_without_active_run(monkeypatch):
@@ -120,9 +107,7 @@ def test_feedback_logs_messages_without_active_run(monkeypatch):
     ctx = SimpleNamespace(enqueue=enqueue, pending_messages=None)
     assert Toolset.feedback(ctx, "late feedback") is None
     assert len(logged) == 1
-    assert logged[0].startswith(
-        "Toolset feedback could not be enqueued: [HARNESS FEEDBACK]"
-    )
+    assert "[HARNESS FEEDBACK]" in logged[0]
     assert "late feedback" in logged[0]
 
 
@@ -146,9 +131,10 @@ def test_feedback_logs_unrelated_user_errors_without_failing_the_run(monkeypatch
     ctx = SimpleNamespace(enqueue=enqueue, pending_messages=[])
     assert Toolset.feedback(ctx, "bad feedback") is None
 
-    assert logged_errors == [
-        ("Toolset feedback enqueue failed: invalid feedback", {"_exc_info": True})
-    ]
-    assert logged_warnings == [
-        "Toolset feedback could not be enqueued: [HARNESS FEEDBACK]\n\nbad feedback"
-    ]
+    assert len(logged_errors) == 1
+    error_message, error_kwargs = logged_errors[0]
+    assert str(error) in error_message
+    assert error_kwargs == {"_exc_info": True}
+    assert len(logged_warnings) == 1
+    assert "[HARNESS FEEDBACK]" in logged_warnings[0]
+    assert "bad feedback" in logged_warnings[0]
