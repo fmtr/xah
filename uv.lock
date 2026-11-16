@@ -705,7 +705,7 @@ wheels = [
 
 [[package]]
 name = "corio"
-version = "2.17.14"
+version = "2.17.16"
 source = { editable = "../corio" }
 dependencies = [
     { name = "cached-classproperty" },
@@ -5384,7 +5384,7 @@ wheels = [
 
 [[package]]
 name = "xah"
-version = "0.0.29a0"
+version = "0.1.0a2"
 source = { editable = "." }
 dependencies = [
     { name = "acpremote" },
