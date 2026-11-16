@@ -3,7 +3,7 @@ requires = ["setuptools>=82", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.corio.metadata]
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 port = 10
 base = "python"
 description = "An extensible AI agent harness"
@@ -50,25 +50,25 @@ env_list = ["xah"]
 
 [tool.tox.env.xah]
 description = "Run xah tests."
-deps = ["corio[db.search]~=2.17.16", "corio[test]~=2.17.16", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+deps = ["corio[db.search]~=2.17.17", "corio[test]~=2.17.17", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 commands = [["python", "-m", "pytest", "-q", "{posargs:xah/tests}"]]
 install_command = ["uv", "pip", "install", "--refresh-package", "corio", "{opts}", "{packages}"]
 pass_env = ["PLAYWRIGHT_BROWSERS_PATH"]
 
 [project]
 name = "xah"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 description = "An extensible AI agent harness"
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["AI", "agent", "agent harness", "agent framework", "ACP", "Pydantic AI"]
 classifiers = ["Development Status :: 3 - Alpha", "Environment :: Console", "Intended Audience :: Developers", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3.14", "Topic :: Scientific/Engineering :: Artificial Intelligence", "Topic :: Software Development :: Libraries :: Application Frameworks"]
 requires-python = ">=3.12,<3.15"
-dependencies = ["acpremote>=1.12.0,<2.0.0", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.17.16", "debugpy", "fastmcp==3.4.4", "humanize", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]"]
+dependencies = ["acpremote>=1.12.0,<2.0.0", "agent-client-protocol", "corio[db.search,dev,dm,path.search,sets]~=2.17.17", "debugpy", "fastmcp==3.4.4", "humanize", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]"]
 
 [project.optional-dependencies]
-test = ["corio[test]~=2.17.16", "corio[db.search]~=2.17.16", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
-"tool.kb" = ["corio[db.search]~=2.17.16"]
+test = ["corio[test]~=2.17.17", "corio[db.search]~=2.17.17", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
+"tool.kb" = ["corio[db.search]~=2.17.17"]
 "tool.web" = ["crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 
 [[project.authors]]
