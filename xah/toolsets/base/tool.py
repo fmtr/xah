@@ -159,7 +159,11 @@ class Tool(dm.Base):
         if type(path) is list:
             return [self.resolve(item, metadata) for item in path]
 
-        cwd = self.ctx.deps.options.cls[PathCwd].value
+        if metadata.resolve_project:
+            cwd = self.project
+        else:
+            cwd = self.ctx.deps.options.cls[PathCwd].value
+
         path = path or cwd
         path = (Path(cwd) / Path(path)).resolve()
         allowed = self.ctx.deps.options.cls[metadata.permission].value
@@ -167,7 +171,7 @@ class Tool(dm.Base):
             permission = metadata.permission.__name__
             msg = f'Path "{path}" requires {permission} permission, but is outside "{allowed}".'
             raise ValueError(msg)
-        if metadata.permission is Permissions.Read and not path.exists():
+        if metadata.must_exist and not path.exists():
             raise ValueError(f'Path "{path}" does not exist.')
 
         return path

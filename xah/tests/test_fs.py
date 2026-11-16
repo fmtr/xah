@@ -1,5 +1,6 @@
 import asyncio
 from types import SimpleNamespace
+from typing import Annotated
 
 import pytest
 from pydantic import ValidationError
@@ -9,7 +10,7 @@ from pydantic_ai.usage import RunUsage
 from corio import Path
 from corio.iterator import ilist
 from xah.options.path import PathCwd, PathRead, PathWrite
-from xah.toolsets.base.tool import Messages, Validation, ValidationAbort
+from xah.toolsets.base.tool import Messages, Tool, Validation, ValidationAbort
 from xah.toolsets.fs.edit import Edit, EditWarnings, ValidEdit
 from xah.toolsets.fs.metadata import FileType, Metadata
 from xah.toolsets.fs.move import Move
@@ -41,6 +42,33 @@ def make(tool_class, ctx, **kwargs):
     return tool_class(ctx=ctx, toolset=ctx.deps.toolsets.cls[Files], **kwargs)
 
 
+class ProjectPathsTool(Tool):
+    project: Annotated[Path, Permissions(Permissions.Read)]
+    paths: Annotated[
+        list[Path],
+        Permissions(Permissions.Read, must_exist=False, resolve_project=True),
+    ]
+
+
+def test_project_paths_resolve_from_project_and_allow_selectors(tmp_path):
+    project = Path(tmp_path / "workspace")
+    project_checks = project / "checks"
+    cwd_checks = Path(tmp_path / "checks")
+    project_checks.mkdir(parents=True)
+    cwd_checks.mkdir()
+    (project_checks / "test_cypress.py").touch()
+    (cwd_checks / "test_cypress.py").touch()
+    ctx = context(tmp_path)
+    tool = ProjectPathsTool(
+        ctx=ctx,
+        toolset=ctx.deps.toolsets.cls[Files],
+        project="workspace",
+        paths=["checks/test_cypress.py::test_cypress"],
+    )
+
+    assert tool.paths == [project_checks / "test_cypress.py::test_cypress"]
+
+
 def test_path_metadata_drives_resolution_and_permissions(tmp_path):
     ctx = context(tmp_path)
     tool = make(Edit, ctx, path="note.txt", old_text="a", new_text="b")
@@ -48,6 +76,22 @@ def test_path_metadata_drives_resolution_and_permissions(tmp_path):
 
     assert tool.path == Path(tmp_path / "note.txt").resolve()
     assert metadata.permission is Permissions.Write
+
+
+@pytest.mark.parametrize(
+    ("permission", "must_exist", "expected"),
+    [
+        (Permissions.Read, None, True),
+        (Permissions.Write, None, False),
+        (Permissions.Read, False, False),
+        (Permissions.Write, True, True),
+    ],
+)
+def test_permissions_set_must_exist_default_and_overrides(permission, must_exist, expected):
+    metadata = Permissions(permission, must_exist=must_exist)
+
+    assert metadata.must_exist is expected
+    assert metadata.resolve_project is False
 
 
 def test_search_defaults_to_the_current_working_directory(tmp_path):
