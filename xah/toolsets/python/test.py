@@ -17,6 +17,7 @@ class TestOutput(TerminalOutput):
 class Input(InputBase):
     tests: list[str] = Field(default_factory=list, description="Test paths or pytest node IDs. Leave empty to run the complete suite.")
     verbosity: Literal["normal", "verbose", "quiet"] = Field(default="normal", description="Test output level.")
+    coverage: bool = Field(default=False, description="Collect coverage and show missing lines.")
 
     @property
     def title(self):
@@ -33,6 +34,18 @@ class Input(InputBase):
 
 class Test(TerminalTool, Input):
     """Run the current repository's test suite."""
+
+    @property
+    def env(self) -> dict[str, str]:
+        if not self.coverage:
+            return {}
+
+        coverage_options = [
+            --arg.cov + "xah",
+            --arg.cov_report + "term-missing:skip-covered",
+        ]
+        coverage_settings = " ".join(str(option) for option in coverage_options)
+        return {"PYTEST_ADDOPTS": coverage_settings}
 
     @ccp
     def Output(cls) -> type[TestOutput]:

@@ -10,8 +10,9 @@ from corio.shell.dsl import shell
 from xah.harness.deps import HarnessAgentDeps
 from xah.toolsets.base.projection.output import ProjectionRequestOutput
 from xah.toolsets.base.tool import Tool
+from xah.toolsets.python.test import Test as PythonTest
 from xah.toolsets.shell.run import Run
-from xah.toolsets.terminal.base import TerminalOutput, TerminalStatuses
+from xah.toolsets.terminal.base import TerminalOutput, TerminalStatuses, TerminalTool
 from xah.toolsets.terminal.status import Status as StatusTool
 from xah.toolsets.terminal.terminal import Terminal, TerminalStatus
 from xah.toolsets.terminal.toolset import Terminals
@@ -91,6 +92,82 @@ async def test_terminal_writes_output_to_file(tmp_path):
     assert terminal.output_size == len("firstsecond")
     assert terminal.output_path.read_text() == "firstsecond"
     assert terminal.tail(length=terminal.output_size) == "firstsecond"
+
+
+@pytest.mark.asyncio
+async def test_terminal_overlays_requested_environment_and_inherits_parent(tmp_path, monkeypatch):
+    monkeypatch.setenv("XAH_SAMPLE_INHERITED", "ambient")
+    terminal = Terminal(
+        id="test",
+        expression=shell.sh(
+            "-c",
+            "printf '%s|%s' \"$XAH_SAMPLE_INHERITED\" \"$XAH_SAMPLE_OVERRIDE\"",
+        ),
+        timeout=2,
+        cwd="/tmp",
+        output_path=Path(str(tmp_path / "terminal.log")),
+        env={"XAH_SAMPLE_OVERRIDE": "terminal"},
+    )
+
+    await terminal.start()
+    await terminal.process
+
+    assert terminal.status == TerminalStatus.COMPLETED
+    assert terminal.output_path.read_text() == "ambient|terminal"
+    assert "env" not in terminal.model_dump()
+
+
+def test_python_test_adds_coverage_options_to_terminal_environment():
+    tool = PythonTest.model_construct(coverage=True)
+
+    assert tool.env == {
+        "PYTEST_ADDOPTS": "--cov xah --cov-report term-missing:skip-covered",
+    }
+
+
+@pytest.mark.asyncio
+async def test_terminal_tool_passes_its_environment_to_the_process(tmp_path):
+    class TerminalStore:
+        def __init__(self):
+            self.id = {}
+
+        def append(self, terminal):
+            self.id[terminal.id] = terminal
+
+    terminals = TerminalStore()
+
+    class EnvironmentTool(TerminalTool):
+        @property
+        def terminal_id(self):
+            return "sample"
+
+        @property
+        def terminals(self):
+            return terminals
+
+        @property
+        def cwd(self):
+            return str(tmp_path)
+
+        @property
+        def expression(self):
+            return shell.sh("-c", "printf '%s' \"$XAH_SAMPLE_TOOL_ENV\"")
+
+        @property
+        def env(self):
+            return {"XAH_SAMPLE_TOOL_ENV": "forwarded"}
+
+        @property
+        def output_path(self):
+            return Path(str(tmp_path / "tool.log"))
+
+        @property
+        def output(self):
+            return terminals.id[self.terminal_id].output_path.read_text()
+
+    tool = EnvironmentTool.model_construct()
+
+    assert await tool.run() == "forwarded"
 
 
 @pytest.mark.asyncio

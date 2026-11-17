@@ -12,7 +12,7 @@ org_github = "fmtr"
 org_friendly = "Frontmatter AI"
 is_pypi = true
 is_dockerhub = false
-test_pass_env = ["PLAYWRIGHT_BROWSERS_PATH"]
+test_pass_env = ["PLAYWRIGHT_BROWSERS_PATH", "PYTEST_ADDOPTS"]
 editables = ["corio"]
 
 [tool.corio.metadata.setup]
@@ -56,7 +56,7 @@ description = "Run xah tests."
 deps = ["-e ../corio[db.search,dev,dm,path.search,sets,test]", "acpremote>=1.12.0,<2.0.0", "agent-client-protocol", "crawl4ai", "debugpy", "fastmcp==3.4.4", "humanize", "playwright==1.61.0", "pydantic-acp", "pydantic-ai-slim[logfire,openai]", "pydantic-deep[all]", "tavily-python>=0.8.0"]
 commands = [["python", "-m", "pytest", "-q", "{posargs:xah/tests}"]]
 install_command = ["uv", "pip", "install", "--refresh-package", "corio", "{opts}", "{packages}"]
-pass_env = ["PLAYWRIGHT_BROWSERS_PATH"]
+pass_env = ["PLAYWRIGHT_BROWSERS_PATH", "PYTEST_ADDOPTS"]
 skip_install = true
 
 [tool.tox.env.prod]
@@ -64,7 +64,7 @@ description = "Run xah tests."
 deps = ["corio[db.search]~=2.17.20", "corio[test]~=2.17.20", "crawl4ai", "playwright==1.61.0", "tavily-python>=0.8.0"]
 commands = [["python", "-m", "pytest", "-q", "{posargs:xah/tests}"]]
 install_command = ["uv", "pip", "install", "--refresh-package", "corio", "{opts}", "{packages}"]
-pass_env = ["PLAYWRIGHT_BROWSERS_PATH"]
+pass_env = ["PLAYWRIGHT_BROWSERS_PATH", "PYTEST_ADDOPTS"]
 
 [project]
 name = "xah"

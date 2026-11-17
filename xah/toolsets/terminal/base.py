@@ -181,6 +181,10 @@ class TerminalTool(TerminalToolBase):
     def expression(self) -> Expression:
         raise NotImplementedError
 
+    @property
+    def env(self) -> dict[str, str]:
+        return {}
+
     @cached_property
     def output_path(self) -> Path:
         directory = self.ctx.deps.terminals_dir
@@ -195,6 +199,7 @@ class TerminalTool(TerminalToolBase):
             timeout=self.timeout,
             cwd=str(self.cwd),
             output_path=self.output_path,
+            env=self.env,
         )
         self.terminals.append(terminal)
         await terminal.start()
