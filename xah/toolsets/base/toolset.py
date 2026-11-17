@@ -245,8 +245,7 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
         try:
             return ctx.enqueue(message)
-        except UserError as error:
-            logger.error(f"Toolset feedback enqueue failed: {error}", _exc_info=True)
+        except UserError:
             logger.warning(
                 f"Toolset feedback could not be enqueued: {message.content}"
             )

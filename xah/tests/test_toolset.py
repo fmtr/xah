@@ -111,13 +111,12 @@ def test_feedback_logs_messages_without_active_run(monkeypatch):
     assert "late feedback" in logged[0]
 
 
-def test_feedback_logs_unrelated_user_errors_without_failing_the_run(monkeypatch):
+def test_feedback_logs_user_errors_as_warnings_without_failing_the_run(monkeypatch):
     logged_errors = []
     logged_warnings = []
-    error = UserError("invalid feedback")
 
     def enqueue(_message):
-        raise error
+        raise UserError("feedback cannot be queued")
 
     monkeypatch.setattr(
         "xah.toolsets.base.toolset.logger.error",
@@ -129,12 +128,9 @@ def test_feedback_logs_unrelated_user_errors_without_failing_the_run(monkeypatch
     )
 
     ctx = SimpleNamespace(enqueue=enqueue, pending_messages=[])
-    assert Toolset.feedback(ctx, "bad feedback") is None
+    assert Toolset.feedback(ctx, "sample follow-up") is None
 
-    assert len(logged_errors) == 1
-    error_message, error_kwargs = logged_errors[0]
-    assert str(error) in error_message
-    assert error_kwargs == {"_exc_info": True}
+    assert logged_errors == []
     assert len(logged_warnings) == 1
     assert "[HARNESS FEEDBACK]" in logged_warnings[0]
-    assert "bad feedback" in logged_warnings[0]
+    assert "sample follow-up" in logged_warnings[0]
