@@ -5,7 +5,7 @@ from pydantic_acp import SlashCommandRequest
 
 from corio import sets
 from xah.commands.base import Command, CommandsProvider
-from xah.commands.test import Test
+from xah.commands.test import Test as SlashTestCommand
 from xah.harness.deps import HarnessDeps
 
 
@@ -20,7 +20,7 @@ class Source:
 
 @pytest.mark.asyncio
 async def test_commands_provider_advertises_commands():
-    provider = CommandsProvider(agent_source=Source(), command_types=[Test])
+    provider = CommandsProvider(agent_source=Source(), command_types=[SlashTestCommand])
 
     commands = await provider.available_commands(None, None)
 
@@ -29,7 +29,7 @@ async def test_commands_provider_advertises_commands():
 
 @pytest.mark.asyncio
 async def test_commands_provider_runs_command():
-    provider = CommandsProvider(agent_source=Source(), command_types=[Test])
+    provider = CommandsProvider(agent_source=Source(), command_types=[SlashTestCommand])
     request = SlashCommandRequest(
         name="test",
         argument=None,
@@ -47,7 +47,7 @@ async def test_commands_provider_runs_command():
 
 @pytest.mark.asyncio
 async def test_commands_provider_parses_cli_arguments():
-    provider = CommandsProvider(agent_source=Source(), command_types=[Test])
+    provider = CommandsProvider(agent_source=Source(), command_types=[SlashTestCommand])
     request = SlashCommandRequest(
         name="test",
         argument='--value "Ada Lovelace" --count 3 --verbose',
@@ -65,7 +65,7 @@ async def test_commands_provider_parses_cli_arguments():
 
 @pytest.mark.asyncio
 async def test_commands_provider_runs_subcommand():
-    provider = CommandsProvider(agent_source=Source(), command_types=[Test])
+    provider = CommandsProvider(agent_source=Source(), command_types=[SlashTestCommand])
     request = SlashCommandRequest(
         name="test",
         argument='sub --value "Nested value"',

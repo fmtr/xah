@@ -110,21 +110,6 @@ async def knowledgebase():
         collection_name=WebPage.name,
         vectors_config=models.VectorParams(size=2, distance=models.Distance.COSINE),
     )
-    await client.create_payload_index(
-        collection_name=WebPage.name,
-        field_name="id",
-        field_schema=models.PayloadSchemaType.KEYWORD,
-    )
-    await client.create_payload_index(
-        collection_name=WebPage.name,
-        field_name="chunk_idx",
-        field_schema=models.PayloadSchemaType.INTEGER,
-    )
-    await client.create_payload_index(
-        collection_name=WebPage.name,
-        field_name="collection_id",
-        field_schema=models.PayloadSchemaType.KEYWORD,
-    )
     return toolset
 
 

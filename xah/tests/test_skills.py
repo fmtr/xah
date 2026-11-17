@@ -143,6 +143,9 @@ async def test_loaded_skills_remain_loaded_after_compaction(skills_environment):
     assert "STYLE-BODY-MARKER-61A4" not in instructions[1].content
 
 
+@pytest.mark.filterwarnings(
+    "ignore::UserWarning:pydantic_deep.features.skills.directory"
+)
 def test_skill_discovery_requires_frontmatter(tmp_path):
     skill_path = Path(tmp_path / ".agents" / "skills" / "example")
     skill_path.mkdir(parents=True)

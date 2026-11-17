@@ -1,4 +1,5 @@
 import asyncio
+import warnings
 from types import SimpleNamespace
 
 import pytest
@@ -360,7 +361,13 @@ async def test_research_documents_are_inserted_indexed_and_queryable(knowledgeba
         text="Historical observations of meteors.",
     )
 
-    await WebPage.build(data=[document], client=knowledgebase.client)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=UserWarning,
+            module="corio.db.search.builder",
+        )
+        await WebPage.build(data=[document], client=knowledgebase.client)
 
     collection = await knowledgebase.client.get_collection(collection_name=WebPage.name)
     assert collection.status == models.CollectionStatus.GREEN

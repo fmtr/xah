@@ -12,15 +12,29 @@ class Input(InputBase):
 
     summary: str = Field(
         description=strings.trim("""
-            Carefully provide a 500–1,000-word continuation summary containing all information
-            a fresh agent needs to continue this work effectively. Cover the original request,
-            background and motivation, goals and constraints, decisions and reasons, completed
-            work and current state, remaining tasks, blockers, assumptions, and next steps.
-            Preserve exact references that may be hard to rediscover: URLs, repository and file
-            paths, branch and commit IDs, terminal and session IDs, research IDs, search IDs,
-            document IDs, task or issue IDs, tool names, commands and results, and relevant
-            configuration. Keep identifiers verbatim. Do not omit details because they seem
-            obvious in the current thread. This summary replaces older conversation history.
+            Carefully provide a 500–1,000-word continuation summary containing all information a
+            fresh agent needs to continue this work effectively. Organize it with clear headings
+            and unordered lists rather than one wall of text.
+
+            ## Session state preserved automatically
+            - The harness preserves the current task list, loaded skills, and activated tools
+              separately from this summary. Do not repeat their general state here: that would
+              duplicate information already supplied to the next agent and could become stale.
+            - Mention one of these only when a specific detail materially affects continuation
+              and is not evident from the preserved state.
+
+            ## Cover
+            - The original request, background and motivation, goals, and constraints.
+            - Decisions and the reasons for them; completed work and the current state; remaining
+              tasks, blockers, assumptions, and next steps.
+
+            ## Preserve exact references
+            - Include references that may be hard to rediscover: URLs; repository and file paths;
+              branch and commit IDs; terminal and session IDs; research IDs; search IDs; document
+              IDs; task or issue IDs; tool names; commands and results; and relevant configuration.
+            - Keep identifiers verbatim. Do not omit details merely because they seem obvious in
+              the current thread; this summary replaces older conversation history, so those
+              details may otherwise be lost.
         """),
     )
 

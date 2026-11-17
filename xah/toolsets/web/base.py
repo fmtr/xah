@@ -12,7 +12,7 @@ from crawl4ai import (
     CacheMode,
     CrawlerRunConfig,
     DefaultMarkdownGenerator,
-    PruningContentFilter,
+    PruningContentFilterLXML,
 )
 from crawl4ai.antibot_detector import is_blocked
 from pydantic import BaseModel
@@ -48,7 +48,7 @@ class WebTool(Tool):
     @cached_property
     def generator(self) -> DefaultMarkdownGenerator:
         return DefaultMarkdownGenerator(
-            content_filter=PruningContentFilter(threshold=0.6)
+            content_filter=PruningContentFilterLXML(threshold=0.6)
         )
 
     @cached_property
