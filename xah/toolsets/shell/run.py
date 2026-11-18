@@ -7,7 +7,8 @@ from pydantic_deep.features.periodic_reminder.capability import build_compact_tr
 
 from corio import Constants, dm, strings
 from corio.function import ccp
-from corio.shell.dsl import Expression, arg, shell
+from corio.shell import arg, ex
+from corio.shell.dsl.expression import Expression
 from xah.class_collections import classes
 from xah.harness.base import Harness
 from xah.options.base import Policy
@@ -119,7 +120,7 @@ class Run(TerminalTool, Input):
 
     @cached_property
     def expression(self) -> Expression:
-        expression = shell(str(self.ctx.deps.toolsets.all.cls[Terminals].shell))
+        expression = ex(str(self.ctx.deps.toolsets.all.cls[Terminals].shell))
         return expression(-arg.c + self.script)
 
 

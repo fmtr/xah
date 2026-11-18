@@ -7,7 +7,7 @@ from corio import strings
 from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import ValidationAbort
-from corio.shell.dsl import shell
+from corio.shell import ex
 from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
 
 
@@ -44,7 +44,7 @@ class Run(TerminalTool, Input):
 
     @cached_property
     def expression(self):
-        return shell.python(*self.args)
+        return ex.python(*self.args)
 
 
 class ValidArguments(Run):

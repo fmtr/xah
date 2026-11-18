@@ -6,12 +6,12 @@ from collections.abc import Callable
 from enum import StrEnum, auto
 from typing import ClassVar
 
-from pydantic import Field
+from pydantic import Field, InstanceOf
 from pydantic.json_schema import SkipJsonSchema
 
 from corio import Path, dm
 from corio.function import cp
-from corio.shell.dsl import Expression
+from corio.shell.dsl.expression import Expression
 
 
 
@@ -30,7 +30,7 @@ class Terminal(dm.Base):
     READ_CHUNK_SIZE: ClassVar[int] = 4096
     TAIL_LENGTH: ClassVar[int] = 256
     id: str = Field(description="Identifier used by the terminal management tools.")
-    expression: Expression = Field(description="DSL expression being run.", exclude=True)
+    expression: InstanceOf[Expression] = Field(description="DSL expression being run.", exclude=True)
     timeout: int | None = Field(default=None, description="Maximum execution time in seconds; None means no timeout.")
     cwd: str = Field(description="Working directory used by the command.")
     output_path: Path = Field(description="File receiving combined stdout and stderr output.")

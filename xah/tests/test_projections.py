@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from corio import Path
-from corio.shell.dsl import arg, shell
+from corio.shell import arg, ex
 from xah.toolsets.base.input import Input
 from xah.toolsets.base.output import Output, OutputString
 from xah.toolsets.base.projection.base import InputOutputBase
@@ -263,7 +263,7 @@ def test_terminal_output_projects_terminal_summary_and_status_title(tmp_path):
     output_path.write_text("printed")
     terminal = Terminal(
         id="abcd",
-        expression=shell.python(-arg.c + "print('ok')"),
+        expression=ex.python(-arg.c + "print('ok')"),
         cwd=str(tmp_path),
         output_path=output_path,
         status=TerminalStatus.COMPLETED,

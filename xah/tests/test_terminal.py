@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import PrivateAttr
 from corio import Path
-from corio.shell.dsl import shell
+from corio.shell import ex
 
 from xah.harness.deps import HarnessAgentDeps
 from xah.toolsets.base.projection.output import ProjectionRequestOutput
@@ -43,7 +43,7 @@ def test_terminal_statuses_format_paths_relative_to_cwd_default(tmp_path):
     output_path.touch()
     terminal = Terminal(
         id="test",
-        expression=shell.sleep("0.1"),
+        expression=ex.sleep("0.1"),
         timeout=2,
         cwd="/other/workspace",
         output_path=output_path,
@@ -77,7 +77,7 @@ async def test_terminal_writes_output_to_file(tmp_path):
     terminal = Terminal(
         id="test",
         on_status=tool.notify,
-        expression=shell.sh("-c", "printf first; printf second >&2"),
+        expression=ex.sh("-c", "printf first; printf second >&2"),
         timeout=2,
         cwd="/tmp",
         output_path=Path(str(tmp_path / "terminal.log")),
@@ -99,7 +99,7 @@ async def test_terminal_overlays_requested_environment_and_inherits_parent(tmp_p
     monkeypatch.setenv("XAH_SAMPLE_INHERITED", "ambient")
     terminal = Terminal(
         id="test",
-        expression=shell.sh(
+        expression=ex.sh(
             "-c",
             "printf '%s|%s' \"$XAH_SAMPLE_INHERITED\" \"$XAH_SAMPLE_OVERRIDE\"",
         ),
@@ -151,7 +151,7 @@ async def test_terminal_tool_passes_its_environment_to_the_process(tmp_path):
 
         @property
         def expression(self):
-            return shell.sh("-c", "printf '%s' \"$XAH_SAMPLE_TOOL_ENV\"")
+            return ex.sh("-c", "printf '%s' \"$XAH_SAMPLE_TOOL_ENV\"")
 
         @property
         def env(self):
@@ -175,7 +175,7 @@ async def test_terminal_output_formats_lifecycle_for_agent(tmp_path):
     terminal = Terminal(
         id="test",
         on_status=lambda: "notified",
-        expression=shell.sleep("0.1"),
+        expression=ex.sleep("0.1"),
         timeout=2,
         cwd="/tmp",
         output_path=Path(str(tmp_path / "terminal.log")),
@@ -199,7 +199,7 @@ def test_terminal_output_projection_uses_absolute_location(tmp_path):
     output_path.touch()
     terminal = Terminal(
         id="test",
-        expression=shell.sleep("0.1"),
+        expression=ex.sleep("0.1"),
         timeout=2,
         cwd=str(cwd_default),
         output_path=output_path,
@@ -229,7 +229,7 @@ async def test_terminal_tail_reads_from_output_file(tmp_path):
     terminal = Terminal(
         id="test",
         on_status=tool.notify,
-        expression=shell.echo("0123456789"),
+        expression=ex.echo("0123456789"),
         timeout=2,
         cwd="/tmp",
         output_path=Path(str(tmp_path / "terminal.log")),
@@ -247,7 +247,7 @@ async def test_terminal_kill_stops_the_process(tmp_path):
     terminal = Terminal(
         id="test",
         on_status=tool.notify,
-        expression=shell.sleep("10"),
+        expression=ex.sleep("10"),
         timeout=2,
         cwd="/tmp",
         output_path=Path(str(tmp_path / "terminal.log")),
@@ -266,7 +266,7 @@ async def test_terminal_kill_terminates_the_process_group(tmp_path):
     terminal = Terminal(
         id="test",
         on_status=tool.notify,
-        expression=shell.sh("-c", "sleep 30 & echo $!; wait"),
+        expression=ex.sh("-c", "sleep 30 & echo $!; wait"),
         timeout=2,
         cwd="/tmp",
         output_path=Path(str(tmp_path / "terminal.log")),
@@ -291,7 +291,7 @@ async def test_terminal_timeout_terminates_the_process_group(tmp_path):
     terminal = Terminal(
         id="test",
         on_status=tool.notify,
-        expression=shell.sh("-c", "sleep 30 & echo $!; wait"),
+        expression=ex.sh("-c", "sleep 30 & echo $!; wait"),
         timeout=1,
         cwd="/tmp",
         output_path=Path(str(tmp_path / "terminal.log")),

@@ -6,7 +6,8 @@ from corio import strings
 from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
 
-from corio.shell.dsl import Expression, arg, shell
+from corio.shell import arg, ex
+from corio.shell.dsl.expression import Expression
 from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
 
 
@@ -58,7 +59,7 @@ class Test(TerminalTool, Input):
             "verbose": [--arg.verbose],
             "quiet": [--arg.quiet],
         }
-        return shell.python(
+        return ex.python(
             -arg.m + "pytest",
             *verbosity_options[self.verbosity],
             *self.tests,

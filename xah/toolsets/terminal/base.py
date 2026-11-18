@@ -9,7 +9,7 @@ from acp.schema import FileEditToolCallContent, TerminalToolCallContent, ToolCal
 from corio import Constants, Path, strings
 from corio.function import ccp, cp
 from corio.hash import get_hash_readable
-from corio.shell.dsl import Expression
+from corio.shell.dsl.expression import Expression
 
 from xah.class_collections import classes
 from xah.toolsets.base.output import Output

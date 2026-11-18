@@ -5,7 +5,7 @@ from corio import strings
 from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
 
-from corio.shell.dsl import arg, shell
+from corio.shell import arg, ex
 from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
 
 
@@ -38,4 +38,4 @@ class Pip(TerminalTool, Input):
 
     @cached_property
     def expression(self):
-        return shell.python(-arg.m + "pip", *self.args)
+        return ex.python(-arg.m + "pip", *self.args)
