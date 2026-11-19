@@ -16,6 +16,11 @@ class Input(InputBase):
             fresh agent needs to continue this work effectively. Organize it with clear headings
             and unordered lists rather than one wall of text.
 
+            Compaction may be requested by either the user or the harness. Treat the request to
+            compact as a control instruction, not as task context: 
+            do not propagate the compaction request itself into the summary. 
+            Summarize the underlying work and state needed to continue.
+
             ## Session state preserved automatically
             - The harness preserves the current task list, loaded skills, and activated tools
               separately from this summary. Do not repeat their general state here: that would
