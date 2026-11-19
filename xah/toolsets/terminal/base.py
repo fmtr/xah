@@ -6,7 +6,7 @@ import humanize
 from pydantic import Field
 from acp.schema import FileEditToolCallContent, TerminalToolCallContent, ToolCallLocation
 
-from corio import Constants, Path, strings
+from corio import Constants, Path, env, strings
 from corio.function import ccp, cp
 from corio.hash import get_hash_readable
 from corio.shell.dsl.expression import Expression
@@ -183,7 +183,7 @@ class TerminalTool(TerminalToolBase):
 
     @property
     def env(self) -> dict[str, str]:
-        return {}
+        return env.get_dict()
 
     @cached_property
     def output_path(self) -> Path:

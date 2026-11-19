@@ -34,7 +34,7 @@ class Terminal(dm.Base):
     timeout: int | None = Field(default=None, description="Maximum execution time in seconds; None means no timeout.")
     cwd: str = Field(description="Working directory used by the command.")
     output_path: Path = Field(description="File receiving combined stdout and stderr output.")
-    env: dict[str, str] = Field(default_factory=dict, exclude=True)
+    env: dict[str, str] = Field(default_factory=os.environ.copy, exclude=True, repr=False)
     on_status: SkipJsonSchema[Callable[[], str] | None] = Field(default=None, exclude=True)
     status: TerminalStatus = TerminalStatus.CREATED
     output_size: int = 0
@@ -98,7 +98,7 @@ class Terminal(dm.Base):
                 self.expression.name,
                 *self.expression.tokens(args_only=True),
                 cwd=self.cwd,
-                env=os.environ | self.env,
+                env=self.env,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 start_new_session=True,

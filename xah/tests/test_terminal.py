@@ -95,8 +95,10 @@ async def test_terminal_writes_output_to_file(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_terminal_overlays_requested_environment_and_inherits_parent(tmp_path, monkeypatch):
+async def test_terminal_runs_with_a_full_environment_snapshot(tmp_path, monkeypatch):
     monkeypatch.setenv("XAH_SAMPLE_INHERITED", "ambient")
+    environment = os.environ.copy()
+    environment["XAH_SAMPLE_OVERRIDE"] = "synthetic-secret-petal"
     terminal = Terminal(
         id="test",
         expression=ex.sh(
@@ -106,27 +108,36 @@ async def test_terminal_overlays_requested_environment_and_inherits_parent(tmp_p
         timeout=2,
         cwd="/tmp",
         output_path=Path(str(tmp_path / "terminal.log")),
-        env={"XAH_SAMPLE_OVERRIDE": "terminal"},
+        env=environment,
     )
 
     await terminal.start()
     await terminal.process
 
     assert terminal.status == TerminalStatus.COMPLETED
-    assert terminal.output_path.read_text() == "ambient|terminal"
+    assert terminal.output_path.read_text() == "ambient|synthetic-secret-petal"
     assert "env" not in terminal.model_dump()
+    assert "synthetic-secret-petal" not in repr(terminal)
 
 
 def test_python_test_adds_coverage_options_to_terminal_environment():
     tool = PythonTest.model_construct(coverage=True)
 
-    assert tool.env == {
+    assert tool.env == os.environ | {
         "PYTEST_ADDOPTS": "--cov xah --cov-report term-missing:skip-covered",
     }
 
 
+def test_python_test_inherits_terminal_environment_without_coverage():
+    tool = PythonTest.model_construct(coverage=False)
+
+    assert tool.env == os.environ
+
+
 @pytest.mark.asyncio
-async def test_terminal_tool_passes_its_environment_to_the_process(tmp_path):
+async def test_terminal_tool_can_remove_inherited_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("XAH_SAMPLE_INHERITED", "ambient")
+
     class TerminalStore:
         def __init__(self):
             self.id = {}
@@ -151,11 +162,17 @@ async def test_terminal_tool_passes_its_environment_to_the_process(tmp_path):
 
         @property
         def expression(self):
-            return ex.sh("-c", "printf '%s' \"$XAH_SAMPLE_TOOL_ENV\"")
+            return ex.sh(
+                "-c",
+                "printf '%s|%s' \"${XAH_SAMPLE_INHERITED-unset}\" \"$XAH_SAMPLE_TOOL_ENV\"",
+            )
 
         @property
         def env(self):
-            return {"XAH_SAMPLE_TOOL_ENV": "forwarded"}
+            environment = super().env
+            environment.pop("XAH_SAMPLE_INHERITED", None)
+            environment["XAH_SAMPLE_TOOL_ENV"] = "forwarded"
+            return environment
 
         @property
         def output_path(self):
@@ -167,7 +184,8 @@ async def test_terminal_tool_passes_its_environment_to_the_process(tmp_path):
 
     tool = EnvironmentTool.model_construct()
 
-    assert await tool.run() == "forwarded"
+    assert await tool.run() == "unset|forwarded"
+    assert os.environ["XAH_SAMPLE_INHERITED"] == "ambient"
 
 
 @pytest.mark.asyncio

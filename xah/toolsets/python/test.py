@@ -38,15 +38,17 @@ class Test(TerminalTool, Input):
 
     @property
     def env(self) -> dict[str, str]:
+        environment = super().env
         if not self.coverage:
-            return {}
+            return environment
 
         coverage_options = [
             --arg.cov + "xah",
             --arg.cov_report + "term-missing:skip-covered",
         ]
         coverage_settings = " ".join(str(option) for option in coverage_options)
-        return {"PYTEST_ADDOPTS": coverage_settings}
+        environment["PYTEST_ADDOPTS"] = coverage_settings
+        return environment
 
     @ccp
     def Output(cls) -> type[TestOutput]:
