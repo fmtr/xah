@@ -36,7 +36,17 @@ def build_tool_progress_update(
             serializer=serializer,
         )
 
-    toolset: Toolset = toolsets.for_tool(part.tool_name)
+    toolset: Toolset | None = toolsets.for_tool(part.tool_name, default=None)
+    if toolset is None:
+        return acp_build_tool_progress_update(
+            part,
+            classifier=classifier,
+            cwd=cwd,
+            known_start=known_start,
+            projection_map=projection_map,
+            serializer=serializer,
+        )
+
     if part.tool_call_id not in toolset.outputs.call_id:
         output = Output.from_result(part.content)
         part_with_output = replace(part, content=output)

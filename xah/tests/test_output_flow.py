@@ -14,6 +14,7 @@ from pydantic_acp.serialization import DefaultOutputSerializer
 
 from xah.class_collections import classes
 from xah.server.acp.projection import build_tool_progress_update
+from xah.harness.manager import ToolsetsManagerAgent
 from xah.toolsets.base.input import Input
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.tool import Tool
@@ -105,10 +106,35 @@ async def test_bare_toolset_returns_agent_value_without_retaining_output(context
     assert "call_id" not in ExampleOutput(value="x").model_dump()
 
 
+def test_acp_progress_uses_generic_projection_for_external_mcp_result():
+    toolsets = ToolsetsManagerAgent(
+        SimpleNamespace(toolsets_classes=(), mcp_classes=())
+    )
+    classifier = SimpleNamespace(classify=lambda name, raw_input=None: "other")
+    update = build_tool_progress_update(
+        ToolReturnPart(
+            tool_name="remote__sample_signal",
+            content="synthetic-payload",
+            tool_call_id="remote-call",
+            outcome="success",
+        ),
+        classifier=classifier,
+        cwd=None,
+        known_start=None,
+        projection_map=None,
+        serializer=DefaultOutputSerializer(),
+        toolsets=toolsets,
+    )
+
+    assert isinstance(update, ToolCallProgress)
+    assert update.status == "completed"
+    assert "synthetic-payload" in update.raw_output
+
+
 def test_acp_progress_handles_denied_call_without_registered_output(context):
     toolset = ExampleToolset()
     toolset.outputs = ilist()
-    toolsets = SimpleNamespace(for_tool=lambda name: toolset)
+    toolsets = SimpleNamespace(for_tool=lambda name, default=None: toolset)
     classifier = SimpleNamespace(classify=lambda name, raw_input=None: "other")
     start = build_tool_start_update(
         ToolCallPart(
@@ -197,7 +223,7 @@ def test_invalid_input_projection_is_not_replaced_by_progress_validation():
         known_start=start_update,
         projection_map=toolset,
         serializer=DefaultOutputSerializer(),
-        toolsets=SimpleNamespace(for_tool=lambda name: toolset),
+        toolsets=SimpleNamespace(for_tool=lambda name, default=None: toolset),
     )
 
     assert progress_update.title == start_update.title
@@ -250,7 +276,7 @@ async def test_acp_write_start_and_progress_preserve_supplied_content(tmp_path):
     )
     assert (cwd / "item.txt").read_text() == "alpha"
 
-    toolsets = SimpleNamespace(for_tool=lambda name: toolset)
+    toolsets = SimpleNamespace(for_tool=lambda name, default=None: toolset)
     progress = build_tool_progress_update(
         ToolReturnPart(
             tool_name=tool_name,
@@ -281,7 +307,7 @@ async def test_acp_progress_uses_original_output_and_cleans_registry(context):
         tool_call_id="call-1",
         outcome="success",
     )
-    toolsets = SimpleNamespace(for_tool=lambda name: toolset)
+    toolsets = SimpleNamespace(for_tool=lambda name, default=None: toolset)
     classifier = SimpleNamespace(classify=lambda name, raw_input=None: "other")
     start = build_tool_start_update(
         ToolCallPart(

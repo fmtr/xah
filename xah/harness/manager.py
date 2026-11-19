@@ -5,8 +5,10 @@ from typing import Any, Sequence
 
 from corio.function import cp
 from corio.iterator import ilist
+from corio.tools import Empty
 from pydantic_ai.toolsets import CombinedToolset
 
+from xah.toolsets.base.mcp import ToolsetMCP
 from xah.toolsets.base.toolset import Toolset
 
 
@@ -17,6 +19,13 @@ class ToolsetsManagerAgent:
     @cp
     def classes(self) -> Sequence[type[Toolset]]:
         return self.parent.toolsets_classes
+
+    @cp
+    def mcp(self) -> ilist[ToolsetMCP]:
+        return ilist(
+            toolset_class(settings=self.parent.settings)
+            for toolset_class in self.parent.mcp_classes
+        )
 
     @cp
     def is_managed(self) -> bool:
@@ -53,15 +62,22 @@ class ToolsetsManagerAgent:
             toolsets.append(self.activated.cls[toolset_class])
         return toolsets
 
-    def for_tool(self, tool_name: str) -> Toolset:
+    def for_tool(
+        self,
+        tool_name: str,
+        default: Toolset | None | type[Empty] = Empty,
+    ) -> Toolset | None:
         for toolset in self.agent:
             if tool_name in toolset.tools:
                 return toolset
+        if default is not Empty:
+            return default
         raise KeyError(tool_name)
 
     @property
     def combined(self) -> CombinedToolset:
-        return CombinedToolset(self.agent)
+        toolsets = [*self.agent, *self.mcp]
+        return CombinedToolset(toolsets)
 
 
 @dataclass
@@ -82,4 +98,5 @@ class ToolsetsManager(ToolsetsManagerAgent):
 
     @property
     def combined(self) -> CombinedToolset:
-        return CombinedToolset(self.wrapped)
+        toolsets = [*self.wrapped, *self.mcp]
+        return CombinedToolset(toolsets)

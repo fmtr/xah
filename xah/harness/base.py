@@ -34,6 +34,7 @@ from xah.options.provider import ConfigOptionsProvider
 from xah.server.acp.thinking import AgentAcp
 from xah.server.acp.usage import UsageReporterRegistry
 
+from xah.toolsets.base.mcp import ToolsetMCP
 from xah.toolsets.base.toolset import Toolset as ToolsetBase
 from xah.toolsets.utils.toolset import Utils
 
@@ -122,6 +123,10 @@ class HarnessBase(Generic[AgentDepsT]):
         return []
 
     @classes
+    def MCPs(cls) -> list[type[ToolsetMCP]]:
+        return []
+
+    @classes
     def Commands(cls):
         return []
 
@@ -135,6 +140,7 @@ class HarnessBase(Generic[AgentDepsT]):
             settings=self.settings,
             cwd_default=self.cwd_default,
             toolsets_classes=self.Toolsets,
+            mcp_classes=self.MCPs,
             model=self.model,
             **self.deps_kwargs,
         )
@@ -376,6 +382,7 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             settings=self.settings,
             cwd_default=self.cwd_default,
             toolsets_classes=self.Toolsets,
+            mcp_classes=self.MCPs,
             models=self.models,
             model=self.models.current.override,
             context_manager=self.context_manager,
