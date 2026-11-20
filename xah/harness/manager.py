@@ -8,6 +8,7 @@ from corio.iterator import ilist
 from corio.tools import Empty
 from pydantic_ai.toolsets import CombinedToolset
 
+from xah.toolsets.base.common import ToolsetBase
 from xah.toolsets.base.mcp import ToolsetMCP
 from xah.toolsets.base.toolset import Toolset
 
@@ -21,18 +22,7 @@ class ToolsetsManagerAgent:
         return self.parent.toolsets_classes
 
     @cp
-    def mcp(self) -> ilist[ToolsetMCP]:
-        return ilist(
-            toolset_class(settings=self.parent.settings)
-            for toolset_class in self.parent.mcp_classes
-        )
-
-    @cp
-    def is_managed(self) -> bool:
-        return any(toolset_class.IS_MANAGEMENT for toolset_class in self.classes)
-
-    @cp
-    def all(self) -> ilist[Toolset]:
+    def all(self) -> ilist[ToolsetBase]:
         toolsets = []
         for toolset_class in self.classes:
             activated = not self.is_managed or toolset_class.IS_MANAGEMENT
@@ -44,46 +34,30 @@ class ToolsetsManagerAgent:
                 )
             )
 
+        toolsets.extend(
+            toolset_class(settings=self.parent.settings, activated=False)
+            for toolset_class in self.parent.mcp_classes
+        )
         return ilist(toolsets)
 
+    @cp
+    def regular(self) -> ilist[Toolset]:
+        return ilist(toolset for toolset in self.all if isinstance(toolset, Toolset))
+
+    @cp
+    def mcp(self) -> ilist[ToolsetMCP]:
+        return ilist(toolset for toolset in self.all if isinstance(toolset, ToolsetMCP))
+
+    @cp
+    def is_managed(self) -> bool:
+        return any(toolset_class.IS_MANAGEMENT for toolset_class in self.classes)
+
     @property
-    def activated(self) -> ilist[Toolset]:
+    def activated(self) -> ilist[ToolsetBase]:
         return ilist(toolset for toolset in self.all if toolset.activated)
 
     @property
-    def permitted(self) -> ilist[Toolset]:
-        return self.activated
-
-    @property
-    def agent(self) -> ilist[Toolset]:
-        common = self.activated.cls.keys() & self.permitted.cls.keys()
-        toolsets = ilist()
-        for toolset_class in common:
-            toolsets.append(self.activated.cls[toolset_class])
-        return toolsets
-
-    def for_tool(
-        self,
-        tool_name: str,
-        default: Toolset | None | type[Empty] = Empty,
-    ) -> Toolset | None:
-        for toolset in self.agent:
-            if tool_name in toolset.tools:
-                return toolset
-        if default is not Empty:
-            return default
-        raise KeyError(tool_name)
-
-    @property
-    def combined(self) -> CombinedToolset:
-        toolsets = [*self.agent, *self.mcp]
-        return CombinedToolset(toolsets)
-
-
-@dataclass
-class ToolsetsManager(ToolsetsManagerAgent):
-    @property
-    def permitted(self) -> ilist[Toolset]:
+    def permitted(self) -> ilist[ToolsetBase]:
         from xah.options.base import Policy
 
         return ilist(
@@ -93,10 +67,42 @@ class ToolsetsManager(ToolsetsManagerAgent):
         )
 
     @property
-    def wrapped(self) -> ilist:
-        return ilist(toolset.wrapper for toolset in self.agent)
+    def agent(self) -> ilist[ToolsetBase]:
+        permitted_classes = self.permitted.cls.keys()
+        return ilist(
+            toolset
+            for toolset in self.activated
+            if type(toolset) in permitted_classes
+        )
+
+    @property
+    def regular_agent(self) -> ilist[Toolset]:
+        return ilist(toolset for toolset in self.agent if isinstance(toolset, Toolset))
+
+    def for_tool(
+        self,
+        tool_name: str,
+        default: Toolset | None | type[Empty] = Empty,
+    ) -> Toolset | None:
+        for toolset in self.regular_agent:
+            if tool_name in toolset.tools:
+                return toolset
+        if default is not Empty:
+            return default
+        raise KeyError(tool_name)
 
     @property
     def combined(self) -> CombinedToolset:
-        toolsets = [*self.wrapped, *self.mcp]
+        return CombinedToolset(self.agent)
+
+
+@dataclass
+class ToolsetsManager(ToolsetsManagerAgent):
+    @property
+    def wrapped(self) -> ilist:
+        return ilist(toolset.wrapper for toolset in self.regular_agent)
+
+    @property
+    def combined(self) -> CombinedToolset:
+        toolsets = [toolset.as_acp_toolset() for toolset in self.agent]
         return CombinedToolset(toolsets)

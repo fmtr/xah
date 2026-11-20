@@ -9,7 +9,7 @@ from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.output import Output
 from xah.toolsets.base.projection.base import ProjectionContent
 from xah.toolsets.base.tool import Kinds, Tool, ValidationAbort
-from xah.toolsets.base.toolset import Toolset
+from xah.toolsets.base.common import ToolsetBase
 
 
 class Input(InputBase):
@@ -147,15 +147,13 @@ class RejectAlreadyActive(Activate):
 
 class ApproveRequestables(Activate):
     @cp
-    def requesteds(self) -> ilist[Toolset]:
+    def requesteds(self) -> ilist[ToolsetBase]:
         return ilist(self.permitted[toolset_id] for toolset_id in self.valids)
 
     @cp
-    def requestables(self) -> ilist[Toolset]:
+    def requestables(self) -> ilist[ToolsetBase]:
         return ilist(
-            toolset
-            for toolset in self.requesteds
-            if toolset.options.cls[Policy].value == Policy.Policies.REQUESTABLE
+            toolset for toolset in self.requesteds if toolset.is_requestable
         )
 
     async def validate(self):

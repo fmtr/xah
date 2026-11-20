@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from typing import ClassVar
 from unittest.mock import patch
 
-from acp.schema import TextContentBlock, ToolCallProgress, UsageUpdate
+from acp.schema import TextContentBlock, UsageUpdate
 from fastmcp import FastMCP
 from corio.iterator import ilist
 from pydantic_acp import AdapterModel
@@ -81,7 +81,7 @@ def test_acp_session_emits_context_usage_update(tmp_path):
     assert usage_updates[0].size > usage_updates[0].used
 
 
-def test_acp_prompt_runs_native_mcp_tool_and_records_progress(tmp_path):
+def test_acp_prompt_does_not_run_an_unactivated_mcp(tmp_path):
     server = FastMCP("synthetic-session-service")
     calls = []
 
@@ -127,23 +127,16 @@ def test_acp_prompt_runs_native_mcp_tool_and_records_progress(tmp_path):
     async def run_prompt():
         await agent.initialize(protocol_version=1)
         session = await agent.new_session(cwd=str(tmp_path), mcp_servers=[])
+        runtime = harness.agent_source.get_runtime(session)
+        mcp = runtime.deps.toolsets.all.name[SampleMCP.name]
+        assert not mcp.activated
+        assert mcp not in runtime.deps.toolsets.combined.toolsets
         return await agent.prompt(
             session.session_id,
             [TextContentBlock(type="text", text="Inspect a synthetic signal.")],
         )
 
     response = asyncio.run(run_prompt())
-    progress = [
-        item["update"]
-        for item in client.updates
-        if isinstance(item["update"], ToolCallProgress)
-    ]
 
     assert response.stop_reason == "end_turn"
-    assert calls == ["invoked"]
-    mcp_progress = [
-        update for update in progress if "synthetic-payload" in (update.raw_output or "")
-    ]
-
-    assert len(mcp_progress) == 1
-    assert mcp_progress[0].status == "completed"
+    assert calls == []

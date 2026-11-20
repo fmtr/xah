@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import traceback
-from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -18,12 +17,12 @@ from corio import Path, strings
 from corio.function import ccp, cp
 from corio.iterator import ilist
 from corio.tools import Empty
-from corio.strings import get_docstring
 from xah.class_collections import classes
 from xah.constants import HARNESS_FEEDBACK
 from xah.obs import logger
-from xah.options import base as options
 from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
+from xah.toolsets.base.common import ToolsetBase
+from xah.toolsets.base.common import ToolsetInfo as ToolsetInfo
 from xah.toolsets.base.output import (
     InvalidInputOutput,
     Output,
@@ -39,56 +38,19 @@ from xah.toolsets.base.tool import Tool, ToolState, Validation
 AgentDepsT = TypeVar("AgentDepsT", contravariant=True)
 
 
-@dataclass(kw_only=True)
-class ToolsetInfo:
-    name: str
-    desc: str | None
-    tools: list[str]
-
-    @property
-    def instruction(self) -> str:
-        details = [f"Toolset ID: **{self.name}**", self.desc or ""]
-        if self.tools:
-            tool_names = strings.trim(*(f"- `{tool}`" for tool in self.tools))
-            details.extend(("**Contains**", tool_names))
-        return strings.trim(*details)
-
-
-class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
+class Toolset(ToolsetBase, FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
     model_config = ConfigDict(ignored_types=(cached_classproperty,))
 
-    DESCRIPTION: ClassVar[str | None] = None
-    IS_MANAGEMENT: ClassVar[bool] = False
-    POLICY: ClassVar[str] = options.Policy.Policies.AUTO
     MAX_INLINE_OUTPUT_LENGTH: ClassVar[int] = 50_000
-
-    @cached_classproperty
-    def name(cls) -> str:
-        return cls.__name__
 
     @ccp
     def prefix(cls) -> str:
         return f"{cls.name}-"
 
-    @cached_classproperty
-    def description(cls) -> str | None:
-        if cls.DESCRIPTION:
-            return cls.DESCRIPTION
-
-        for base in cls.__mro__:
-            if description := get_docstring(base):
-                return description
-            if base is Toolset:
-                return None
-
-    @cp
-    def info(self) -> ToolsetInfo:
-        return ToolsetInfo(
-            name=self.name,
-            desc=self.description,
-            tools=[tool_class.suffix for tool_class in self.Tools],
-        )
+    @property
+    def tool_names(self) -> list[str]:
+        return [tool_class.suffix for tool_class in self.Tools]
 
     async def get_instructions(self, ctx: RunContext[AgentDepsT]) -> list[InstructionPart] | None:
         del ctx
@@ -281,18 +243,11 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             state.after_compress()
 
     @cached_property
-    def options(self) -> ilist[options.Select]:
-        return ilist([
-            options.Policy.from_value(
-                name=self.name,
-                value=self.POLICY,
-                description=self.description,
-            )
-        ])
-
-    @cached_property
     def wrapper(self) -> ApprovalRequiredToolsetMetadata[AgentDepsT]:
         return ApprovalRequiredToolsetMetadata(self, self.validate)
+
+    def as_acp_toolset(self) -> ApprovalRequiredToolsetMetadata[AgentDepsT]:
+        return self.wrapper
 
     @cached_property
     def instances(self) -> ilist[Tool]:
@@ -301,6 +256,10 @@ class Toolset(FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
     @cached_property
     def outputs(self) -> ilist[Output] | None:
         return None
+
+    def enable_output_capture(self) -> None:
+        if self.outputs is None:
+            self.outputs = ilist()
 
     @staticmethod
     def validation_error_message(error: ValidationError) -> str:

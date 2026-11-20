@@ -1,11 +1,14 @@
 from types import SimpleNamespace
 
 import pytest
+from fastmcp import FastMCP
 from corio.iterator import ilist
 from pydantic_acp import SlashCommandRequest
 
 from xah.commands.policy import Policy
+from xah.harness.manager import ToolsetsManager
 from xah.options import base as options
+from xah.toolsets.base.mcp import ToolsetMCP
 
 
 def make_deps(*names):
@@ -33,6 +36,39 @@ async def test_policy_lists_toolset_policies():
     policies = dict(line.split(": ", maxsplit=1) for line in result.text.splitlines())
 
     assert policies == {"Files": "approval", "Python": "approval"}
+
+
+@pytest.mark.asyncio
+async def test_policy_lists_and_sets_mcp_policy():
+    server = FastMCP("synthetic-policy-service")
+
+    class SampleMCP(ToolsetMCP):
+        URL = server
+
+    manager = ToolsetsManager(
+        SimpleNamespace(
+            settings=SimpleNamespace(),
+            toolsets_classes=(),
+            mcp_classes=[SampleMCP],
+        )
+    )
+    deps = SimpleNamespace(toolsets=manager)
+    mcp = manager.all.name[SampleMCP.name]
+
+    listed = await Policy(deps=deps, reset=None).run()
+    policies = dict(line.split(": ", maxsplit=1) for line in listed.text.splitlines())
+
+    assert policies == {mcp.name: options.Policies.FULL}
+
+    await Policy(
+        deps=deps,
+        name=mcp.name,
+        value=options.Policies.DISABLED,
+        reset=None,
+    ).run()
+
+    assert mcp.options.cls[options.Policy].value == options.Policies.DISABLED
+    assert mcp not in manager.permitted
 
 
 @pytest.mark.asyncio

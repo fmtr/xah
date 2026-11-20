@@ -35,7 +35,6 @@ from pydantic_acp.projection import (
     compose_projection_maps,
 )
 
-from corio.iterator import ilist
 from xah.server.acp.projection import (
     build_tool_progress_update,
     build_tool_updates,
@@ -68,8 +67,7 @@ class ThinkingPromptExecution(_PromptExecution):
     def enable_output_capture(self, session: AcpSessionContext):
         runtime = self._runtime._owner._agent_source.get_runtime(session)
         for toolset in runtime.deps.toolsets.all:
-            if toolset.outputs is None:
-                toolset.outputs = ilist()
+            toolset.enable_output_capture()
 
     async def record_tool_updates(self, session, agent, messages):
         if not self._runtime._owner._config.enable_generic_tool_projection:

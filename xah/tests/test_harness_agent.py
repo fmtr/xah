@@ -124,9 +124,14 @@ def test_agent_manager_separates_mcp_instances_and_composes_them(mcp_server):
     assert mcp.id == SampleMCP.__name__
     assert mcp.settings is deps.settings
     assert mcp.client is not SampleMCP().client
-    assert mcp not in manager.all
-    assert mcp in manager.combined.toolsets
+    assert mcp in manager.all
+    assert not mcp.activated
+    assert mcp not in manager.combined.toolsets
     assert manager.all.cls[Files] in manager.combined.toolsets
+
+    mcp.activated = True
+
+    assert mcp in manager.combined.toolsets
 
 
 def test_acp_manager_combines_policy_wrappers_with_native_mcp(mcp_server):
@@ -136,16 +141,47 @@ def test_acp_manager_combines_policy_wrappers_with_native_mcp(mcp_server):
         URL = server
 
     manager = make_acp_deps([Files], [SampleMCP]).toolsets
+    mcp = manager.mcp[0]
 
-    assert manager.mcp[0] in manager.combined.toolsets
+    assert mcp in manager.all
+    assert not mcp.activated
+    assert mcp not in manager.combined.toolsets
     assert manager.all.cls[Files].wrapper in manager.combined.toolsets
-    assert manager.mcp[0] not in manager.all
+
+    mcp.activated = True
+    assert mcp in manager.combined.toolsets
 
     manager.all.cls[Files].options.cls[options.Policy].current_value = (
         options.Policies.DISABLED
     )
     assert manager.wrapped == []
-    assert manager.mcp[0] in manager.combined.toolsets
+    assert mcp in manager.combined.toolsets
+
+    mcp.options.cls[options.Policy].current_value = options.Policies.DISABLED
+    assert mcp not in manager.permitted
+    assert mcp not in manager.combined.toolsets
+
+
+def test_acp_combined_toolset_exposes_tools_and_instructions():
+    manager = make_acp_deps([Management, Files]).toolsets
+    context = RunContext(
+        deps=SimpleNamespace(toolsets=manager),
+        model=TestModel(),
+        usage=RunUsage(),
+    )
+
+    async def inspect_combined():
+        combined = manager.combined
+        tools = await combined.get_tools(context)
+        instructions = await combined.get_instructions(context)
+        return tools, instructions
+
+    tools, instructions = asyncio.run(inspect_combined())
+
+    instruction_text = " ".join(part.content for part in instructions)
+
+    assert set(tools) == {Management.get_name(Activate)}
+    assert Files.name in instruction_text
 
 
 def test_harness_agent_discovers_and_runs_native_mcp_tool(mcp_server):
@@ -169,6 +205,7 @@ def test_harness_agent_discovers_and_runs_native_mcp_tool(mcp_server):
         settings=SimpleNamespace(),
     )
 
+    harness.deps.toolsets.mcp[0].activated = True
     result = asyncio.run(
         harness.agent.run("Inspect the sample signal.", deps=harness.deps)
     )
@@ -206,15 +243,24 @@ def test_acp_permitted_toolsets_follow_policy_state():
     assert deps.toolsets.wrapped == [shell.wrapper]
 
 
-def test_acp_toolset_options_include_configured_toolsets_even_when_disabled():
-    deps = make_acp_deps([Todo, Shell])
+def test_acp_toolset_options_include_configured_toolsets_even_when_disabled(mcp_server):
+    server, _ = mcp_server
+
+    class SampleMCP(ToolsetMCP):
+        URL = server
+
+    deps = make_acp_deps([Todo, Shell], [SampleMCP])
     shell = deps.toolsets.all.cls[Shell]
+    mcp = deps.toolsets.all.cls[SampleMCP]
 
     shell.options.cls[options.Policy].current_value = options.Policies.DISABLED
+    mcp.options.cls[options.Policy].current_value = options.Policies.DISABLED
 
     assert "Todo/Policy" in deps.options.name
     assert "Shell/Policy" in deps.options.name
+    assert "SampleMCP/Policy" in deps.options.name
     assert shell not in deps.toolsets.permitted
+    assert mcp not in deps.toolsets.permitted
 
 
 def test_toolset_instances_are_shared_by_options_and_toolset_lookup():
@@ -285,6 +331,78 @@ def test_acp_toolsets_manager_applies_policy_after_activation():
 
     manager.all.name[Files.name].activated = False
     assert manager.agent == ilist([shell])
+
+
+def test_mcp_toolsets_use_the_shared_activation_and_policy_contract(mcp_server):
+    server, _ = mcp_server
+
+    class SampleMCP(ToolsetMCP):
+        URL = server
+
+    manager = make_acp_deps([Management], [SampleMCP]).toolsets
+    management = manager.all.name[Management.name]
+    mcp = manager.all.name[SampleMCP.name]
+    context = RunContext(
+        deps=SimpleNamespace(toolsets=manager),
+        model=TestModel(),
+        usage=RunUsage(),
+    )
+    activation = Activate(
+        ctx=context,
+        toolset=management,
+        ids=[mcp.name],
+        reason="The configured integration is needed.",
+    )
+
+    assert mcp.options.cls[options.Policy].value == options.Policies.FULL
+    assert not mcp.activated
+    assert mcp in manager.permitted
+    assert mcp not in manager.agent
+
+    result = asyncio.run(activation.run())
+
+    assert result.new == [mcp.name]
+    assert mcp.activated
+    assert mcp in manager.agent
+    assert mcp in manager.combined.toolsets
+    assert management.toolsets == [SampleMCP]
+
+
+def test_mcp_policy_values_other_than_disabled_allow_activation(mcp_server):
+    server, _ = mcp_server
+
+    class SampleMCP(ToolsetMCP):
+        URL = server
+
+    manager = make_acp_deps([Management], [SampleMCP]).toolsets
+    management = manager.all.name[Management.name]
+    mcp = manager.all.name[SampleMCP.name]
+    mcp.options.cls[options.Policy].current_value = options.Policies.REQUESTABLE
+    context = RunContext(
+        deps=SimpleNamespace(toolsets=manager),
+        model=TestModel(),
+        usage=RunUsage(),
+    )
+    approval = ApproveRequestables(
+        ctx=context,
+        toolset=management,
+        ids=[mcp.name],
+        reason="The configured integration is needed.",
+    )
+    activation = Activate(
+        ctx=context,
+        toolset=management,
+        ids=[mcp.name],
+        reason="The configured integration is needed.",
+    )
+
+    assert mcp in manager.permitted
+    assert approval.requestables == []
+
+    result = asyncio.run(activation.run())
+
+    assert result.new == [mcp.name]
+    assert mcp.activated
 
 
 def test_approving_activation_only_changes_requestable_toolset_policies():

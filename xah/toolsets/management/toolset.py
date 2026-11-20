@@ -7,6 +7,7 @@ from corio import strings
 from corio.function import cp
 from corio.iterator import ilist
 from xah.class_collections import classes
+from xah.toolsets.base.common import ToolsetBase
 from xah.toolsets.base.toolset import Toolset
 
 
@@ -16,7 +17,7 @@ class Management(Toolset):
     IS_MANAGEMENT = True
 
     @cp
-    def toolsets(self) -> ilist[type[Toolset]]:
+    def toolsets(self) -> ilist[type[ToolsetBase]]:
         return ilist()
 
     @classes
