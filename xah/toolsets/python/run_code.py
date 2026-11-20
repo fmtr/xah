@@ -1,4 +1,3 @@
-from functools import cached_property
 from math import inf
 from typing import ClassVar
 
@@ -9,8 +8,8 @@ from corio.function import ccp
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import ValidationAbort
 
-from corio.shell import arg, ex
-from xah.toolsets.terminal.base import TerminalOutput, TerminalTool
+from xah.toolsets.python.code import PythonCode
+from xah.toolsets.terminal.base import TerminalOutput
 
 
 class RunCodeOutput(TerminalOutput):
@@ -33,7 +32,7 @@ class Input(InputBase):
         return [self.content_block(self.code_block(self.code, language="python"))]
 
 
-class RunCode(TerminalTool, Input):
+class RunCode(PythonCode, Input):
     """Run a short Python source fragment directly, like `python -c`."""
 
     @ccp
@@ -43,10 +42,6 @@ class RunCode(TerminalTool, Input):
     @classes
     def Validators(cls):
         return [CodeLength]
-
-    @cached_property
-    def expression(self):
-        return ex.python(-arg.c + self.code)
 
 
 class CodeLength(RunCode):

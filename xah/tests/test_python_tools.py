@@ -10,10 +10,16 @@ from corio.iterator import ilist
 from xah.options.path import PathCwd
 from xah.toolsets.base.tool import Messages, Validation
 from xah.toolsets.python.pip import Pip
+from xah.toolsets.python import inspect_script
+from xah.toolsets.python.inspect import Inspect
 from xah.toolsets.python.run import Run
 from xah.toolsets.python.run_code import RunCode
 from xah.toolsets.python.test import Test as PythonTest
 from xah.toolsets.python.toolset import Python
+
+
+def _specimen_for_inspection():
+    return "chartreuse"
 
 
 def context(tmp_path):
@@ -82,6 +88,50 @@ def test_basic_python_tool_expressions(tmp_path):
         "print(1)",
     ]
     assert make(PythonTest, ctx).expression.tokens(args_only=False) == ["python", "-m", "pytest"]
+
+
+def test_inspect_runs_bundled_script_with_import_path_argument(tmp_path):
+    ctx = context(tmp_path)
+    import_path = "sample_package.module with space"
+    tool = make(Inspect, ctx, import_path=import_path)
+    schema = Inspect.model_json_schema()
+
+    toolset = ctx.deps.toolsets.cls[Python]
+    assert toolset.get_name(Inspect) in toolset.tools
+    assert Inspect.SCRIPT == Path(inspect_script.__file__).read_text()
+    assert "import_path" in schema["properties"]
+    assert "code" not in schema["properties"]
+    assert tool.expression.tokens(args_only=False) == [
+        "python",
+        "-c",
+        Inspect.SCRIPT,
+        import_path,
+    ]
+
+
+def test_inspection_script_renders_importable_source():
+    import_path = f"{__name__}._specimen_for_inspection"
+
+    rendered = inspect_script.render(import_path)
+
+    assert rendered.startswith(f"# `{import_path}`")
+    assert f"- Type: `{inspect_script.PythonObjectType.FUNCTION}`" in rendered
+    assert "```python" in rendered
+    assert "def _specimen_for_inspection" in rendered
+    assert 'return "chartreuse"' in rendered
+
+
+def test_inspection_script_renders_module_source_and_members():
+    rendered = inspect_script.render(inspect_script.__name__)
+
+    assert "## Public members" in rendered
+    assert "`render`" in rendered
+    assert "def render(import_path: str) -> str:" in rendered
+
+
+def test_inspection_script_reports_unresolvable_import():
+    with pytest.raises(SystemExit):
+        inspect_script.render("missing_sample_package.unavailable")
 
 
 def test_python_run_rejects_missing_arguments(tmp_path):
