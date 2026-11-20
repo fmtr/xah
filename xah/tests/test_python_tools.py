@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -18,8 +19,8 @@ from xah.toolsets.python.test import Test as PythonTest
 from xah.toolsets.python.toolset import Python
 
 
-def _specimen_for_inspection():
-    return "chartreuse"
+def _sample_for_inspection():
+    return "indigo"
 
 
 def context(tmp_path):
@@ -109,29 +110,48 @@ def test_inspect_runs_bundled_script_with_import_path_argument(tmp_path):
     ]
 
 
-def test_inspection_script_renders_importable_source():
-    import_path = f"{__name__}._specimen_for_inspection"
+def test_inspection_script_shows_plain_function_details_without_source():
+    import_path = f"{__name__}._sample_for_inspection"
+    source_lines, first_line = inspect.getsourcelines(_sample_for_inspection)
+    last_line = first_line + len(source_lines) - 1
 
-    rendered = inspect_script.render(import_path)
+    rendered = inspect_script.Inspection(import_path).text
 
-    assert rendered.startswith(f"# `{import_path}`")
-    assert f"- Type: `{inspect_script.PythonObjectType.FUNCTION}`" in rendered
-    assert "```python" in rendered
-    assert "def _specimen_for_inspection" in rendered
-    assert 'return "chartreuse"' in rendered
+    assert f"Import: {import_path}" in rendered
+    assert "Type: function" in rendered
+    assert f"Lines: {first_line}-{last_line}" in rendered
+    assert 'return "indigo"' not in rendered
+    assert "`" not in rendered
 
 
-def test_inspection_script_renders_module_source_and_members():
-    rendered = inspect_script.render(inspect_script.__name__)
+def test_inspection_script_lists_module_members_as_plain_text():
+    source_lines, _ = inspect.getsourcelines(inspect_script)
+    rendered = inspect_script.Inspection(inspect_script.__name__).text
+    members = next(line for line in rendered.splitlines() if line.startswith("Members: "))
 
-    assert "## Public members" in rendered
-    assert "`render`" in rendered
-    assert "def render(import_path: str) -> str:" in rendered
+    assert "Type: module" in rendered
+    assert f"Lines: 1-{len(source_lines)}" in rendered
+    assert "Inspection" in members.removeprefix("Members: ").split(", ")
+    assert "- " not in members
+    assert "```" not in rendered
+    assert "##" not in rendered
+    assert "class Inspection:" not in rendered
+
+
+def test_inspection_script_marks_unavailable_details():
+    rendered = inspect_script.Inspection("builtins.len").text
+
+    assert "Path: [unavailable]" in rendered
+    assert "Lines: [unavailable]" in rendered
+    assert "Signature: [unavailable]" in rendered
+    assert "Members: [unavailable]" in rendered
+    assert rendered.endswith(inspect.getdoc(len))
+    assert rendered.index("Members:") < rendered.index("Documentation:")
 
 
 def test_inspection_script_reports_unresolvable_import():
     with pytest.raises(SystemExit):
-        inspect_script.render("missing_sample_package.unavailable")
+        inspect_script.Inspection("missing_sample_package.unavailable").text
 
 
 def test_python_run_rejects_missing_arguments(tmp_path):

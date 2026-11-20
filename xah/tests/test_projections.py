@@ -14,6 +14,7 @@ from xah.toolsets.web.fetch import Fetch, FetchOutput
 from xah.toolsets.web.search import Search as WebSearch
 from xah.toolsets.web.research import Depth, Input as ResearchInput, ResearchOutput
 from xah.toolsets.web.base import FetchResult
+from xah.toolsets.python.inspect import Inspect, InspectOutput
 from xah.toolsets.python.pip import Pip, PipOutput
 from xah.toolsets.python.run import PythonRunOutput, Run as PythonRun
 from xah.toolsets.python.run_code import RunCode, RunCodeOutput
@@ -249,6 +250,7 @@ def test_research_output_projects_answer_and_source_links():
 
 
 def test_terminal_tools_select_specific_output_subclasses():
+    assert Inspect.Output is InspectOutput
     assert Pip.Output is PipOutput
     assert PythonRun.Output is PythonRunOutput
     assert RunCode.Output is RunCodeOutput
@@ -256,6 +258,32 @@ def test_terminal_tools_select_specific_output_subclasses():
     assert ShellRun.Output is ShellOutput
     assert Kill.Output is KillOutput
     assert Status.Output is StatusOutput
+
+
+def test_inspect_projection_hides_embedded_script_source(tmp_path):
+    script = "projection_script_marker = 'synthetic-value'"
+    output_path = Path(tmp_path) / "inspection.log"
+    output_path.write_text("inspection completed")
+    terminal = Terminal(
+        id="inspect",
+        expression=ex.python(-arg.c + script, "synthetic.module"),
+        cwd=str(tmp_path),
+        output_path=output_path,
+        status=TerminalStatus.COMPLETED,
+        output_size=20,
+        exit_code=0,
+    )
+    input_model = Inspect.input.model_validate({"import_path": "builtins.len"})
+    request = projection_request(input_model, "Python-Inspect", cwd=Path(tmp_path))
+    output = InspectOutput(terminal=terminal, cwd_default=Path(tmp_path))
+    output.request = request
+
+    result = output.projection
+
+    assert len(result.content) == 2
+    assert result.content[0].type == "content"
+    assert result.content[1].type == "diff"
+    assert script not in result.content[0].content.text
 
 
 def test_terminal_output_projects_terminal_summary_and_status_title(tmp_path):

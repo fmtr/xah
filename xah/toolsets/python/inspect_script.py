@@ -2,42 +2,21 @@ import inspect
 import pydoc
 import sys
 from enum import StrEnum, auto
+from functools import cached_property
 from pathlib import Path
 
 
-HEADER_MASK = """\
-# `{import_path}`
-
-- Type: `{object_type}`
-- Module: `{module}`
-- Path: `{path}`
-"""
-SIGNATURE_MASK = """\
-## Signature
-
-`{signature}`
-"""
-DOCUMENTATION_MASK = """\
-## Documentation
-
-{docstring}
-"""
-PUBLIC_MEMBERS_MASK = """\
-## Public members
-
-{members}
-"""
-SOURCE_MASK = """\
-## Source
-
-```python
-{source}
-```
-"""
+UNAVAILABLE = "[unavailable]"
 MASK = """\
-{header}
-
-{sections}
+Import: {import_path}
+Type: {object_type}
+Module: {module}
+Path: {path}
+Lines: {line_range}
+Signature: {signature}
+Members: {members}
+Documentation:
+{docstring}
 """
 
 
@@ -49,52 +28,107 @@ class PythonObjectType(StrEnum):
     OTHER = auto()
 
 
-def render(import_path: str) -> str:
-    target = pydoc.locate(import_path)
-    if target is None:
-        raise SystemExit(f"Could not resolve Python import path: {import_path}")
+class Inspection:
+    def __init__(self, import_path: str):
+        self.import_path = import_path
 
-    is_module = inspect.ismodule(target)
-    module = target if is_module else inspect.getmodule(target)
-    module_file = module.__dict__.get("__file__") if module else None
-    module_path = Path(module_file).resolve() if module_file else None
-    has_python_source = bool(module_path and module_path.suffix == ".py")
+    @cached_property
+    def target(self):
+        target = pydoc.locate(self.import_path)
+        if target is None:
+            raise SystemExit(f"Could not resolve Python import path: {self.import_path}")
+        return target
 
-    if is_module:
-        object_type = PythonObjectType.MODULE
-    elif inspect.isclass(target):
-        object_type = PythonObjectType.CLASS
-    elif inspect.isfunction(target):
-        object_type = PythonObjectType.FUNCTION
-    elif inspect.ismethod(target):
-        object_type = PythonObjectType.METHOD
-    else:
-        object_type = PythonObjectType.OTHER
+    @cached_property
+    def is_module(self):
+        return inspect.ismodule(self.target)
 
-    signature = str(inspect.signature(target)) if callable(target) and has_python_source else None
-    source = inspect.getsource(target) if has_python_source else None
-    docstring = inspect.getdoc(target)
-    public_members = sorted(name for name in dir(target) if not name.startswith("_")) if is_module else []
-    path = module_path.relative_to(Path.cwd(), walk_up=True) if module_path else None
+    @cached_property
+    def module(self):
+        if self.is_module:
+            return self.target
+        return inspect.getmodule(self.target)
 
-    sections = [
-        SIGNATURE_MASK.format(signature=signature) if signature else "",
-        DOCUMENTATION_MASK.format(docstring=docstring) if docstring else "",
-        PUBLIC_MEMBERS_MASK.format(
-            members="\n".join(f"- `{name}`" for name in public_members)
-        ) if public_members else "",
-        SOURCE_MASK.format(source=source.rstrip()) if source else "",
-    ]
-    header = HEADER_MASK.format(
-        import_path=import_path,
-        object_type=object_type,
-        module=module.__name__ if module else "unavailable",
-        path=path if path else "unavailable",
-    )
-    section_text = "\n".join(section for section in sections if section)
+    @cached_property
+    def module_path(self):
+        if not self.module:
+            return None
 
-    return MASK.format(header=header.rstrip(), sections=section_text).rstrip()
+        module_file = self.module.__dict__.get("__file__")
+        if not module_file:
+            return None
+        return Path(module_file).resolve()
+
+    @cached_property
+    def has_python_source(self):
+        if not self.module_path:
+            return False
+        return self.module_path.suffix == ".py"
+
+    @cached_property
+    def object_type(self):
+        if self.is_module:
+            return PythonObjectType.MODULE
+        if inspect.isclass(self.target):
+            return PythonObjectType.CLASS
+        if inspect.isfunction(self.target):
+            return PythonObjectType.FUNCTION
+        if inspect.ismethod(self.target):
+            return PythonObjectType.METHOD
+        return PythonObjectType.OTHER
+
+    @cached_property
+    def module_name(self):
+        if not self.module:
+            return UNAVAILABLE
+        return self.module.__name__
+
+    @cached_property
+    def path(self):
+        if not self.module_path:
+            return UNAVAILABLE
+        return str(self.module_path.relative_to(Path.cwd(), walk_up=True))
+
+    @cached_property
+    def line_range(self):
+        if not self.has_python_source:
+            return UNAVAILABLE
+
+        source_lines, first_line = inspect.getsourcelines(self.target)
+        line_start = first_line or 1
+        last_line = line_start + len(source_lines) - 1
+        return f"{line_start}-{last_line}"
+
+    @cached_property
+    def signature(self):
+        if not callable(self.target) or not self.has_python_source:
+            return UNAVAILABLE
+        return str(inspect.signature(self.target))
+
+    @cached_property
+    def members(self):
+        if not self.is_module:
+            return UNAVAILABLE
+        public_members = sorted(name for name in dir(self.target) if not name.startswith("_"))
+        return ", ".join(public_members) or UNAVAILABLE
+
+    @cached_property
+    def docstring(self):
+        return inspect.getdoc(self.target) or UNAVAILABLE
+
+    @cached_property
+    def text(self):
+        return MASK.format(
+            import_path=self.import_path,
+            object_type=self.object_type,
+            module=self.module_name,
+            path=self.path,
+            line_range=self.line_range,
+            signature=self.signature,
+            members=self.members,
+            docstring=self.docstring,
+        ).rstrip()
 
 
 if __name__ == "__main__":
-    print(render(sys.argv[1]))
+    print(Inspection(sys.argv[1]).text)
