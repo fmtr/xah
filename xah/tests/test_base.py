@@ -36,7 +36,11 @@ from xah.toolsets.base.tool import Kinds, Messages, Tool
 from xah.toolsets.fs.permissions import Permissions
 from xah.toolsets.base.toolset import Toolset as ToolsetBase, ToolsetInfo
 from pydantic_acp import compose_projection_maps
-from pydantic_acp.projection import DefaultToolClassifier, ToolProjection
+from pydantic_acp.projection import (
+    DefaultToolClassifier,
+    HarnessCodeModeProjectionMap,
+    ToolProjection,
+)
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.models.test import TestModel
@@ -199,6 +203,32 @@ def test_harness_tools_have_semantic_kinds():
 
     for tool_name, expected_kind in expected_kinds.items():
         assert classifier.classify(tool_name) == expected_kind
+
+
+def test_unclassified_tools_default_to_other_instead_of_name_guesses():
+    classifier = HarnessProjectionAwareToolClassifier(
+        base_classifier=DefaultToolClassifier(),
+        projection_maps=[],
+    )
+
+    assert classifier.classify("remote_lookup_entry") == Kinds.OTHER.value
+    assert classifier.classify("search_unmapped_records") == Kinds.OTHER.value
+
+
+def test_execute_from_acp_projection_defaults_to_other():
+    class SampleProjectionMap(HarnessCodeModeProjectionMap):
+        def get_tool(self, name, default=None):
+            return default
+
+    projection_map = SampleProjectionMap(
+        tool_names=frozenset({"opaque_operation"}),
+    )
+    classifier = HarnessProjectionAwareToolClassifier(
+        base_classifier=DefaultToolClassifier(),
+        projection_maps=[projection_map],
+    )
+
+    assert classifier.classify("opaque_operation") == Kinds.OTHER.value
 
 
 def test_optional_toolsets_have_semantic_kinds():

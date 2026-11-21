@@ -18,7 +18,7 @@ class ToolsetsManagerAgent:
     parent: Any
 
     @cp
-    def classes(self) -> Sequence[type[Toolset]]:
+    def classes(self) -> Sequence[type[ToolsetBase]]:
         return self.parent.toolsets_classes
 
     @cp
@@ -34,10 +34,6 @@ class ToolsetsManagerAgent:
                 )
             )
 
-        toolsets.extend(
-            toolset_class(settings=self.parent.settings, activated=False)
-            for toolset_class in self.parent.mcp_classes
-        )
         return ilist(toolsets)
 
     @cp

@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, ClassVar
 
+from acp.schema import ToolCallStatus
 from cached_classproperty import cached_classproperty
-from corio import strings
+from corio import Path, strings
 from corio.function import cp
 from corio.iterator import ilist
 from corio.strings import get_docstring
+from pydantic_acp.projection import ToolProjection
 
 from xah.options import base as options
 
@@ -52,6 +54,33 @@ class ToolsetBase:
                 return None
             if description := get_docstring(base):
                 return description
+
+    @classmethod
+    def get_tool(cls, name: str, default: Any = None) -> Any:
+        return default
+
+    @classmethod
+    def project_start(
+        cls,
+        tool_name: str,
+        *,
+        cwd: Path | None = None,
+        raw_input: Any = None,
+    ) -> ToolProjection | None:
+        return None
+
+    @classmethod
+    def project_progress(
+        cls,
+        tool_name: str,
+        *,
+        cwd: Path | None = None,
+        raw_input: Any = None,
+        raw_output: Any = None,
+        serialized_output: str,
+        status: ToolCallStatus,
+    ) -> ToolProjection | None:
+        return None
 
     @cp
     def info(self) -> ToolsetInfo:

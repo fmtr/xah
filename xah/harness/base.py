@@ -34,8 +34,8 @@ from xah.options.provider import ConfigOptionsProvider
 from xah.server.acp.thinking import AgentAcp
 from xah.server.acp.usage import UsageReporterRegistry
 
-from xah.toolsets.base.mcp import ToolsetMCP
-from xah.toolsets.base.toolset import Toolset as ToolsetBase
+from xah.toolsets.base.common import ToolsetBase
+from xah.toolsets.base.tool import Kinds
 from xah.toolsets.utils.toolset import Utils
 
 AgentDepsT = TypeVar("AgentDepsT", bound=HarnessAgentDeps)
@@ -43,12 +43,18 @@ DepsT = TypeVar("DepsT", bound=HarnessDeps)
 
 
 class HarnessProjectionAwareToolClassifier(ProjectionAwareToolClassifier):
-    def _projection_kind(self, tool_name: str) -> str | None:
+    def _projection_kind(self, tool_name: str) -> str:
         for toolset in self.projection_maps:
             tool_class = toolset.get_tool(tool_name, None)
             if tool_class is not None:
                 return tool_class.KIND.value
-        return super()._projection_kind(tool_name)
+
+        projection_kind = super()._projection_kind(tool_name)
+        if projection_kind == Kinds.EXECUTE.value:
+            return Kinds.OTHER.value
+        if projection_kind is not None:
+            return projection_kind
+        return Kinds.OTHER.value
 
 
 class HarnessModelsProvider:
@@ -119,11 +125,7 @@ class HarnessBase(Generic[AgentDepsT]):
         return [Static, Agent, Paths, Time]
 
     @classes
-    def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
-        return []
-
-    @classes
-    def MCPs(cls) -> list[type[ToolsetMCP]]:
+    def Toolsets(cls) -> list[type[ToolsetBase]]:
         return []
 
     @classes
@@ -140,7 +142,6 @@ class HarnessBase(Generic[AgentDepsT]):
             settings=self.settings,
             cwd_default=self.cwd_default,
             toolsets_classes=self.Toolsets,
-            mcp_classes=self.MCPs,
             model=self.model,
             **self.deps_kwargs,
         )
@@ -250,7 +251,7 @@ class Harness(HarnessBase[AgentDepsT], Generic[AgentDepsT]):
         return Catalogue
 
     @classes
-    def Toolsets(cls) -> list[type[ToolsetBase[AgentDepsT]]]:
+    def Toolsets(cls) -> list[type[ToolsetBase]]:
         return [
             cls.TOOLSETS.Context,
             cls.TOOLSETS.Files,
@@ -382,7 +383,6 @@ class HarnessAcp(Harness[DepsT], Generic[DepsT]):
             settings=self.settings,
             cwd_default=self.cwd_default,
             toolsets_classes=self.Toolsets,
-            mcp_classes=self.MCPs,
             models=self.models,
             model=self.models.current.override,
             context_manager=self.context_manager,

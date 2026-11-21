@@ -12,8 +12,7 @@ from pydantic_deep import DeepAgentDeps
 
 from xah.caps.context import AgentSummaryContextManager
 from xah.settings import Settings
-from xah.toolsets.base.mcp import ToolsetMCP
-from xah.toolsets.base.toolset import Toolset as ToolsetBase
+from xah.toolsets.base.common import ToolsetBase
 from xah.harness.manager import ToolsetsManager, ToolsetsManagerAgent
 
 
@@ -21,8 +20,7 @@ from xah.harness.manager import ToolsetsManager, ToolsetsManagerAgent
 class HarnessAgentDeps(DeepAgentDeps):
     settings: Any = field(default_factory=lambda: Settings.instance)
     cwd_default: Path = field(default_factory=Path.cwd)
-    toolsets_classes: Sequence[type[ToolsetBase[Self]]] = field(default_factory=tuple)
-    mcp_classes: Sequence[type[ToolsetMCP]] = field(default_factory=tuple)
+    toolsets_classes: Sequence[type[ToolsetBase]] = field(default_factory=tuple)
     model: AdapterModel | None = None
     context_manager: AgentSummaryContextManager | None = field(default=None, kw_only=True)
     _config_update: Callable[[], Awaitable[None]] | None = field(default=None, kw_only=True)

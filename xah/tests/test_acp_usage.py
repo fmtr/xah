@@ -15,6 +15,7 @@ from pydantic_ai.models.test import TestModel
 from xah.class_collections import classes
 from xah.harness.base import HarnessAcp
 from xah.toolsets.base.mcp import ToolsetMCP
+from xah.toolsets.management.toolset import Management
 from xah.server.acp.usage import UsageReporterRegistry
 
 
@@ -102,8 +103,8 @@ def test_acp_prompt_does_not_run_an_unactivated_mcp(tmp_path):
             return []
 
         @classes
-        def MCPs(cls):
-            return [SampleMCP]
+        def Toolsets(cls):
+            return [Management, SampleMCP]
 
         @cached_property
         def models(self):

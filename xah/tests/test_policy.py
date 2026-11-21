@@ -48,8 +48,8 @@ async def test_policy_lists_and_sets_mcp_policy():
     manager = ToolsetsManager(
         SimpleNamespace(
             settings=SimpleNamespace(),
-            toolsets_classes=(),
-            mcp_classes=[SampleMCP],
+            cwd_default=None,
+            toolsets_classes=[SampleMCP],
         )
     )
     deps = SimpleNamespace(toolsets=manager)

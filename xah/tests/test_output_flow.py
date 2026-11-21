@@ -108,7 +108,7 @@ async def test_bare_toolset_returns_agent_value_without_retaining_output(context
 
 def test_acp_progress_uses_generic_projection_for_external_mcp_result():
     toolsets = ToolsetsManagerAgent(
-        SimpleNamespace(toolsets_classes=(), mcp_classes=())
+        SimpleNamespace(toolsets_classes=())
     )
     classifier = SimpleNamespace(classify=lambda name, raw_input=None: "other")
     update = build_tool_progress_update(

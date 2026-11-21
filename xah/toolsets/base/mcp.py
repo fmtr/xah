@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from cached_classproperty import cached_classproperty
+from corio import Path
 from corio.function import cp
 from fastmcp import Client
 from pydantic import ConfigDict
@@ -28,7 +29,13 @@ class ToolsetMCP(ToolsetBase, MCPToolset):
     def client(self) -> Client:
         return Client(self.URL, **self.CLIENT_OPTIONS)
 
-    def __init__(self, settings: Any = None, activated: bool = False):
+    def __init__(
+        self,
+        settings: Any = None,
+        cwd: Path | None = None,
+        activated: bool = False,
+    ):
+        del cwd
         self.settings = settings
         super().__init__(
             self.client,

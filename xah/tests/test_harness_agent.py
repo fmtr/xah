@@ -8,6 +8,7 @@ from fastmcp import FastMCP
 from pydantic_ai.messages import ToolReturnPart
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
+from pydantic_acp import compose_projection_maps
 
 from xah.class_collections import classes
 from xah.harness.base import Harness, HarnessAcp, HarnessBase
@@ -49,21 +50,19 @@ def test_harness_deps_adds_approval_behavior_to_agent_deps():
     assert Harness is not HarnessAcp
 
 
-def make_agent_deps(toolset_classes, mcp_classes=()):
+def make_agent_deps(toolset_classes):
     return HarnessAgentDeps(
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
         toolsets_classes=toolset_classes,
-        mcp_classes=mcp_classes,
     )
 
 
-def make_acp_deps(toolset_classes, mcp_classes=()):
+def make_acp_deps(toolset_classes):
     return HarnessDeps(
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
         toolsets_classes=toolset_classes,
-        mcp_classes=mcp_classes,
     )
 
 
@@ -78,6 +77,28 @@ def mcp_server():
         return "synthetic-payload"
 
     return server, calls
+
+
+def test_mcp_toolset_noops_projection_lookups(mcp_server):
+    server, _ = mcp_server
+
+    class SampleMCP(ToolsetMCP):
+        URL = server
+
+    projection_map = compose_projection_maps([SampleMCP])
+
+    assert SampleMCP.get_tool("remote_lookup", None) is None
+    assert projection_map.project_start("remote_lookup", raw_input={}) is None
+    assert (
+        projection_map.project_progress(
+            "remote_lookup",
+            raw_input={},
+            raw_output={},
+            serialized_output="{}",
+            status="completed",
+        )
+        is None
+    )
 
 
 def test_agent_deps_constructs_the_configured_toolsets_once():
@@ -115,7 +136,7 @@ def test_agent_manager_separates_mcp_instances_and_composes_them(mcp_server):
     class SampleMCP(ToolsetMCP):
         URL = server
 
-    deps = make_agent_deps([Files], [SampleMCP])
+    deps = make_agent_deps([Files, SampleMCP])
     manager = deps.toolsets
     mcp = manager.mcp[0]
 
@@ -125,13 +146,9 @@ def test_agent_manager_separates_mcp_instances_and_composes_them(mcp_server):
     assert mcp.settings is deps.settings
     assert mcp.client is not SampleMCP().client
     assert mcp in manager.all
-    assert not mcp.activated
-    assert mcp not in manager.combined.toolsets
-    assert manager.all.cls[Files] in manager.combined.toolsets
-
-    mcp.activated = True
-
+    assert mcp.activated
     assert mcp in manager.combined.toolsets
+    assert manager.all.cls[Files] in manager.combined.toolsets
 
 
 def test_acp_manager_combines_policy_wrappers_with_native_mcp(mcp_server):
@@ -140,16 +157,13 @@ def test_acp_manager_combines_policy_wrappers_with_native_mcp(mcp_server):
     class SampleMCP(ToolsetMCP):
         URL = server
 
-    manager = make_acp_deps([Files], [SampleMCP]).toolsets
+    manager = make_acp_deps([Files, SampleMCP]).toolsets
     mcp = manager.mcp[0]
 
     assert mcp in manager.all
-    assert not mcp.activated
-    assert mcp not in manager.combined.toolsets
-    assert manager.all.cls[Files].wrapper in manager.combined.toolsets
-
-    mcp.activated = True
+    assert mcp.activated
     assert mcp in manager.combined.toolsets
+    assert manager.all.cls[Files].wrapper in manager.combined.toolsets
 
     manager.all.cls[Files].options.cls[options.Policy].current_value = (
         options.Policies.DISABLED
@@ -196,7 +210,7 @@ def test_harness_agent_discovers_and_runs_native_mcp_tool(mcp_server):
             return []
 
         @classes
-        def MCPs(cls):
+        def Toolsets(cls):
             return [SampleMCP]
 
     harness = SampleHarness(
@@ -205,7 +219,8 @@ def test_harness_agent_discovers_and_runs_native_mcp_tool(mcp_server):
         settings=SimpleNamespace(),
     )
 
-    harness.deps.toolsets.mcp[0].activated = True
+    mcp = harness.deps.toolsets.mcp[0]
+    assert mcp.activated
     result = asyncio.run(
         harness.agent.run("Inspect the sample signal.", deps=harness.deps)
     )
@@ -215,7 +230,6 @@ def test_harness_agent_discovers_and_runs_native_mcp_tool(mcp_server):
         for part in message.parts
         if isinstance(part, ToolReturnPart)
     ]
-    mcp = harness.deps.toolsets.mcp[0]
 
     assert calls == ["invoked"]
     assert any("sample_signal" in part.tool_name for part in tool_returns)
@@ -249,7 +263,7 @@ def test_acp_toolset_options_include_configured_toolsets_even_when_disabled(mcp_
     class SampleMCP(ToolsetMCP):
         URL = server
 
-    deps = make_acp_deps([Todo, Shell], [SampleMCP])
+    deps = make_acp_deps([Todo, Shell, SampleMCP])
     shell = deps.toolsets.all.cls[Shell]
     mcp = deps.toolsets.all.cls[SampleMCP]
 
@@ -286,7 +300,6 @@ def test_agent_toolsets_manager_activates_all_without_management():
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
         toolsets_classes=[Files, Shell],
-        mcp_classes=(),
     )
     manager = ToolsetsManagerAgent(parent)
 
@@ -302,7 +315,6 @@ def test_agent_toolsets_manager_only_activates_management_initially():
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
         toolsets_classes=[Management, Files],
-        mcp_classes=(),
     )
     manager = ToolsetsManagerAgent(parent)
 
@@ -317,7 +329,6 @@ def test_acp_toolsets_manager_applies_policy_after_activation():
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
         toolsets_classes=[Files, Shell],
-        mcp_classes=(),
     )
     manager = ToolsetsManager(parent)
     shell = manager.all.name[Shell.name]
@@ -339,7 +350,7 @@ def test_mcp_toolsets_use_the_shared_activation_and_policy_contract(mcp_server):
     class SampleMCP(ToolsetMCP):
         URL = server
 
-    manager = make_acp_deps([Management], [SampleMCP]).toolsets
+    manager = make_acp_deps([Management, SampleMCP]).toolsets
     management = manager.all.name[Management.name]
     mcp = manager.all.name[SampleMCP.name]
     context = RunContext(
@@ -374,7 +385,7 @@ def test_mcp_policy_values_other_than_disabled_allow_activation(mcp_server):
     class SampleMCP(ToolsetMCP):
         URL = server
 
-    manager = make_acp_deps([Management], [SampleMCP]).toolsets
+    manager = make_acp_deps([Management, SampleMCP]).toolsets
     management = manager.all.name[Management.name]
     mcp = manager.all.name[SampleMCP.name]
     mcp.options.cls[options.Policy].current_value = options.Policies.REQUESTABLE
@@ -428,7 +439,6 @@ def test_activate_rejects_already_active_toolsets():
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
         toolsets_classes=[Management, Files],
-        mcp_classes=(),
     )
     deps = ToolsetsManager(parent)
     management = deps.all.name[Management.name]
@@ -474,7 +484,6 @@ def test_activate_output_reports_unknown_ids_while_activating_known_ids():
         settings=SimpleNamespace(),
         cwd_default=Path.cwd(),
         toolsets_classes=[Management, Files],
-        mcp_classes=(),
     )
     deps = ToolsetsManager(parent)
     management = deps.all.name[Management.name]
