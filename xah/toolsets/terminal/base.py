@@ -17,12 +17,17 @@ from xah.toolsets.base.projection.base import ProjectionContent
 from xah.toolsets.base.input import Input as InputBase
 from xah.toolsets.base.tool import Kinds, Tool, ValidationAbort
 
-from xah.toolsets.terminal.terminal import Terminal
+from xah.toolsets.terminal.terminal import (
+    TERMINAL_INLINE_OUTPUT_MAX_CHARS,
+    Terminal,
+    TerminalStatus,
+)
 
 
 class TerminalOutput(Output):
     terminal: Terminal
     cwd_default: Path
+    show_full_output: bool = Field(default=False, exclude=True)
 
     SUMMARY_MASK: ClassVar[str] = strings.trim("""
         Terminal `{id}` running `{command}` for {runtime}.
@@ -31,13 +36,13 @@ class TerminalOutput(Output):
     """)
     MASK: ClassVar[str] = strings.trim("""
         {summary}
-        Output is being written to: `{path}` ({size} bytes).
+        {output_location}
 
-        ## Tail
+        ## {output_heading}
 
-        {tail}
+        {output_text}
 
-        The above is the tail only. Review the output file directly if you need more.
+        {output_note}
     """)
 
     @property
@@ -65,13 +70,67 @@ class TerminalOutput(Output):
         return self.terminal.tail()
 
     @property
-    def message(self) -> str:
+    def displayed_output(self) -> str:
+        if self.show_full_output:
+            return self.terminal.read_output(TERMINAL_INLINE_OUTPUT_MAX_CHARS + 1)
+
+        return self.tail
+
+    @property
+    def output_heading(self) -> str:
+        if self.show_full_output:
+            return "Full output"
+
+        return "Recent output"
+
+    @property
+    def output_note(self) -> str:
+        if self.show_full_output:
+            return ""
+
+        return f"The tail contains at most {self.terminal.TAIL_LENGTH} bytes."
+
+    @property
+    def output_requires_file_reference(self) -> bool:
         terminal = self.terminal
+        if terminal.was_background:
+            return True
+
+        output_prefix = terminal.read_output(TERMINAL_INLINE_OUTPUT_MAX_CHARS + 1)
+        return len(output_prefix) > TERMINAL_INLINE_OUTPUT_MAX_CHARS
+
+    @property
+    def output_location(self) -> str:
+        terminal = self.terminal
+        if terminal.status in {TerminalStatus.CREATED, TerminalStatus.RUNNING}:
+            return strings.trim(f"""
+                Output is being written to: `{self.path}` ({terminal.output_size} bytes).
+                Use the Files and Terminals tools to inspect or manage it.
+            """)
+
+        if terminal.was_background:
+            return strings.trim(f"""
+                Terminal output is available at: `{self.path}` ({terminal.output_size} bytes).
+                Use the Files and Terminals tools to inspect it.
+            """)
+
+        if self.output_requires_file_reference:
+            return strings.trim(f"""
+                Output exceeded {TERMINAL_INLINE_OUTPUT_MAX_CHARS} characters.
+                Full output is available at: `{self.path}` ({terminal.output_size} bytes).
+                Use the Files tools to inspect it.
+            """)
+
+        return "Full output was returned inline."
+
+    @property
+    def message(self) -> str:
         return strings.Mask(self.MASK).format(
             summary=self.summary,
-            path=self.path,
-            size=terminal.output_size,
-            tail=self.code_block(self.tail),
+            output_location=self.output_location,
+            output_heading=self.output_heading,
+            output_text=self.code_block(self.displayed_output),
+            output_note=self.output_note,
         )
 
     @property
@@ -96,7 +155,7 @@ class TerminalOutput(Output):
     def content(self) -> list[ProjectionContent]:
         output_path = str(self.terminal.output_path)
         command = self.code_block(self.command, language=self.COMMAND_LANGUAGE)
-        return [
+        content = [
             #TerminalToolCallContent(type="terminal", terminal_id=self.terminal.id), # Unsupported in zed, and breaks other content.
             self.content_block(self.summary),
             self.content_block(command),
@@ -104,11 +163,13 @@ class TerminalOutput(Output):
                 type="diff",
                 path=output_path,
                 old_text="",
-                new_text=self.tail,
+                new_text=self.displayed_output,
             ),
-
-
         ]
+        if not self.show_full_output:
+            content.append(self.content_block("Tail only"))
+
+        return content
 
 
 class TerminalStatuses(Output):
@@ -154,15 +215,21 @@ class TerminalTool(TerminalToolBase):
     """Run a DSL subprocess expression as a managed background terminal."""
 
     QUICK_COMPLETION_TIMEOUT: ClassVar[int] = 5
-    OUTPUT_MAX_CHARS: ClassVar[int] = 8 * 1024
+    EXTERNALIZE_OUTPUT: ClassVar[bool] = False
     timeout: int | None = Field(default=None, description="Maximum execution time in seconds; None means no timeout.")
 
-    def activate_async_tools(self) -> None:
+    def activate_output_tools(self) -> None:
         from xah.toolsets.fs.toolset import Files
+        from xah.toolsets.terminal.toolset import Terminals
+
+        for toolset_type in (Files, Terminals):
+            self.ctx.deps.toolsets.all.name[toolset_type.name].activated = True
+
+    def activate_async_tools(self) -> None:
         from xah.toolsets.utils.toolset import Utils
 
-        for toolset_type in (Files, Utils):
-            self.ctx.deps.toolsets.all.name[toolset_type.name].activated = True
+        self.activate_output_tools()
+        self.ctx.deps.toolsets.all.name[Utils.name].activated = True
 
     @cp
     def terminal_id(self) -> str:
@@ -210,15 +277,19 @@ class TerminalTool(TerminalToolBase):
             )
         except TimeoutError:
             if not terminal.process.done():
+                terminal.was_background = True
                 self.activate_async_tools()
                 terminal.on_status = self.notify
+                return self.output
+
+        output_text = terminal.read_output(TERMINAL_INLINE_OUTPUT_MAX_CHARS + 1)
+        if len(output_text) > TERMINAL_INLINE_OUTPUT_MAX_CHARS:
+            self.activate_output_tools()
             return self.output
 
-        if terminal.output_size > self.OUTPUT_MAX_CHARS:
-            self.activate_async_tools()
-            return self.output
-
-        return self.output
+        output = self.output
+        output.show_full_output = True
+        return output
 
 
 class ManagementInput(InputBase):

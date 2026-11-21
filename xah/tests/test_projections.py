@@ -262,20 +262,25 @@ def test_terminal_tools_select_specific_output_subclasses():
 
 def test_inspect_projection_hides_embedded_script_source(tmp_path):
     script = "projection_script_marker = 'synthetic-value'"
+    output_text = "violet" * 60
     output_path = Path(tmp_path) / "inspection.log"
-    output_path.write_text("inspection completed")
+    output_path.write_text(output_text)
     terminal = Terminal(
         id="inspect",
         expression=ex.python(-arg.c + script, "synthetic.module"),
         cwd=str(tmp_path),
         output_path=output_path,
         status=TerminalStatus.COMPLETED,
-        output_size=20,
+        output_size=len(output_text.encode()),
         exit_code=0,
     )
     input_model = Inspect.input.model_validate({"import_path": "builtins.len"})
     request = projection_request(input_model, "Python-Inspect", cwd=Path(tmp_path))
-    output = InspectOutput(terminal=terminal, cwd_default=Path(tmp_path))
+    output = InspectOutput(
+        terminal=terminal,
+        cwd_default=Path(tmp_path),
+        show_full_output=True,
+    )
     output.request = request
 
     result = output.projection
@@ -283,6 +288,7 @@ def test_inspect_projection_hides_embedded_script_source(tmp_path):
     assert len(result.content) == 2
     assert result.content[0].type == "content"
     assert result.content[1].type == "diff"
+    assert result.content[1].new_text == output_text
     assert script not in result.content[0].content.text
 
 
@@ -306,12 +312,13 @@ def test_terminal_output_projects_terminal_summary_and_status_title(tmp_path):
     result = output.projection
 
     assert RunCode.Output is RunCodeOutput
-    assert len(result.content) == 3
+    assert len(result.content) == 4
     assert result.content[0].type == "content"
     assert "Terminal `abcd`" in result.content[0].content.text
     assert result.content[1].content.text == "```python\nprint('ok')\n```"
     assert result.content[2].type == "diff"
     assert result.content[2].path == str(output_path)
+    assert result.content[3].type == "content"
     assert result.content[2].new_text == "printed"
     assert "printed" in output.agent
     assert result.locations[0].path == str(output_path)

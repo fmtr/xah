@@ -24,6 +24,7 @@ from xah.toolsets.base.approval import ApprovalRequiredToolsetMetadata
 from xah.toolsets.base.common import ToolsetBase
 from xah.toolsets.base.common import ToolsetInfo as ToolsetInfo
 from xah.toolsets.base.output import (
+    INLINE_OUTPUT_MAX_CHARS,
     InvalidInputOutput,
     Output,
     OutputString,
@@ -42,7 +43,7 @@ class Toolset(ToolsetBase, FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
 
     model_config = ConfigDict(ignored_types=(cached_classproperty,))
 
-    MAX_INLINE_OUTPUT_LENGTH: ClassVar[int] = 50_000
+    MAX_INLINE_OUTPUT_LENGTH: ClassVar[int] = INLINE_OUTPUT_MAX_CHARS
 
     @ccp
     def prefix(cls) -> str:

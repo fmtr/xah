@@ -29,6 +29,7 @@ class Terminals(Toolset):
 
 
     async def get_instructions(self, ctx: RunContext) -> list[InstructionPart]:
+        from xah.toolsets.terminal.terminal import TERMINAL_INLINE_OUTPUT_MAX_CHARS
         from xah.toolsets.fs.toolset import Files
         from xah.toolsets.terminal.status import Status
         from xah.toolsets.utils.toolset import Utils
@@ -38,11 +39,12 @@ class Terminals(Toolset):
 
             {self.statuses}
 
-            Output from longer-running and verbose {self.name} will not be shown inline.
-            You must use the relevant tools to manage them.
+            Completed output up to {TERMINAL_INLINE_OUTPUT_MAX_CHARS} characters is shown in full.
+            Larger output and background terminal runs use a log file and show a short tail.
+            Use the relevant tools to inspect output or manage a running process.
 
             - `{self.name}` tools manage the processes themselves, including stopping them early.
-            - `{Files.name}` tools monitor output tail, search output, and inspect output files.
+            - `{Files.name}` tools monitor output tails, search output, and inspect log files.
             - `{Utils.name}` tools to wait for output. Do not spam the `{Status.suffix}` tool repeatedly.
         """)
         return [InstructionPart(content=text, dynamic=True)]

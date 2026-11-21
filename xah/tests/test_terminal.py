@@ -14,7 +14,11 @@ from xah.toolsets.python.test import Test as PythonTest
 from xah.toolsets.shell.run import Run
 from xah.toolsets.terminal.base import TerminalOutput, TerminalStatuses, TerminalTool
 from xah.toolsets.terminal.status import Status as StatusTool
-from xah.toolsets.terminal.terminal import Terminal, TerminalStatus
+from xah.toolsets.terminal.terminal import (
+    TERMINAL_INLINE_OUTPUT_MAX_CHARS,
+    Terminal,
+    TerminalStatus,
+)
 from xah.toolsets.terminal.toolset import Terminals
 
 
@@ -52,6 +56,52 @@ def test_terminal_statuses_format_paths_relative_to_cwd_default(tmp_path):
     statuses = TerminalStatuses(terminals=[terminal], cwd_default=cwd_default)
 
     assert ".workspace/terminals/terminal.log" in statuses.agent[0]
+
+
+@pytest.mark.parametrize(
+    ("output_text", "status", "was_background", "shows_path"),
+    [
+        ("a" * TERMINAL_INLINE_OUTPUT_MAX_CHARS, TerminalStatus.COMPLETED, False, False),
+        ("é" * (TERMINAL_INLINE_OUTPUT_MAX_CHARS // 2 + 1), TerminalStatus.COMPLETED, False, False),
+        ("b" * (TERMINAL_INLINE_OUTPUT_MAX_CHARS + 1), TerminalStatus.COMPLETED, False, True),
+        ("small", TerminalStatus.COMPLETED, True, True),
+        ("small", TerminalStatus.RUNNING, False, True),
+    ],
+)
+def test_terminal_status_shows_tail_and_externalized_path(
+    tmp_path,
+    output_text,
+    status,
+    was_background,
+    shows_path,
+):
+    cwd_default = Path(tmp_path)
+    output_path = cwd_default / ".workspace" / "terminals" / "sample.log"
+    output_path.parent.mkdir(parents=True)
+    output_path.write_text(output_text)
+    terminal = Terminal(
+        id="test",
+        expression=ex.sleep("0.1"),
+        timeout=2,
+        cwd="/other/workspace",
+        output_path=output_path,
+        output_size=len(output_text.encode()),
+        status=status,
+        was_background=was_background,
+    )
+
+    output = TerminalOutput(terminal=terminal, cwd_default=cwd_default)
+    status_text = TerminalStatuses(
+        terminals=[terminal],
+        cwd_default=cwd_default,
+    ).agent[0]
+    relative_path = ".workspace/terminals/sample.log"
+    shown_tail = terminal.tail()
+
+    assert (relative_path in output.agent) is shows_path
+    assert (relative_path in status_text) is shows_path
+    assert shown_tail in output.agent
+    assert shown_tail in status_text
 
 
 def test_terminal_output_path_treats_absolute_executable_as_a_filename(tmp_path):
@@ -178,13 +228,14 @@ async def test_terminal_tool_can_remove_inherited_environment(tmp_path, monkeypa
         def output_path(self):
             return Path(str(tmp_path / "tool.log"))
 
-        @property
-        def output(self):
-            return terminals.id[self.terminal_id].output_path.read_text()
+    tool = EnvironmentTool.model_construct(
+        ctx=SimpleNamespace(deps=SimpleNamespace(cwd_default=Path(tmp_path))),
+    )
 
-    tool = EnvironmentTool.model_construct()
+    result = await tool.run()
 
-    assert await tool.run() == "unset|forwarded"
+    assert result.show_full_output
+    assert result.displayed_output == "unset|forwarded"
     assert os.environ["XAH_SAMPLE_INHERITED"] == "ambient"
 
 
@@ -214,13 +265,16 @@ def test_terminal_output_projection_uses_absolute_location(tmp_path):
     cwd_default = Path(tmp_path)
     output_path = cwd_default / ".workspace" / "terminals" / "terminal.log"
     output_path.parent.mkdir(parents=True)
-    output_path.touch()
+    output_text = "inline projection sample"
+    output_path.write_text(output_text)
     terminal = Terminal(
         id="test",
         expression=ex.sleep("0.1"),
         timeout=2,
         cwd=str(cwd_default),
         output_path=output_path,
+        output_size=len(output_text.encode()),
+        status=TerminalStatus.COMPLETED,
     )
     request = ProjectionRequestOutput(
         tool_cls=StatusTool,
@@ -235,10 +289,12 @@ def test_terminal_output_projection_uses_absolute_location(tmp_path):
         terminal=terminal,
         cwd_default=cwd_default,
         request=request,
+        show_full_output=True,
     )
 
     assert output.path == Path(".workspace/terminals/terminal.log")
     assert output.projection.locations[0].path == str(output_path)
+    assert output.projection.content[-1].new_text == output_text
 
 
 @pytest.mark.asyncio

@@ -14,6 +14,8 @@ from corio.function import cp
 from corio.shell.dsl.expression import Expression
 
 
+TERMINAL_INLINE_OUTPUT_MAX_CHARS = 10_000
+
 
 class TerminalStatus(StrEnum):
     CREATED = auto()
@@ -38,6 +40,7 @@ class Terminal(dm.Base):
     on_status: SkipJsonSchema[Callable[[], str] | None] = Field(default=None, exclude=True)
     status: TerminalStatus = TerminalStatus.CREATED
     output_size: int = 0
+    was_background: bool = False
     exit_code: int | None = None
 
     _started_at: float = 0
@@ -61,6 +64,20 @@ class Terminal(dm.Base):
             file.seek(max(self.output_size - length, 0))
             output = file.read(length).decode(errors="replace")
         return output.strip()
+
+    def read_output(self, max_chars: int) -> str:
+        """
+
+        Read up to a character limit from the captured terminal output.
+
+        """
+        with self.output_path.open(
+            "r",
+            encoding="utf-8",
+            errors="replace",
+            newline="",
+        ) as file:
+            return file.read(max_chars)
 
     @cp
     def process(self) -> asyncio.Task:

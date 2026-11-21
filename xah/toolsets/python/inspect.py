@@ -24,15 +24,19 @@ class Input(InputBase):
 class InspectOutput(TerminalOutput):
     @property
     def content(self) -> list[ProjectionContent]:
-        return [
+        content = [
             self.content_block(self.summary),
             FileEditToolCallContent(
                 type="diff",
                 path=str(self.terminal.output_path),
                 old_text="",
-                new_text=self.tail,
+                new_text=self.displayed_output,
             ),
         ]
+        if not self.show_full_output:
+            content.append(self.content_block("Tail only"))
+
+        return content
 
 
 class Inspect(PythonCode, Input):

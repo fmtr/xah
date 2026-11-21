@@ -354,7 +354,7 @@ def test_terminal_run_appends_to_terminal_collection(tmp_path, monkeypatch):
 
     result = asyncio.run(tool.run())
 
-    assert result.tail == "hello"
+    assert result.displayed_output == "hello"
     assert tool.terminals is terminals
     assert terminals[0].output_path.read_text() == "hello"
     assert terminals[0].output_size == 5

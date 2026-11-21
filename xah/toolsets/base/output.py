@@ -13,6 +13,10 @@ from xah.toolsets.base.projection.base import InputOutputBase, ProjectionContent
 from xah.toolsets.base.projection.input import ProjectionRequestInput
 from xah.toolsets.base.projection.output import ProjectionRequestOutput
 
+
+INLINE_OUTPUT_MAX_CHARS = 50_000
+
+
 class Status(StrEnum):
     IN_PROGRESS = auto()
     COMPLETED = auto()
