@@ -238,16 +238,27 @@ class Input(InputBase):
 
     @property
     def title(self):
-        pattern = self.glob or self.regex
-        if self.path and pattern:
-            path = f"`{self.path}`"
-            search_pattern = f"`{self.preview(pattern, limit=20)}`"
-            return f"Searching {path} for {search_pattern}"
-        if pattern:
-            return f"Searching for `{self.preview(pattern, limit=20)}`"
-        if self.path:
-            return f"Listing `{self.path}`"
-        return "Searching files"
+        glob = self.preview(self.glob or "", limit=20)
+        regex = self.preview(self.regex or "", limit=20)
+
+        if self.path and self.glob and self.regex:
+            mask = "Searching `{path}` for `{glob}` containing `{regex}`"
+        elif self.path and self.glob:
+            mask = "Searching `{path}` for `{glob}`"
+        elif self.path and self.regex:
+            mask = "Searching `{path}` for `{regex}`"
+        elif self.path:
+            mask = "Listing `{path}`"
+        elif self.glob and self.regex:
+            mask = "Searching for `{glob}` containing `{regex}`"
+        elif self.glob:
+            mask = "Searching for `{glob}`"
+        elif self.regex:
+            mask = "Searching for `{regex}`"
+        else:
+            mask = "Searching files"
+
+        return mask.format(path=self.path, glob=glob, regex=regex)
 
     @property
     def locations(self):

@@ -1,8 +1,10 @@
 import inspect
 import pydoc
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from enum import StrEnum, auto
 from functools import cached_property
+from io import StringIO
 from pathlib import Path
 
 
@@ -34,7 +36,8 @@ class Inspection:
 
     @cached_property
     def target(self):
-        target = pydoc.locate(self.import_path)
+        with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            target = pydoc.locate(self.import_path)
         if target is None:
             raise SystemExit(f"Could not resolve Python import path: {self.import_path}")
         return target

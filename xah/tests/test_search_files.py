@@ -102,3 +102,16 @@ def test_content_search_glob_is_root_relative(search_tree):
     )
 
     assert {str(group.path) for group in result.groups} == DOCS_FILES
+
+
+def test_search_title_includes_path_glob_and_regex(search_tree):
+    ctx = context(search_tree)
+    tool = Search(
+        ctx=ctx,
+        toolset=ctx.deps.toolsets.cls[Files],
+        path=search_tree,
+        glob="*.py",
+        regex="tool_kind",
+    )
+
+    assert tool.title == f"Searching `{search_tree}` for `*.py` containing `tool_kind`"

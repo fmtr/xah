@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -108,6 +109,21 @@ def test_inspect_runs_bundled_script_with_import_path_argument(tmp_path):
         Inspect.SCRIPT,
         import_path,
     ]
+
+
+def test_inspection_silences_output_from_imported_modules(monkeypatch, capsys):
+    target = object()
+
+    def locate(import_path):
+        print(f"Importing {import_path}")
+        print("Import warning", file=sys.stderr)
+        return target
+
+    monkeypatch.setattr(inspect_script.pydoc, "locate", locate)
+    inspection = inspect_script.Inspection("sample_package.module")
+
+    assert inspection.target is target
+    assert capsys.readouterr() == ("", "")
 
 
 def test_inspection_script_shows_plain_function_details_without_source():

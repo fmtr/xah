@@ -1,15 +1,11 @@
 from acp import telemetry
-from corio import logs, debug, Constants
+from corio import debug, logs
 
 from xah.paths import paths
 
 debug.trace()
 
-logger = logs.get_logger(
-    name=paths.name,
-    stream=Constants.DEVELOPMENT,
-    version=paths.metadata.version_dev,
-)
+logger = logs.from_paths(paths)
 
 # ACP's optional telemetry creates duplicate console spans when Logfire is active.
 # Keep application INFO logs, but turn off only ACP's request-span instrumentation.
