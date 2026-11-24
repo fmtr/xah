@@ -227,6 +227,9 @@ class Tool(dm.Base):
             if self.validation.abort:
                 break
 
+    async def on_run(self):
+        return await self.run()
+
     async def after_approval(self):
         pass
 

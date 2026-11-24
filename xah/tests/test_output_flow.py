@@ -43,6 +43,17 @@ class ExampleToolset(Toolset):
         return [ExampleTool]
 
 
+class HookedTool(ExampleTool):
+    async def on_run(self) -> ExampleOutput:
+        return ExampleOutput(value="hook value")
+
+
+class HookedToolset(Toolset):
+    @classes
+    def Tools(cls):
+        return [HookedTool]
+
+
 class BrokenProjectionInput(Input):
     @property
     def projection(self):
@@ -91,6 +102,26 @@ def test_projection_errors_return_traceback_projection():
     assert f"raw_args: {raw_args!r}" in traceback_content
     assert traceback_content.startswith(f"tool_name: {tool_name}\n")
     assert "RuntimeError: projection failed" in traceback_content
+
+
+@pytest.mark.asyncio
+async def test_tool_on_run_defaults_to_run(context):
+    tool = ExampleTool(ctx=context, toolset=ExampleToolset())
+
+    result = await tool.on_run()
+
+    assert result.value == "agent value"
+
+
+@pytest.mark.asyncio
+async def test_toolset_calls_on_run_hook(context):
+    toolset = HookedToolset()
+    name = toolset.get_name(HookedTool)
+    tool = (await toolset.get_tools(context))[name]
+
+    result = await toolset.call_tool(name, {}, context, tool)
+
+    assert result == "hook value"
 
 
 @pytest.mark.asyncio

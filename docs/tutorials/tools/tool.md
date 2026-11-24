@@ -9,6 +9,6 @@ This exercise introduces the basic shape of a custom tool through a small exampl
 1. The tool docstring is exposed to the agent, so use it to explain when and why it should call the tool.
 2. Tools are Pydantic AI models and support Python type annotations and Pydantic `Field`s.
 3. Field descriptions are also exposed to the agent and provide guidance for each argument.
-4. The harness calls `run()` when the model selects the tool; its return value is provided back to the model.
+4. The toolset calls `on_run()` when the model selects the tool. By default, `on_run()` awaits `run()`, so `run()` remains the usual place to define tool behavior. Override `on_run()` to wrap or augment that behavior.
 
 This file defines the tool used by the following toolset and harness exercises; it is not a standalone agent to launch.

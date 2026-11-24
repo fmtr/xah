@@ -369,7 +369,7 @@ class Toolset(ToolsetBase, FunctionToolset[AgentDepsT], Generic[AgentDepsT]):
             if ctx.tool_call_approved:
                 await self.after_approval(instance)
 
-            run_result = await self.raise_errors(instance.run)
+            run_result = await self.raise_errors(instance.on_run)
         finally:
             self.instances.remove(instance)
 
