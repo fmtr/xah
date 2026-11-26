@@ -30,6 +30,7 @@ from pydantic_ai.exceptions import RunCancelled
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
+    ModelResponse,
     PartDeltaEvent,
     PartStartEvent,
     RetryPromptPart,
@@ -249,7 +250,15 @@ class _CancellationSnapshotPromptHandler(_AdapterPromptHandler):
         except asyncio.CancelledError as cancellation:
             cancelled_run = RunCancelled.from_cancellation(cancellation)
             if cancelled_run is not None:
-                session.message_history_json = dump_message_history(cancelled_run.all_messages())
+                messages = cancelled_run.all_messages()
+                # Do not replay OpenAI reasoning IDs from the cancelled run.
+                for message in cancelled_run.new_messages():
+                    if not isinstance(message, ModelResponse):
+                        continue
+                    for part in message.parts:
+                        if isinstance(part, ThinkingPart) and part.provider_name == "openai":
+                            part.id = None
+                session.message_history_json = dump_message_history(messages)
                 prompt_text = ""
             return await self._handle_cancelled_prompt(
                 session=session,
