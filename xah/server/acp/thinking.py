@@ -1,20 +1,32 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from acp import update_agent_thought_text
 from acp.schema import (
     AgentMessageChunk,
     AgentThoughtChunk,
+    PromptResponse,
     TextContentBlock,
     ToolCallStart,
     UsageUpdate,
 )
+from pydantic_acp.agent_source import _agent_prompt_run_scope
 from pydantic_acp.runtime.adapter import PydanticAcpAgent
+from pydantic_acp.runtime._adapter_prompt import (
+    _AdapterPromptHandler,
+    _PromptApprovalCancelledError,
+)
 from pydantic_acp.runtime._prompt_execution import _PromptExecution
-from pydantic_acp.runtime.prompts import PromptBlock, PromptRunOutcome
+from pydantic_acp.runtime.prompts import (
+    PromptBlock,
+    PromptRunOutcome,
+    dump_message_history,
+)
 from pydantic_acp.session.state import AcpSessionContext
 from pydantic_ai import Agent, AgentRunResultEvent, UsageLimits
+from pydantic_ai.exceptions import RunCancelled
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
@@ -196,6 +208,64 @@ class ThinkingPromptExecution(_PromptExecution):
         raise RuntimeError("missing_agent_run_result")
 
 
+class _CancellationSnapshotPromptHandler(_AdapterPromptHandler):
+    """Persist Pydantic AI's completed history when an ACP prompt is cancelled."""
+
+    async def _run_prompt(
+        self,
+        *,
+        agent: Agent[Any, Any],
+        prompt: list[PromptBlock],
+        session: AcpSessionContext,
+        prompt_text: str,
+        output_type_override: object | None,
+    ) -> PromptRunOutcome | PromptResponse:
+        preexisting_open_tool_calls = set(self._open_tool_call_starts(session))
+        try:
+            async with _agent_prompt_run_scope(
+                self._owner._agent_source,
+                session,
+                agent,
+            ):
+                if output_type_override is None:
+                    return await self._owner._run_prompt(
+                        agent=agent,
+                        prompt=prompt,
+                        session=session,
+                    )
+                return await self._owner._run_prompt(
+                    agent=agent,
+                    prompt=prompt,
+                    session=session,
+                    output_type_override=output_type_override,
+                )
+        except _PromptApprovalCancelledError as cancellation:
+            await self._fail_open_tool_calls(
+                session,
+                excluding=preexisting_open_tool_calls,
+                details="Permission request cancelled.",
+            )
+            return cancellation.outcome
+        except asyncio.CancelledError as cancellation:
+            cancelled_run = RunCancelled.from_cancellation(cancellation)
+            if cancelled_run is not None:
+                session.message_history_json = dump_message_history(cancelled_run.all_messages())
+                prompt_text = ""
+            return await self._handle_cancelled_prompt(
+                session=session,
+                prompt_text=prompt_text,
+                preexisting_open_tool_calls=preexisting_open_tool_calls,
+            )
+        except Exception as error:
+            await self._handle_prompt_error(
+                session=session,
+                prompt_text=prompt_text,
+                error=error,
+                preexisting_open_tool_calls=preexisting_open_tool_calls,
+            )
+            raise
+
+
 class AgentAcp(PydanticAcpAgent):
     """ACP agent that forwards Pydantic AI thinking events."""
 
@@ -203,6 +273,7 @@ class AgentAcp(PydanticAcpAgent):
         super().__init__(*args, **kwargs)
         self.usage_reporters = usage_reporters
         self._prompt_runtime._execution = ThinkingPromptExecution(self._prompt_runtime)
+        self._adapter_prompt = _CancellationSnapshotPromptHandler(self)
 
     def __call__(self, conn):
         del conn
