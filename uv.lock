@@ -727,11 +727,14 @@ wheels = [
 
 [[package]]
 name = "corio"
-version = "2.19.1a0"
+version = "2.21.1"
 source = { editable = "../corio" }
 dependencies = [
     { name = "cached-classproperty" },
     { name = "certifi" },
+    { name = "logfire" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
     { name = "semver" },
 ]
 
@@ -740,6 +743,8 @@ db-search = [
     { name = "httpx" },
     { name = "httpx-retries" },
     { name = "logfire", extra = ["httpx"] },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
     { name = "pycountry" },
     { name = "pydantic" },
     { name = "pydantic-extra-types" },
@@ -762,6 +767,8 @@ dev = [
     { name = "mkdocs-include-dir-to-nav" },
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
     { name = "packaging" },
     { name = "pycountry" },
     { name = "pydantic" },
@@ -778,6 +785,7 @@ dev = [
     { name = "qdrant-client" },
     { name = "ripgrep-rs" },
     { name = "setuptools" },
+    { name = "tappack" },
     { name = "tomlkit" },
     { name = "twine" },
     { name = "uvicorn", extra = ["standard"] },
@@ -787,6 +795,13 @@ dm = [
     { name = "pycountry" },
     { name = "pydantic" },
     { name = "pydantic-extra-types" },
+]
+http = [
+    { name = "httpx" },
+    { name = "httpx-retries" },
+    { name = "logfire", extra = ["httpx"] },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
 ]
 path-search = [
     { name = "ripgrep-rs" },
@@ -916,6 +931,7 @@ requires-dist = [
     { name = "httpx-retries", marker = "extra == 'webhook'" },
     { name = "huggingface-hub", marker = "extra == 'all'" },
     { name = "huggingface-hub", marker = "extra == 'hfh'" },
+    { name = "logfire" },
     { name = "logfire", marker = "extra == 'all'" },
     { name = "logfire", marker = "extra == 'api'" },
     { name = "logfire", marker = "extra == 'api-mcp'" },
@@ -978,6 +994,40 @@ requires-dist = [
     { name = "openpyxl", marker = "extra == 'metrics'" },
     { name = "openpyxl", marker = "extra == 'semantic'" },
     { name = "openpyxl", marker = "extra == 'tabular'" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'all'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'api'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'api-mcp'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'cli'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'db-search'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'db-search-compute'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'dev'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'dhcp'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'dns'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'http'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'infra'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'logging'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'process'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'sec'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'secrets'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'webhook'" },
+    { name = "opentelemetry-sdk" },
+    { name = "opentelemetry-sdk", marker = "extra == 'all'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'api'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'api-mcp'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'cli'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'db-search'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'db-search-compute'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'dev'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'dhcp'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'dns'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'http'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'infra'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'logging'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'process'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'sec'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'secrets'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'webhook'" },
     { name = "packaging", marker = "extra == 'all'" },
     { name = "packaging", marker = "extra == 'dev'" },
     { name = "packaging", marker = "extra == 'infra'" },
@@ -1117,6 +1167,9 @@ requires-dist = [
     { name = "tabulate", marker = "extra == 'metrics'" },
     { name = "tabulate", marker = "extra == 'semantic'" },
     { name = "tabulate", marker = "extra == 'tabular'" },
+    { name = "tappack", marker = "extra == 'all'", specifier = ">=1.0.0" },
+    { name = "tappack", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "tappack", marker = "extra == 'infra'", specifier = ">=1.0.0" },
     { name = "tinynetrc", marker = "extra == 'all'" },
     { name = "tinynetrc", marker = "extra == 'netrc'" },
     { name = "tinynetrc", marker = "extra == 'spaces'" },
@@ -1181,6 +1234,8 @@ dev = [
     { name = "mkdocs-include-dir-to-nav" },
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extras = ["python"] },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
     { name = "packaging" },
     { name = "pycountry" },
     { name = "pydantic" },
@@ -1197,6 +1252,7 @@ dev = [
     { name = "qdrant-client" },
     { name = "ripgrep-rs" },
     { name = "setuptools" },
+    { name = "tappack", specifier = ">=1.0.0" },
     { name = "tomlkit" },
     { name = "twine" },
     { name = "uvicorn", extras = ["standard"] },
@@ -5230,6 +5286,18 @@ wheels = [
 ]
 
 [[package]]
+name = "tappack"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "corio", extra = ["http", "sets"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2a/cd/e0a86d22b33c7c8331a164d163acc70646391e350c2dcb59a8cbbdcc748b/tappack-1.0.0.tar.gz", hash = "sha256:c6120622c3a854426d9d3929c54f1ea2e4a86f13184f41c0e21f56c92e80ba2a", size = 13281, upload-time = "2026-11-26T12:27:47.422Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/c8/ce83170044f3b766b5bb173fd71a9f4125d7a59133fa7604d0c447a6fdbf/tappack-1.0.0-py3-none-any.whl", hash = "sha256:927b480a94dc656b7bc33265a42df9afb87b79e9b496dac19d4498afbc5dd2ec", size = 21350, upload-time = "2026-11-26T12:27:46.311Z" },
+]
+
+[[package]]
 name = "tavily-python"
 version = "0.8.5"
 source = { registry = "https://pypi.org/simple" }
@@ -5728,7 +5796,7 @@ wheels = [
 
 [[package]]
 name = "xah"
-version = "0.1.0a13"
+version = "0.1.0a19"
 source = { editable = "." }
 dependencies = [
     { name = "acpremote" },
