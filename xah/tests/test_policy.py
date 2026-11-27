@@ -96,6 +96,19 @@ async def test_policy_sets_toolset_policy():
 
 
 @pytest.mark.asyncio
+async def test_policy_returns_a_helpful_error_for_unknown_toolsets():
+    command = Policy(deps=make_deps("Cabinet", "Ledger"), name="PhantomPanel", reset=None)
+
+    result = await command.run()
+
+    assert result.text.startswith("```text")
+    assert result.text.endswith("```")
+    assert "PhantomPanel" in result.text
+    assert "Cabinet" in result.text
+    assert "Ledger" in result.text
+
+
+@pytest.mark.asyncio
 async def test_policy_reset_restores_toolset_defaults():
     deps = make_deps("Files", "Python")
     deps.toolsets.all.name["Files"].POLICY = options.Policies.FULL

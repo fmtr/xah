@@ -1,4 +1,5 @@
 from pydantic_acp import SlashCommandResult
+from corio import strings
 from pydantic_settings import CliSubCommand
 
 from xah.commands.base import Command
@@ -32,23 +33,32 @@ class Policy(Command):
             return result.result
 
         toolsets = self.deps.toolsets.all
-        if self.name is not None and self.value is not None:
-            toolset = toolsets.name[self.name]
-            policy = toolset.options.cls[options.Policy]
-            policy.current_value = self.value
-            return SlashCommandResult(
-                text=f"Set {self.name} policy to {self.value}."
-            )
+        if self.name is not None:
+            try:
+                toolset = toolsets.name[self.name]
+            except KeyError:
+                available = strings.join_natural(
+                    (toolset.name for toolset in toolsets),
+                    mask="`{}`",
+                )
+                message = strings.trim(f"""
+                    Unknown toolset `{self.name}`.
+                    Available toolsets: {available}.
+                """)
+                text = strings.trim("```text", message, "```")
+                return SlashCommandResult(text=text)
 
-        if self.name:
-            toolset = toolsets.name[self.name]
             policy = toolset.options.cls[options.Policy]
-            return SlashCommandResult(
-                text=f"{self.name}: {policy.value}"
-            )
+            if self.value is not None:
+                policy.current_value = self.value
+                return SlashCommandResult(
+                    text=f"Set {self.name} policy to {self.value}."
+                )
+
+            return SlashCommandResult(text=f"{self.name}: {policy.value}")
 
         policies = [
             f"{toolset.name}: {toolset.options.cls[options.Policy].value}"
             for toolset in toolsets
         ]
-        return SlashCommandResult(text="\n".join(policies))
+        return SlashCommandResult(text=strings.join(policies, sep="\n"))
