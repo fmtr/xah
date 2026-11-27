@@ -36,6 +36,7 @@ from pydantic_ai.messages import (
     RetryPromptPart,
     ThinkingPart,
     ThinkingPartDelta,
+    ToolCallPart,
 )
 
 from xah.server.acp.usage import UsageReporterRegistry
@@ -251,13 +252,16 @@ class _CancellationSnapshotPromptHandler(_AdapterPromptHandler):
             cancelled_run = RunCancelled.from_cancellation(cancellation)
             if cancelled_run is not None:
                 messages = cancelled_run.all_messages()
-                # Do not replay OpenAI reasoning IDs from the cancelled run.
+                # Drop linked OpenAI IDs so a function call never outlives its reasoning item.
                 for message in cancelled_run.new_messages():
                     if not isinstance(message, ModelResponse):
                         continue
                     for part in message.parts:
-                        if isinstance(part, ThinkingPart) and part.provider_name == "openai":
-                            part.id = None
+                        if not isinstance(part, (ThinkingPart, ToolCallPart)):
+                            continue
+                        if part.provider_name != "openai":
+                            continue
+                        part.id = None
                 session.message_history_json = dump_message_history(messages)
                 prompt_text = ""
             return await self._handle_cancelled_prompt(

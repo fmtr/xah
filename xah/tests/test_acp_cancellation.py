@@ -350,3 +350,225 @@ def test_cancelled_acp_history_omits_unavailable_responses_reasoning_item(tmp_pa
                 )
 
     asyncio.run(exercise())
+
+
+def test_cancelled_acp_history_omits_orphan_responses_function_call_id(tmp_path):
+    async def exercise():
+        reasoning_id = "rs_synthetic_empty_summary"
+        function_item_id = "fc_synthetic_empty_summary"
+        tool_call_id = "call_synthetic_empty_summary"
+        wait_reasoning_id = "rs_synthetic_wait"
+        wait_function_item_id = "fc_synthetic_wait"
+        wait_tool_call_id = "call_synthetic_wait"
+        action_prompt = "Carry out the sample operation."
+        follow_up_prompt = "Report on the interrupted operation."
+        wait_started = asyncio.Event()
+        requests = []
+        tool_effects = []
+
+        def respond(request):
+            request_body = json.loads(request.content)
+            requests.append(request_body)
+            input_items = request_body["input"]
+            has_function_call = any(
+                isinstance(item, dict)
+                and item.get("type") == "function_call"
+                and item.get("id") == function_item_id
+                for item in input_items
+            )
+            has_reasoning_item = any(
+                isinstance(item, dict)
+                and item.get("type") == "reasoning"
+                and item.get("id") == reasoning_id
+                for item in input_items
+            )
+            if has_function_call and not has_reasoning_item:
+                return httpx.Response(
+                    400,
+                    json={
+                        "error": {
+                            "message": "orphan function call",
+                            "type": "invalid_request_error",
+                            "param": "input",
+                            "code": None,
+                        }
+                    },
+                )
+
+            return httpx.Response(
+                200,
+                json={
+                    "id": "resp_synthetic_success",
+                    "object": "response",
+                    "created_at": 1_764_000_000,
+                    "model": "synthetic-reasoner",
+                    "output": [
+                        {
+                            "id": "msg_synthetic_success",
+                            "type": "message",
+                            "role": "assistant",
+                            "status": "completed",
+                            "content": [
+                                {
+                                    "type": "output_text",
+                                    "text": "operation acknowledged",
+                                    "annotations": [],
+                                }
+                            ],
+                        }
+                    ],
+                    "parallel_tool_calls": True,
+                    "tool_choice": "auto",
+                    "tools": [],
+                    "status": "completed",
+                },
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http_client:
+            async with AsyncOpenAI(
+                api_key="synthetic-test-key",
+                http_client=http_client,
+            ) as openai_client:
+                responses_model = OpenAIResponsesModel(
+                    "synthetic-reasoner",
+                    provider=OpenAIProvider(openai_client=openai_client),
+                    profile={"openai_supports_encrypted_reasoning_content": True},
+                    settings={
+                        "openai_reasoning_effort": "medium",
+                        "openai_reasoning_summary": "detailed",
+                    },
+                )
+
+                async def respond_from_agent(messages, info):
+                    latest_prompt = next(
+                        part.content
+                        for message in reversed(messages)
+                        if isinstance(message, ModelRequest)
+                        for part in reversed(message.parts)
+                        if isinstance(part, UserPromptPart)
+                    )
+                    if latest_prompt == follow_up_prompt:
+                        return await responses_model.request(
+                            messages,
+                            info.model_settings,
+                            info.model_request_parameters,
+                        )
+
+                    operation_completed = any(
+                        isinstance(part, ToolReturnPart) and part.tool_name == "sample_operation"
+                        for message in messages
+                        for part in message.parts
+                    )
+                    if operation_completed:
+                        return ModelResponse(
+                            parts=[
+                                ThinkingPart(
+                                    "",
+                                    id=wait_reasoning_id,
+                                    signature="synthetic-wait-signature",
+                                    provider_name="openai",
+                                ),
+                                ToolCallPart(
+                                    "wait_for_cancel",
+                                    {},
+                                    tool_call_id=wait_tool_call_id,
+                                    id=wait_function_item_id,
+                                    provider_name="openai",
+                                ),
+                            ],
+                            provider_name="openai",
+                        )
+
+                    return ModelResponse(
+                        parts=[
+                            ThinkingPart(
+                                "",
+                                id=reasoning_id,
+                                signature="synthetic-encrypted-reasoning",
+                                provider_name="openai",
+                            ),
+                            ToolCallPart(
+                                "sample_operation",
+                                {},
+                                tool_call_id=tool_call_id,
+                                id=function_item_id,
+                                provider_name="openai",
+                            ),
+                        ],
+                        provider_name="openai",
+                    )
+
+                agent = Agent(FunctionModel(respond_from_agent), output_type=str)
+
+                @agent.tool_plain
+                async def sample_operation() -> str:
+                    tool_effects.append("recorded")
+                    return "operation completed"
+
+                @agent.tool_plain
+                async def wait_for_cancel() -> str:
+                    wait_started.set()
+                    await asyncio.Event().wait()
+                    return "unreachable"
+
+                class AgentSource:
+                    client_info = None
+
+                    async def get_agent(self, session):
+                        del session
+                        return agent
+
+                    async def get_deps(self, session, requested_agent):
+                        del session, requested_agent
+                        return None
+
+                    def get_runtime(self, session):
+                        del session
+                        toolsets = SimpleNamespace(all=[])
+                        return SimpleNamespace(deps=SimpleNamespace(toolsets=toolsets))
+
+                adapter = AgentAcp(
+                    AgentSource(),
+                    config=AdapterConfig(
+                        session_store=MemorySessionStore(),
+                        enable_generic_tool_projection=False,
+                    ),
+                    usage_reporters=UsageReporterRegistry(),
+                )
+                harness = BlackBoxHarness(adapter=adapter)
+                await harness.initialize()
+                session = await harness.new_session(cwd=str(tmp_path))
+                interrupted = asyncio.create_task(harness.prompt_text(action_prompt))
+                await asyncio.wait_for(wait_started.wait(), timeout=5)
+                await harness.adapter.cancel(session_id=session.session_id)
+                response = await interrupted
+
+                assert response.stop_reason == "cancelled"
+                assert tool_effects == ["recorded"]
+                await harness.prompt_text(follow_up_prompt)
+
+                input_items = requests[0]["input"]
+                assert any(
+                    isinstance(item, dict)
+                    and item.get("type") == "function_call"
+                    and item.get("call_id") == tool_call_id
+                    for item in input_items
+                )
+                assert not any(
+                    isinstance(item, dict) and item.get("id") == function_item_id
+                    for item in input_items
+                )
+                assert not any(
+                    isinstance(item, dict)
+                    and item.get("type") == "reasoning"
+                    and item.get("id") == reasoning_id
+                    for item in input_items
+                )
+                assert any(
+                    isinstance(item, dict)
+                    and item.get("type") == "function_call_output"
+                    and item.get("call_id") == tool_call_id
+                    for item in input_items
+                )
+
+    asyncio.run(exercise())
