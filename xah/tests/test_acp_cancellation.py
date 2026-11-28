@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace
 
 import httpx
+import pytest
 from openai import AsyncOpenAI
 from pydantic_acp import AdapterConfig, BlackBoxHarness, MemorySessionStore
 from pydantic_ai import Agent, ModelResponse
@@ -352,9 +353,21 @@ def test_cancelled_acp_history_omits_unavailable_responses_reasoning_item(tmp_pa
     asyncio.run(exercise())
 
 
-def test_cancelled_acp_history_omits_orphan_responses_function_call_id(tmp_path):
+@pytest.mark.parametrize(
+    "response_part_order",
+    [
+        ("thinking", "message", "tool_call"),
+        ("thinking", "tool_call", "message"),
+        ("message", "thinking", "tool_call"),
+        ("message", "tool_call", "thinking"),
+        ("tool_call", "thinking", "message"),
+        ("tool_call", "message", "thinking"),
+    ],
+)
+def test_cancelled_acp_history_avoids_orphaned_responses_items(tmp_path, response_part_order):
     async def exercise():
         reasoning_id = "rs_synthetic_empty_summary"
+        message_id = "msg_synthetic_empty_summary"
         function_item_id = "fc_synthetic_empty_summary"
         tool_call_id = "call_synthetic_empty_summary"
         wait_reasoning_id = "rs_synthetic_wait"
@@ -362,6 +375,7 @@ def test_cancelled_acp_history_omits_orphan_responses_function_call_id(tmp_path)
         wait_tool_call_id = "call_synthetic_wait"
         action_prompt = "Carry out the sample operation."
         follow_up_prompt = "Report on the interrupted operation."
+        assistant_update = "A brief update before the operation."
         wait_started = asyncio.Event()
         requests = []
         tool_effects = []
@@ -382,6 +396,28 @@ def test_cancelled_acp_history_omits_orphan_responses_function_call_id(tmp_path)
                 and item.get("id") == reasoning_id
                 for item in input_items
             )
+            has_message_item = any(
+                isinstance(item, dict)
+                and item.get("type") == "message"
+                and item.get("id") == message_id
+                for item in input_items
+            )
+            if has_message_item and not has_reasoning_item:
+                return httpx.Response(
+                    400,
+                    json={
+                        "error": {
+                            "message": (
+                                f"Item '{message_id}' of type 'message' was provided "
+                                f"without its required 'reasoning' item: '{reasoning_id}'."
+                            ),
+                            "type": "invalid_request_error",
+                            "param": "input",
+                            "code": None,
+                        }
+                    },
+                )
+
             if has_function_call and not has_reasoning_item:
                 return httpx.Response(
                     400,
@@ -479,22 +515,28 @@ def test_cancelled_acp_history_omits_orphan_responses_function_call_id(tmp_path)
                             provider_name="openai",
                         )
 
+                    response_parts = {
+                        "thinking": ThinkingPart(
+                            "",
+                            id=reasoning_id,
+                            signature="synthetic-encrypted-reasoning",
+                            provider_name="openai",
+                        ),
+                        "message": TextPart(
+                            assistant_update,
+                            id=message_id,
+                            provider_name="openai",
+                        ),
+                        "tool_call": ToolCallPart(
+                            "sample_operation",
+                            {},
+                            tool_call_id=tool_call_id,
+                            id=function_item_id,
+                            provider_name="openai",
+                        ),
+                    }
                     return ModelResponse(
-                        parts=[
-                            ThinkingPart(
-                                "",
-                                id=reasoning_id,
-                                signature="synthetic-encrypted-reasoning",
-                                provider_name="openai",
-                            ),
-                            ToolCallPart(
-                                "sample_operation",
-                                {},
-                                tool_call_id=tool_call_id,
-                                id=function_item_id,
-                                provider_name="openai",
-                            ),
-                        ],
+                        parts=[response_parts[kind] for kind in response_part_order],
                         provider_name="openai",
                     )
 
@@ -548,6 +590,12 @@ def test_cancelled_acp_history_omits_orphan_responses_function_call_id(tmp_path)
                 await harness.prompt_text(follow_up_prompt)
 
                 input_items = requests[0]["input"]
+                assert any(
+                    isinstance(item, dict)
+                    and item.get("role") == "assistant"
+                    and item.get("content") == assistant_update
+                    for item in input_items
+                )
                 assert any(
                     isinstance(item, dict)
                     and item.get("type") == "function_call"

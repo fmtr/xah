@@ -30,10 +30,12 @@ from pydantic_ai.exceptions import RunCancelled
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
+    ModelMessage,
     ModelResponse,
     PartDeltaEvent,
     PartStartEvent,
     RetryPromptPart,
+    TextPart,
     ThinkingPart,
     ThinkingPartDelta,
     ToolCallPart,
@@ -213,6 +215,23 @@ class ThinkingPromptExecution(_PromptExecution):
 class _CancellationSnapshotPromptHandler(_AdapterPromptHandler):
     """Persist Pydantic AI's completed history when an ACP prompt is cancelled."""
 
+    @staticmethod
+    def _normalize_cancelled_history(cancelled_run: RunCancelled) -> list[ModelMessage]:
+        """Remove OpenAI item IDs that may be linked to omitted history items."""
+        messages = cancelled_run.all_messages()
+        for message in cancelled_run.new_messages():
+            if not isinstance(message, ModelResponse):
+                continue
+            for part in message.parts:
+                if not isinstance(part, (TextPart, ThinkingPart, ToolCallPart)):
+                    continue
+                part_provider = part.provider_name or message.provider_name
+                if part_provider != "openai":
+                    continue
+                part.id = None
+
+        return messages
+
     async def _run_prompt(
         self,
         *,
@@ -251,17 +270,7 @@ class _CancellationSnapshotPromptHandler(_AdapterPromptHandler):
         except asyncio.CancelledError as cancellation:
             cancelled_run = RunCancelled.from_cancellation(cancellation)
             if cancelled_run is not None:
-                messages = cancelled_run.all_messages()
-                # Drop linked OpenAI IDs so a function call never outlives its reasoning item.
-                for message in cancelled_run.new_messages():
-                    if not isinstance(message, ModelResponse):
-                        continue
-                    for part in message.parts:
-                        if not isinstance(part, (ThinkingPart, ToolCallPart)):
-                            continue
-                        if part.provider_name != "openai":
-                            continue
-                        part.id = None
+                messages = self._normalize_cancelled_history(cancelled_run)
                 session.message_history_json = dump_message_history(messages)
                 prompt_text = ""
             return await self._handle_cancelled_prompt(
